@@ -1,18 +1,22 @@
 # CorridorKey 2.0
 
-Machine-learning green screen and blue screen keying at native resolution, by
-[Corridor Digital](https://www.corridordigital.com). Give it a clip and it
-returns a matte and a clean foreground, with optional hints to tell it which
-subject you want.
+Welcome to CorridorKey 2.0! You may rest easy, weary artist. The green beast has been slain. The CorridorKey 2.0 was designed and trained by Zachary Harris, and was created in direct collaboration with Niko and Corridor Digital. Huge shout out to Zach for his incredible work.
 
-> **Want CorridorKey inside your compositing or editing software?** The
-> CorridorKey plugin at **[corridorkey.com](https://corridorkey.com)** brings
-> this model into media software packages as a one-time purchase, and is kept
-> up to date by us. This repository is the free command-line inference engine.
+# Check out our official plugin!
+
+The most requested feature we've heard this year- "Can you make a plugin for my favorite software?
+
+...yes! Finally!
+
+Led by Ale Alvaro, we now have a plugin (and stand-alone app) available for almost every media software package. A one-time purchase gets you access to ALL OF THEM.
+**[corridorkey.com](https://corridorkey.com)**
+
+...And for those of you that want to experiment, tinker, and build your own python tools, welcome to the CorridorKey 2.0 repo! You may use this model and software freely, for commercial or personal work. See the license for more details, but that's it in a nutshell. Enjoy!
+
 
 ## Setup
 
-You need an NVIDIA GPU (RTX 30-series or newer) with at least 4 GB of VRAM
+You need an NVIDIA GPU (currently RTX 30-series or newer) with at least 4 GB of VRAM
 for footage up to 1440p, or 6 GB for 4K, `ffmpeg` on your PATH, and a Python
 environment with CUDA-enabled PyTorch installed. On smaller cards, see [Long Clips And Low VRAM](#long-clips-and-low-vram).
 This package was tested with:
@@ -42,8 +46,7 @@ The download script fetches:
   publishers, into `vfms/`: C-RADIOv4-SO400M (NVIDIA), MoGe-2 ViT-B
   (Microsoft), and RVM small (Google DeepMind)
 
-After that everything loads from those local folders. The runtime sets Hugging
-Face offline mode and never downloads anything during inference.
+After that everything loads from those local folders.
 
 ## Drag-And-Drop Launcher
 
@@ -623,7 +626,7 @@ Use CorridorKey for whatever you'd like, including processing footage for
 commercial projects. What you make with it is yours.
 
 - You may not sell this tool, or charge for access to its code or model, and
-  you may not offer it as a paid API or inference service.
+  you may not offer it as a paid API or inference service, unless given permission by Corridor Digital.
 - You may build on the code and model, but what you release must be freely
   accessible, stay under this same license, and keep the CorridorKey name.
   Donationware and pay-what-you-want are fine.
