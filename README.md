@@ -1,6 +1,6 @@
 # CorridorKey 2.0
 
-Welcome to CorridorKey 2.0! You may rest easy, weary artist. The green beast has been slain. The CorridorKey 2.0 was designed and trained by Zachary Harris, and was created in direct collaboration with Niko and Corridor Digital. Huge shout out to Zac for his incredible work.
+Welcome to CorridorKey 2.0! You may rest easy, weary artist. The green beast has been slain. The CorridorKey 2.0 model was designed and trained by Zachary Harris, in direct collaboration with Niko and Corridor Digital.
 
 # Check out our official plugin!
 
@@ -12,6 +12,8 @@ Led by Ale Alvaro, we now have a plugin (and stand-alone app) available for almo
 **[corridorkey.com](https://corridorkey.com)**
 
 ...And for those of you that want to experiment, tinker, and build your own python tools, welcome to the CorridorKey 2.0 repo! You may use this model and software freely, for commercial or personal work. See the license for more details, but that's it in a nutshell. Enjoy!
+
+Any business or research inquiries for Zac can be directed to z.brooks.harris@gmail.com
 
 
 ## Setup
