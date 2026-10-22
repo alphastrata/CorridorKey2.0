@@ -2,3 +2,5 @@ target/
 bench/footage
 bench/footage/
 bench/frames/
+justfile
+bench/results/*.md
