@@ -5,6 +5,7 @@ use cudarc::driver::sys::{self, CUresult};
 use cudarc::driver::{CudaSlice, DevicePtr, DriverError};
 use eyre::{Result, WrapErr, ensure};
 use half::{bf16, f16};
+use rayon::prelude::*;
 
 use crate::Gpu;
 
@@ -279,8 +280,10 @@ impl Gpu {
     pub fn upload_f32(&self, v: &[f32], shape: &[usize], dtype: Dtype) -> Result<Tensor> {
         let bytes: Vec<u8> = match dtype {
             Dtype::F32 => bytemuck::cast_slice(v).to_vec(),
-            Dtype::Bf16 => bytemuck::cast_slice(&v.iter().copied().map(bf16::from_f32).collect::<Vec<_>>()).to_vec(),
-            Dtype::F16 => bytemuck::cast_slice(&v.iter().copied().map(f16::from_f32).collect::<Vec<_>>()).to_vec(),
+            Dtype::Bf16 => {
+                bytemuck::cast_slice(&v.par_iter().copied().map(bf16::from_f32).collect::<Vec<_>>()).to_vec()
+            }
+            Dtype::F16 => bytemuck::cast_slice(&v.par_iter().copied().map(f16::from_f32).collect::<Vec<_>>()).to_vec(),
             Dtype::I32 | Dtype::U16 => eyre::bail!("upload_f32 to an integer type"),
         };
         self.upload(&bytes, shape, dtype)
