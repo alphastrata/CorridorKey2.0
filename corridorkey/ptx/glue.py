@@ -197,7 +197,7 @@ def patch(model: torch.nn.Module) -> int:
         for b in model.modules()
         for n in ("q_norm", "k_norm")
         if type(getattr(b, n, None)) is RMSNorm
-        and getattr(b, n).normalized_shape[0] in HEADS
+        and getattr(b, n).weight.numel() in HEADS
     ]
     for m in qk:
         m.forward = types.MethodType(_qk_forward, m)
