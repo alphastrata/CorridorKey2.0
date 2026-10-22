@@ -15,6 +15,7 @@ use crate::ops::{axpy, probe};
 use crate::stage1::{Inputs, Stage1};
 use crate::stage2::{Baton, Stage2};
 use crate::vfm::Vfms;
+use crate::vram;
 use crate::weights::{Loader, Weights};
 use crate::write::{Encoder, Exr, Format, Writer};
 
@@ -45,9 +46,12 @@ impl Models {
     }
 }
 
+#[derive(Clone)]
 pub struct Config {
     pub chunk: usize,
     pub stride: usize,
+    /// Free GPU GiB before the weights loaded: pick `chunk` and `stride` per clip from it.
+    pub auto: Option<f64>,
     pub carry: bool,
     pub hint_quality: f32,
     pub carry_quality: f32,
@@ -404,6 +408,23 @@ pub fn run(gpu: &Gpu, m: &Models, input: &Path, out_dir: &Path, cfg: &Config, hi
     let total = cfg.frames.map_or(src.frames, |n| n.min(src.frames));
     ensure!(total > 0, "{}: no frames", input.display());
     let g = Geometry::scaled(src.h, src.w, cfg.scale, cfg.quantum);
+    let auto;
+    let cfg = match cfg.auto {
+        Some(free) => {
+            let (chunk, stride, est) = vram::window(g, total, free);
+            println!("auto VRAM: {free:.1} GiB free → window {chunk}, stride {stride} (estimated peak {est:.1} GiB)");
+            if est > free {
+                println!("warning: even one frame may not fit at this resolution");
+            }
+            auto = Config {
+                chunk,
+                stride,
+                ..cfg.clone()
+            };
+            &auto
+        }
+        None => cfg,
+    };
     if src.float() && !cfg.linear_input {
         println!("warning: float frames read as display-coded and clipped to [0, 1]; pass --linear for scene-linear");
     }

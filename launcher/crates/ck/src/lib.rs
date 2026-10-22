@@ -11,5 +11,6 @@ pub mod stage1;
 pub mod stage2;
 pub mod vfm;
 pub mod vit;
+pub mod vram;
 pub mod weights;
 pub mod write;
