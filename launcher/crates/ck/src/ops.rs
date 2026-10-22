@@ -462,3 +462,16 @@ pub fn conv(gpu: &Gpu, x: &Tensor, nhwc: bool, geo: Conv, (w, bias): (&Tensor, &
         gpu.linear_into(&cols, w, Some(bias), &dst, (into.ld, into.off), into.accumulate)
     })
 }
+
+/// With `CK_MEM` set, prints live and interval-peak tensor memory, then restarts the peak.
+pub fn mem(gpu: &Gpu, what: &str) {
+    if std::env::var_os("CK_MEM").is_some() {
+        let gib = |b: usize| b as f64 / f64::from(1u32 << 30);
+        println!(
+            "    mem {what:>10}: live {:6.2} GiB, peak {:6.2} GiB",
+            gib(gpu.meter.live()),
+            gib(gpu.meter.peak())
+        );
+        gpu.meter.reset();
+    }
+}
