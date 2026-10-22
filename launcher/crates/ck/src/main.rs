@@ -94,6 +94,9 @@ struct Args {
     /// encoder preset
     #[argh(option, default = "String::from(\"medium\")")]
     preset: String,
+    /// encoder threads per output (0: ffmpeg decides)
+    #[argh(option, default = "0")]
+    threads: usize,
     /// encoder pixel format
     #[argh(option, default = "String::from(\"yuv444p10le\")")]
     pix_fmt: String,
@@ -164,7 +167,7 @@ fn main() -> Result<()> {
             crf: a.crf,
             preset: a.preset,
             pix_fmt: a.pix_fmt,
-            threads: 2,
+            threads: a.threads,
         },
         vfm_batch: 8,
     };

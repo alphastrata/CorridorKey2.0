@@ -97,12 +97,7 @@ impl Writer {
             }
             Format::Video { enc, linear } => {
                 cmd.args(["-c:v", &enc.codec, "-preset", &enc.preset, "-pix_fmt", &enc.pix_fmt])
-                    .args([
-                        "-crf",
-                        &enc.crf.to_string(),
-                        "-threads",
-                        &enc.threads.max(1).to_string(),
-                    ]);
+                    .args(["-crf", &enc.crf.to_string(), "-threads", &enc.threads.to_string()]);
                 tags(&mut cmd, linear);
             }
         }
