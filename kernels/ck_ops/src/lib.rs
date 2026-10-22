@@ -10,6 +10,7 @@ mod conv;
 mod elem;
 mod frame;
 mod heads;
+mod render;
 mod resize;
 mod vit;
 
