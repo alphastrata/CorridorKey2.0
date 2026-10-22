@@ -51,6 +51,11 @@ impl Dims {
     }
 }
 
+/// `s[i]` unchecked: the host sizes every operand to the launch.
+fn ld<T: Copy>(s: &[T], i: usize) -> T {
+    unsafe { *s.get_unchecked(i) }
+}
+
 fn bf(u: u16) -> f32 {
     f32::from_bits(u32::from(u) << 16)
 }
@@ -87,7 +92,7 @@ fn conv<const F: usize>(
     let tid = thread_idx_x() as usize;
     if F == 1 {
         (tid..TAPS * CG).step_by(THREADS).for_each(|i| unsafe {
-            shst_f32(taps + 4 * i as u32, weights[i / CG * dims.c + c0 + i % CG]);
+            shst_f32(taps + 4 * i as u32, ld(&weights, i / CG * dims.c + c0 + i % CG));
         });
     }
     let (c, line) = (tid % CG, tid / CG);
@@ -105,32 +110,38 @@ fn conv<const F: usize>(
         }
     });
     sync_threads();
-    let mut acc: [[f32; TW]; F] = core::array::from_fn(|f| [bias[f * dims.c + ch]; TW]);
+    let mut acc: [[f32; TW]; F] = core::array::from_fn(|f| [ld(&bias, f * dims.c + ch); TW]);
     ptx::unroll!(7, |ky| {
         let mut row = [0.0f32; SW];
         ptx::unroll!(22, |i| row[i] = unsafe {
             shld_f32(tile + 4 * (((line + ky) * SW + i) * CG + c) as u32)
         });
-        ptx::unroll!(7, |kx| {
-            let wt: [f32; F] = core::array::from_fn(|f| match F {
+        let wt: [[f32; F]; K] = core::array::from_fn(|kx| {
+            core::array::from_fn(|f| match F {
                 1 => unsafe { shld_f32(taps + 4 * ((ky * K + kx) * CG + c) as u32) },
-                _ => weights[(f * TAPS + ky * K + kx) * dims.c + ch],
-            });
+                _ => ld(&weights, (f * TAPS + ky * K + kx) * dims.c + ch),
+            })
+        });
+        ptx::unroll!(7, |kx| {
             ptx::unroll!(16, |o| {
-                (0..F).for_each(|f| acc[f][o] = wt[f].fma_rn(row[o + kx], acc[f][o]));
+                (0..F).for_each(|f| acc[f][o] = wt[kx][f].fma_rn(row[o + kx], acc[f][o]));
             });
         });
     });
     (ch, line, acc)
 }
 
-/// Output pixels of this thread's row: `(o, pixel)` for the in-bounds columns.
-fn outputs(d: Dims, j: usize) -> impl Iterator<Item = (usize, usize)> {
+/// Calls `f(o, pixel)` for each in-bounds column `o` of this thread's output row `j`, unrolled so the
+/// accumulators stay in registers.
+#[allow(clippy::many_single_char_names)]
+#[inline(always)]
+fn outputs(d: Dims, j: usize, mut f: impl FnMut(usize, usize)) {
     let (n, _, y0, x0) = origin(d);
     let y = y0 + j;
-    (0..TW)
-        .filter(move |o| y < d.h && x0 + o < d.w)
-        .map(move |o| (o, (n * d.h + y) * d.w + x0 + o))
+    let base = (n * d.h + y) * d.w + x0;
+    ptx::unroll!(16, |o| if y < d.h && x0 + o < d.w {
+        f(o, base + o);
+    });
 }
 
 /// `r[p] = rsqrt(mean(x[p]²) + eps)`: one warp per pixel, block 256.
@@ -178,11 +189,11 @@ fn mix(
 ) {
     let c = dims.c;
     let (ch, row, [value, gate]) = conv::<2>(dims, taps, bias, |px, k| {
-        get(px * c + k) * rms[px] * norm[k]
+        get(px * c + k) * ld(&rms, px) * ld(&norm, k)
     });
-    outputs(dims, row).for_each(|(o, px)| {
+    outputs(dims, row, |o, px| {
         let silu = gate[o] * (1.0 + (-gate[o]).exp()).rcp();
-        let branch = gamma[ch] * value[o] * silu;
+        let branch = ld(&gamma, ch) * value[o] * silu;
         let at = px * c + ch;
         put(at, if add { get(at) + branch } else { branch });
     });
@@ -211,7 +222,7 @@ pub fn mix_f32(
         bias,
         gamma,
         add != 0,
-        |i| x[i],
+        |i| ld(&x, i),
         |i, v| out.set(i, v),
     );
 }
@@ -240,7 +251,7 @@ pub fn mix_bf16(
         bias,
         gamma,
         add != 0,
-        |i| bf(x[i]),
+        |i| bf(ld(&x, i)),
         |i, v| out.set(i, rn(v)),
     );
 }
@@ -257,8 +268,8 @@ pub fn dw_bf16(
     reflect: u32,
 ) {
     let d = Dims::new(h, width, c, reflect);
-    let (ch, j, [acc]) = conv::<1>(d, w, bias, |p, c| bf(x[p * d.c + c]));
-    outputs(d, j).for_each(|(o, p)| out.set(p * d.c + ch, rn(acc[o])));
+    let (ch, j, [acc]) = conv::<1>(d, w, bias, |p, c| bf(ld(&x, p * d.c + c)));
+    outputs(d, j, |o, p| out.set(p * d.c + ch, rn(acc[o])));
 }
 
 #[panic_handler]
