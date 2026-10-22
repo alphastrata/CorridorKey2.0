@@ -2,6 +2,8 @@
 
 pub mod attn;
 pub mod block;
+pub mod clip;
+pub mod farm;
 pub mod frame;
 pub mod io;
 pub mod ops;
