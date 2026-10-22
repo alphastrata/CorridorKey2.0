@@ -1,11 +1,14 @@
 //! Pointwise maps on rows of `c` channels. `act_*`: `act(x)` (0 `SiLU`, 1 exact GELU, 2 tanh GELU) to f32 or bf16.
-//! `to_bf16`: cast. `to_nhwc`: f32 NCHW `[n, c, hw]` into channels `off..off + c` of an `ld`-wide NHWC f32 grid.
+//! `to_bf16`: cast. `bf16_f16`: bf16 → f16 (exact in f16's range, saturating outside it), for GEMMs on GPUs without
+//! bf16 tensor cores. `f32_bf16`: `out[r · ld + off + j] = bf16(x[r, j])`, `n` a row. `to_nhwc`: f32 NCHW
+//! `[n, c, hw]` into channels `off..off + c` of an `ld`-wide NHWC f32 grid.
 //! `add_scaled`: `x += scale[c] · y`. `add_gated`: `x[r, off + j] += y[r, j] · g` with `g = silu(gate[r, j])`
 //! (`per = 0`) or `gate[r / per, j]` (one gate row, `gld` apart, per frame of `per` pixels). `norm_mod`: AdaLN-modulated
 //! RMS norm, `rms(x) · w · (1 + scale) + shift` with `scale`, `shift` the frame's rows, one warp per pixel.
 
 use crate::{bf, gelu, gelu_tanh, gid, rn, silu};
 use ptx::kernel;
+use ptx::num::f16::cvt_rn_f16_f32;
 use ptx::prelude::*;
 use ptx::warp_ops::shfl_bfly_sync_b32;
 
@@ -46,6 +49,23 @@ pub fn to_bf16(x: &[f32], out: &mut [u16], n: u32) {
     let i = gid();
     if i < n as usize {
         out.set(i, rn(x[i]));
+    }
+}
+
+#[kernel]
+pub fn bf16_f16(x: &[u16], out: &mut [u16], n: u32) {
+    let i = gid();
+    if i < n as usize {
+        out.set(i, cvt_rn_f16_f32(bf(x[i]).clamp(-65504.0, 65504.0)) as u16);
+    }
+}
+
+#[kernel]
+pub fn f32_bf16(x: &[f32], out: &mut [u16], rows: u32, n: u32, ld: u32, off: u32) {
+    let i = gid();
+    let [rows, n, ld, off] = [rows, n, ld, off].map(|v| v as usize);
+    if i < rows * n {
+        out.set(i / n * ld + off + i % n, rn(x[i]));
     }
 }
 
