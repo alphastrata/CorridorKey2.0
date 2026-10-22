@@ -82,6 +82,23 @@ impl Tensor {
         })
     }
 
+    /// A view of `shape` starting `elems` elements in.
+    ///
+    /// # Errors
+    /// When the view runs past the end.
+    pub fn at(&self, elems: usize, shape: &[usize]) -> Result<Self> {
+        ensure!(
+            elems + shape.iter().product::<usize>() <= self.numel(),
+            "view {elems}+{shape:?} of {:?}",
+            self.shape
+        );
+        Ok(Self {
+            off: self.off + elems * self.dtype.size(),
+            shape: shape.to_vec(),
+            ..self.clone()
+        })
+    }
+
     /// Reinterprets the bytes as `dtype` (sizes must divide).
     ///
     /// # Errors

@@ -48,6 +48,7 @@ pub struct Gpu {
     pub sm: u32,
     modules: HashMap<String, Arc<CudaModule>>,
     functions: RefCell<HashMap<(String, String), CudaFunction>>,
+    biases: RefCell<HashMap<(u64, Dtype), Tensor>>,
     lt: gemm::Lt,
 }
 
@@ -79,6 +80,7 @@ impl Gpu {
             sm,
             modules,
             functions: RefCell::default(),
+            biases: RefCell::default(),
             lt,
         })
     }

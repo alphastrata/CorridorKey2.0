@@ -29,6 +29,7 @@ pub struct Gemm {
     pub rows: usize,
     pub n: usize,
     pub k: usize,
+    pub ld: usize,
     pub x: Dtype,
     pub w: Dtype,
     pub y: Dtype,
@@ -99,7 +100,7 @@ impl Lt {
         let layouts = [
             lt::create_matrix_layout(cuda(g.w), g.k as u64, g.n as u64, g.k as i64)?,
             lt::create_matrix_layout(cuda(g.x), g.k as u64, g.rows as u64, g.k as i64)?,
-            lt::create_matrix_layout(cuda(g.y), g.n as u64, g.rows as u64, g.n as i64)?,
+            lt::create_matrix_layout(cuda(g.y), g.n as u64, g.rows as u64, g.ld as i64)?,
         ];
         let mut plan = Plan {
             desc,
@@ -114,11 +115,6 @@ impl Lt {
                     desc,
                     Attr::CUBLASLT_MATMUL_DESC_EPILOGUE,
                     &cublasLtEpilogue_t::CUBLASLT_EPILOGUE_BIAS,
-                )?;
-                set(
-                    desc,
-                    Attr::CUBLASLT_MATMUL_DESC_BIAS_DATA_TYPE,
-                    &cudaDataType_t::CUDA_R_32F,
                 )?;
             }
             let pref = lt::create_matmul_pref()?;
@@ -181,11 +177,27 @@ impl Gpu {
     /// # Errors
     /// On mismatched shapes or a cuBLASLt failure.
     pub fn linear(&self, x: &Tensor, w: &Tensor, bias: Option<&Tensor>, y: &Tensor, accumulate: bool) -> Result<()> {
+        self.linear_into(x, w, bias, y, (w.shape[0], 0), accumulate)
+    }
+
+    /// [`Gpu::linear`] into columns `off..off + n` of `y`, rows `ld` wide.
+    ///
+    /// # Errors
+    /// On mismatched shapes or a cuBLASLt failure.
+    pub fn linear_into(
+        &self,
+        x: &Tensor,
+        w: &Tensor,
+        bias: Option<&Tensor>,
+        y: &Tensor,
+        (ld, off): (usize, usize),
+        accumulate: bool,
+    ) -> Result<()> {
         let (out, inner) = (w.shape[0], w.shape[1]);
         let rows = x.numel() / inner;
         ensure!(
-            x.numel() == rows * inner && y.numel() == rows * out,
-            "linear {:?} · {:?} → {:?}",
+            x.numel() == rows * inner && y.numel() == rows * ld && off + out <= ld && x.dtype == w.dtype,
+            "linear {:?} · {:?} → {:?} [{off}..+{out} of {ld}]",
             x.shape,
             w.shape,
             y.shape
@@ -198,12 +210,30 @@ impl Gpu {
             rows,
             n: out,
             k: inner,
+            ld,
             x: x.dtype,
             w: w.dtype,
             y: y.dtype,
             epilogue: if bias.is_some() { Epilogue::Bias } else { Epilogue::None },
             accumulate,
         };
-        self.lt.run(gemm, x.ptr(), w.ptr(), bias.map(Tensor::ptr), y.ptr())
+        let at = y.ptr() + (off * y.dtype.size()) as u64;
+        let bias = bias.map(|b| self.bias(b, y.dtype)).transpose()?;
+        self.lt.run(gemm, x.ptr(), w.ptr(), bias, at)
+    }
+
+    /// `b` in `dtype` (cuBLASLt wants the bias in the output's type), converted once and kept.
+    fn bias(&self, b: &Tensor, dtype: Dtype) -> Result<u64> {
+        if dtype == Dtype::F32 {
+            return Ok(b.ptr());
+        }
+        let key = (b.ptr(), dtype);
+        if let Some(hit) = self.biases.borrow().get(&key) {
+            return Ok(hit.ptr());
+        }
+        let half = self.upload_f32(&self.download_f32(b)?, &b.shape, dtype)?;
+        let ptr = half.ptr();
+        self.biases.borrow_mut().insert(key, half);
+        Ok(ptr)
     }
 }
