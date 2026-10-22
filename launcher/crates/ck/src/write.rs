@@ -57,12 +57,39 @@ impl Writer {
             (Format::Exr(_), _) => "gbrpf32le",
         };
         let mut cmd = Command::new("ffmpeg");
-        cmd.args(["-y", "-hide_banner", "-loglevel", "error", "-nostats", "-f", "rawvideo", "-pix_fmt", pix])
-            .args(["-s:v", &format!("{w}x{h}"), "-r", &format!("{fps:.8}"), "-i", "pipe:0", "-an"]);
+        cmd.args([
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-nostats",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            pix,
+        ])
+        .args([
+            "-s:v",
+            &format!("{w}x{h}"),
+            "-r",
+            &format!("{fps:.8}"),
+            "-i",
+            "pipe:0",
+            "-an",
+        ]);
         match format {
             Format::Exr(t) => {
                 let fmt = if t == Exr::Half { "half" } else { "float" };
-                cmd.args(["-c:v", "exr", "-compression", "zip16", "-format", fmt, "-start_number", "0"]);
+                cmd.args([
+                    "-c:v",
+                    "exr",
+                    "-compression",
+                    "zip16",
+                    "-format",
+                    fmt,
+                    "-start_number",
+                    "0",
+                ]);
             }
             Format::Video { linear, .. } if channels == 4 => {
                 cmd.args(["-c:v", "prores_ks", "-profile:v", "4", "-pix_fmt", "yuva444p10le"]);
@@ -70,7 +97,12 @@ impl Writer {
             }
             Format::Video { enc, linear } => {
                 cmd.args(["-c:v", &enc.codec, "-preset", &enc.preset, "-pix_fmt", &enc.pix_fmt])
-                    .args(["-crf", &enc.crf.to_string(), "-threads", &enc.threads.max(1).to_string()]);
+                    .args([
+                        "-crf",
+                        &enc.crf.to_string(),
+                        "-threads",
+                        &enc.threads.max(1).to_string(),
+                    ]);
                 tags(&mut cmd, linear);
             }
         }

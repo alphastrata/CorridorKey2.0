@@ -354,14 +354,26 @@ impl Config {
         if let Some(t) = self.exr {
             let dir = out_dir.join(format!("{clip}_{stem}_exr"));
             std::fs::create_dir_all(&dir)?;
-            return Writer::spawn(&dir.join(format!("{stem}_%06d.exr")), src.fps, size, o.planes(), Format::Exr(t));
+            return Writer::spawn(
+                &dir.join(format!("{stem}_%06d.exr")),
+                src.fps,
+                size,
+                o.planes(),
+                Format::Exr(t),
+            );
         }
         let ext = if o == Output::Cutout { "mov" } else { "mp4" };
         let format = Format::Video {
             enc: &self.encoder,
             linear: o == Output::Cutout && self.look.linear_cutout,
         };
-        Writer::spawn(&out_dir.join(format!("{clip}_{stem}.{ext}")), src.fps, size, o.channels(), format)
+        Writer::spawn(
+            &out_dir.join(format!("{clip}_{stem}.{ext}")),
+            src.fps,
+            size,
+            o.channels(),
+            format,
+        )
     }
 }
 
