@@ -4,5 +4,6 @@ pub mod attn;
 pub mod block;
 pub mod ops;
 pub mod rope;
+pub mod stage1;
 pub mod stage2;
 pub mod weights;

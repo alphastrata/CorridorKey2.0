@@ -142,6 +142,16 @@ impl Gpu {
         Ok(wrap(self, buf, dtype, shape))
     }
 
+    /// A copy of `t` in fresh memory.
+    ///
+    /// # Errors
+    /// When the allocation or the copy fails.
+    pub fn copy(&self, t: &Tensor) -> Result<Tensor> {
+        let out = self.empty(&t.shape, t.dtype)?;
+        unsafe { cudarc::driver::result::memcpy_dtod_async(out.ptr(), t.ptr(), t.bytes(), self.stream.cu_stream()) }?;
+        Ok(out)
+    }
+
     /// Uploads raw little-endian bytes as a tensor.
     ///
     /// # Errors

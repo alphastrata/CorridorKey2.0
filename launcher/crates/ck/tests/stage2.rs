@@ -1,35 +1,13 @@
 //! Stage 2 against Python's stock bf16 and fp32 reference on real footage (`launcher/parity/dump.py`).
 
-use std::path::{Path, PathBuf};
+mod common;
 
 use ck::attn::Cache;
 use ck::stage2::Stage2;
 use ck::weights::{Loader, Weights};
-use ck_gpu::{Dtype, Gpu, Tensor};
+use ck_gpu::{Dtype, Gpu};
+use common::{device, diff, repo, upload};
 use eyre::Result;
-
-fn repo() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..")
-}
-
-fn device() -> usize {
-    std::env::var("CK_DEVICE")
-        .ok()
-        .and_then(|d| d.parse().ok())
-        .unwrap_or(0)
-}
-
-fn upload(gpu: &Gpu, w: &Weights, name: &str) -> Result<Tensor> {
-    let (shape, v) = w.get(name)?;
-    gpu.upload_f32(&v, &shape, Dtype::F32)
-}
-
-/// Mean and max absolute difference.
-fn diff(a: &[f32], b: &[f32]) -> (f64, f64) {
-    let d = a.iter().zip(b).map(|(x, y)| f64::from((x - y).abs()));
-    let (sum, max) = d.fold((0.0, 0.0f64), |(s, m), v| (s + v, m.max(v)));
-    (sum / a.len() as f64, max)
-}
 
 #[test]
 fn stage2_720() -> Result<()> {
@@ -78,7 +56,7 @@ fn stage2(tier: &str) -> Result<()> {
 
     let (rgb, baton) = (upload(&gpu, &fx, "rgb")?, upload(&gpu, &fx, "baton")?);
     let got = gpu.download_f32(&s2.forward(&gpu, &cache, &rgb, &baton)?)?;
-    let (stock, reference) = (fx.get("stock.logits")?.1, fx.get("ref.logits")?.1);
+    let (stock, reference) = (fx.get("stock.out0")?.1, fx.get("ref.out0")?.1);
     let (ours, theirs) = (diff(&got, &reference), diff(&stock, &reference));
     println!(
         "logits  ours-ref {:.3e}/{:.3e} stock-ref {:.3e}/{:.3e}",

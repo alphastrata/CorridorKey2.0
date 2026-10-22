@@ -399,3 +399,36 @@ fn four(x: &Tensor) -> Result<[usize; 4]> {
     let (h, w) = (s[s.len() - 3], s[s.len() - 2]);
     Ok([x.numel() / (h * w * c), h, w, c])
 }
+
+/// Where a GEMM writes: `out` rows `ld` wide from column `off`, overwritten or accumulated.
+#[derive(Clone, Copy)]
+pub struct Into<'a> {
+    pub out: &'a Tensor,
+    pub ld: usize,
+    pub off: usize,
+    pub accumulate: bool,
+}
+
+const COLS: usize = 1 << 26;
+
+/// Convolution of f32 `x` (NCHW, or NHWC with `nhwc`) by `w [o, c · k · k]` into NHWC rows of `into`, as im2col
+/// and GEMM over as many images at a time as keep the patches under 64 Mi elements.
+///
+/// # Errors
+/// On a launch or GEMM failure.
+pub fn conv(gpu: &Gpu, x: &Tensor, nhwc: bool, geo: Conv, (w, bias): (&Tensor, &Tensor), into: Into) -> Result<()> {
+    let [n, a, b, c] = x.shape[..] else {
+        eyre::bail!("conv wants 4-d, got {:?}", x.shape)
+    };
+    let (h, wd) = if nhwc { (a, b) } else { (b, c) };
+    let per = geo.out(h) * geo.out(wd);
+    let step = (COLS / (per * w.shape[1])).clamp(1, n);
+    let rows = into.out.numel() / into.ld;
+    let out = into.out.reshape(&[rows, into.ld])?;
+    (0..n).step_by(step).try_for_each(|i| {
+        let m = step.min(n - i);
+        let cols = im2col(gpu, &x.rows(i, m)?, nhwc, geo)?;
+        let dst = out.rows(i * per, m * per)?;
+        gpu.linear_into(&cols, w, Some(bias), &dst, (into.ld, into.off), into.accumulate)
+    })
+}

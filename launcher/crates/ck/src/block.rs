@@ -182,7 +182,7 @@ impl Block {
         }
     }
 
-    /// `x` f32 `[b, t, h, w, c]` through the block; `cond [b · t]` for `AdaLN` blocks.
+    /// `x` f32 `[b, t, h, w, c]` through the block (its buffer is updated in place); `cond [b · t]` for `AdaLN` blocks.
     ///
     /// # Errors
     /// On a launch or GEMM failure.
@@ -279,4 +279,19 @@ impl Block {
         }
         frames.reshape(&[b, t, h, w, c])
     }
+}
+
+/// Blocks `{prefix}.{i}.` of `kinds`.
+///
+/// # Errors
+/// When a weight is missing.
+pub fn load_blocks(ld: &Loader, prefix: &str, kinds: &[Kind], temporal: bool, heads: usize) -> Result<Vec<Block>> {
+    kinds
+        .iter()
+        .enumerate()
+        .map(|(i, &kind)| {
+            let at = format!("{}{prefix}.{i}.", ld.prefix);
+            Block::load(&Loader { prefix: &at, ..*ld }, Spec { kind, temporal, heads })
+        })
+        .collect()
 }
