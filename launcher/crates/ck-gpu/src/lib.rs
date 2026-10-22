@@ -149,6 +149,12 @@ impl Gpu {
         Ok(())
     }
 
+    /// The half type GEMM weights take here: bf16 with bf16 tensor cores (`sm_80` on), else f16.
+    #[must_use]
+    pub fn half(&self) -> Dtype {
+        if self.sm >= 80 { Dtype::Bf16 } else { Dtype::F16 }
+    }
+
     /// Visible CUDA devices.
     ///
     /// # Errors

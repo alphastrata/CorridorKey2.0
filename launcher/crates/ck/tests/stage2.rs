@@ -5,7 +5,7 @@ mod common;
 use ck::attn::Cache;
 use ck::stage2::{Baton, Stage2};
 use ck::weights::{Loader, Weights};
-use ck_gpu::{Dtype, Gpu};
+use ck_gpu::Gpu;
 use common::{device, diff, repo, upload};
 use eyre::Result;
 
@@ -28,7 +28,7 @@ fn stage2(tier: &str) -> Result<()> {
         gpu: &gpu,
         weights: &weights,
         prefix: "stage2.",
-        half: Dtype::Bf16,
+        half: gpu.half(),
     };
     let s2 = Stage2::load(&ld)?;
     let cache = Cache::default();

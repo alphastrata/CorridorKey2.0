@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use ck_gpu::{Dtype, Gpu};
+use ck_gpu::Gpu;
 use eyre::Result;
 
 use crate::attn::Cache;
@@ -30,7 +30,7 @@ impl Models {
             gpu,
             weights: &weights,
             prefix,
-            half: Dtype::Bf16,
+            half: gpu.half(),
         };
         Ok(Self {
             vfms: Vfms::load(gpu, &Weights::open(vfms)?)?,
