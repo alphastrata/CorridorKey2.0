@@ -1,7 +1,7 @@
 //! Pointwise maps on rows of `c` channels. `act_*`: `act(x)` (0 `SiLU`, 1 exact GELU, 2 tanh GELU) to f32 or bf16.
 //! `to_bf16`: cast. `to_nhwc`: f32 NCHW `[n, c, hw]` into channels `off..off + c` of an `ld`-wide NHWC f32 grid.
 //! `add_scaled`: `x += scale[c] · y`. `add_gated`: `x[r, off + j] += y[r, j] · g` with `g = silu(gate[r, j])`
-//! (`per = 0`) or `gate[r / per, j]` (one gate row per frame of `per` pixels). `norm_mod`: AdaLN-modulated
+//! (`per = 0`) or `gate[r / per, j]` (one gate row, `gld` apart, per frame of `per` pixels). `norm_mod`: AdaLN-modulated
 //! RMS norm, `rms(x) · w · (1 + scale) + shift` with `scale`, `shift` the frame's rows, one warp per pixel.
 
 use crate::{bf, gelu, gelu_tanh, gid, rn, silu};
@@ -70,14 +70,26 @@ pub fn add_scaled(x: &mut [f32], y: &[f32], scale: &[f32], n: u32, c: u32) {
 }
 
 #[kernel]
-pub fn add_gated(x: &mut [f32], y: &[f32], gate: &[f32], rows: u32, c: u32, ld: u32, off: u32, per: u32) {
+pub fn add_gated(
+    x: &mut [f32],
+    y: &[f32],
+    gate: &[f32],
+    rows: u32,
+    c: u32,
+    ld: u32,
+    off: u32,
+    per: u32,
+    gld: u32,
+) {
     let i = gid();
-    let [rows, c, ld, off, per] = [rows, c, ld, off, per].map(|v| v as usize);
+    let [rows, c, ld, off, per, gld] = [rows, c, ld, off, per, gld].map(|v| v as usize);
     if i >= rows * c {
         return;
     }
     let (r, j) = (i / c, i % c);
-    let g = r.checked_div(per).map_or_else(|| silu(gate[i]), |f| gate[f * c + j]);
+    let g = r
+        .checked_div(per)
+        .map_or_else(|| silu(gate[i]), |f| gate[f * gld + j]);
     let at = r * ld + off + j;
     let v = x[at] + y[i] * g;
     x.set(at, v);
@@ -106,9 +118,9 @@ pub fn norm_mod(
         let v = x[p * c + j];
         v.fma_rn(v, acc)
     });
-    let sq = [16, 8, 4, 2, 1]
-        .into_iter()
-        .fold(sq, |acc, m| acc + f32::from_bits(shfl_bfly_sync_b32(acc.to_bits(), m, 0x1f)));
+    let sq = [16, 8, 4, 2, 1].into_iter().fold(sq, |acc, m| {
+        acc + f32::from_bits(shfl_bfly_sync_b32(acc.to_bits(), m, 0x1f))
+    });
     let inv = (sq / c as f32 + eps).rsqrt();
     let row = p / per as usize * ld as usize;
     (lane..c).step_by(32).for_each(|j| {

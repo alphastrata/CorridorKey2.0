@@ -29,11 +29,18 @@ pub fn im2col(
     let (row, col) = (i / width, i % width);
     let (ch, ky, kx) = (col / (k * k), col / k % k, col % k);
     let (b, oy, ox) = (row / (oh * ow), row / ow % oh, row % ow);
-    let (iy, ix) = ((oy * s + ky) as isize - p as isize, (ox * s + kx) as isize - p as isize);
+    let (iy, ix) = (
+        (oy * s + ky) as isize - p as isize,
+        (ox * s + kx) as isize - p as isize,
+    );
     let inside = iy >= 0 && ix >= 0 && (iy as usize) < h && (ix as usize) < w;
     let v = if inside {
         let (iy, ix) = (iy as usize, ix as usize);
-        x[if nhwc == 0 { ((b * c + ch) * h + iy) * w + ix } else { ((b * h + iy) * w + ix) * c + ch }]
+        x[if nhwc == 0 {
+            ((b * c + ch) * h + iy) * w + ix
+        } else {
+            ((b * h + iy) * w + ix) * c + ch
+        }]
     } else {
         0.0
     };
@@ -82,7 +89,12 @@ pub fn shuffle(x: &[f32], out: &mut [f32], n: u32, h: u32, w: u32, c: u32, r: u3
     if i >= n * h * r * w * r * c {
         return;
     }
-    let (ch, xx, yy, b) = (i % c, i / c % (w * r), i / (c * w * r) % (h * r), i / (c * w * r * h * r));
+    let (ch, xx, yy, b) = (
+        i % c,
+        i / c % (w * r),
+        i / (c * w * r) % (h * r),
+        i / (c * w * r * h * r),
+    );
     let src = ((b * h + yy / r) * w + xx / r) * c * r * r + ch * r * r + yy % r * r + xx % r;
     out.set(i, x[src]);
 }
