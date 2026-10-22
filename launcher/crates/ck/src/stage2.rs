@@ -10,6 +10,13 @@ use crate::weights::Loader;
 
 const PATCH: Conv = Conv { k: 32, s: 16, p: 8 };
 
+/// Stage 2's baton: f32 NCHW `[n, 512, H / 16, W / 16]`, or an f32 NHWC sum `[n, H / 16, W / 16, 512]` scaled by `s`.
+#[derive(Clone, Copy)]
+pub enum Baton<'a> {
+    Nchw(&'a Tensor),
+    Nhwc(&'a Tensor, f32),
+}
+
 pub struct Stage2 {
     patch1: (Tensor, Tensor),
     patch2: (Tensor, Tensor),
@@ -64,17 +71,20 @@ impl Stage2 {
         self.pre.iter().chain(&self.last)
     }
 
-    /// `rgb` f32 `[n, 3, H, W]`, `baton` f32 `[n, 512, H / 16, W / 16]` → logits f32 `[n, 4, H, W]`.
+    /// `rgb` f32 `[n, 3, H, W]` and the baton → logits f32 `[n, 4, H, W]`.
     ///
     /// # Errors
     /// On a launch or GEMM failure.
-    pub fn forward(&self, gpu: &Gpu, cache: &Cache, rgb: &Tensor, baton: &Tensor) -> Result<Tensor> {
+    pub fn forward(&self, gpu: &Gpu, cache: &Cache, rgb: &Tensor, baton: Baton) -> Result<Tensor> {
         let [n, _, hh, ww] = rgb.shape[..] else {
             eyre::bail!("rgb wants [n, 3, H, W]")
         };
         let (h, w, d) = (hh / 16, ww / 16, self.dim);
         let x = gpu.empty(&[n, 1, h, w, d], Dtype::F32)?;
-        ops::to_nhwc(gpu, baton, &x, (d, 0))?;
+        match baton {
+            Baton::Nchw(b) => ops::to_nhwc(gpu, b, &x, (d, 0))?,
+            Baton::Nhwc(b, s) => ops::place(gpu, b, &x, (d, 0), s)?,
+        }
         let cols = ops::im2col(gpu, rgb, false, PATCH)?;
         gpu.linear_into(&cols, &self.patch1.0, Some(&self.patch1.1), &x, (d, self.baton), false)?;
         let x = self.pre.iter().try_fold(x, |x, b| b.forward(gpu, cache, &x, None))?;

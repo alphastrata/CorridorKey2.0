@@ -192,6 +192,36 @@ pub fn to_nhwc(gpu: &Gpu, x: &Tensor, out: &Tensor, (ld, off): (usize, usize)) -
     )
 }
 
+/// `out[r, off + j] = x[r, j] · s` with `ld`-wide rows of `out`, f32.
+///
+/// # Errors
+/// On a launch failure.
+pub fn place(gpu: &Gpu, x: &Tensor, out: &Tensor, (ld, off): (usize, usize), s: f32) -> Result<()> {
+    let c = *x.shape.last().unwrap_or(&1);
+    let rows = x.numel() / c;
+    let dims = [rows, c, ld, off].map(Arg::from);
+    ops(
+        gpu,
+        "place",
+        x.numel(),
+        &[[x.into(), out.into()].as_slice(), &dims, &[Arg::F(s)]].concat(),
+    )
+}
+
+/// `x += a · y`, f32.
+///
+/// # Errors
+/// On a launch failure.
+pub fn axpy(gpu: &Gpu, x: &Tensor, y: &Tensor, a: f32) -> Result<()> {
+    ensure!(x.numel() == y.numel(), "axpy sizes");
+    ops(
+        gpu,
+        "axpy",
+        x.numel(),
+        &[x.into(), y.into(), Arg::F(a), x.numel().into()],
+    )
+}
+
 /// `x += scale[c] · y`, f32.
 ///
 /// # Errors

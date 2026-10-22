@@ -3,7 +3,7 @@
 mod common;
 
 use ck::attn::Cache;
-use ck::stage2::Stage2;
+use ck::stage2::{Baton, Stage2};
 use ck::weights::{Loader, Weights};
 use ck_gpu::{Dtype, Gpu};
 use common::{device, diff, repo, upload};
@@ -55,7 +55,7 @@ fn stage2(tier: &str) -> Result<()> {
     })?;
 
     let (rgb, baton) = (upload(&gpu, &fx, "rgb")?, upload(&gpu, &fx, "baton")?);
-    let got = gpu.download_f32(&s2.forward(&gpu, &cache, &rgb, &baton)?)?;
+    let got = gpu.download_f32(&s2.forward(&gpu, &cache, &rgb, Baton::Nchw(&baton))?)?;
     let (stock, reference) = (fx.get("stock.out0")?.1, fx.get("ref.out0")?.1);
     let (ours, theirs) = (diff(&got, &reference), diff(&stock, &reference));
     println!(
