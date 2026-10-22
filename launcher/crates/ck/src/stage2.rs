@@ -4,7 +4,7 @@ use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::Result;
 
 use crate::attn::Cache;
-use crate::block::{Block, Kind, Spec};
+use crate::block::{Block, Kind, load_blocks};
 use crate::ops::{self, Conv, Gate};
 use crate::weights::Loader;
 
@@ -38,26 +38,6 @@ impl Stage2 {
             swin((hw, hw)),
         ];
         let last = [swin((hw, 0)), swin((0, hw))];
-        let spec = |kind| Spec {
-            kind,
-            temporal: false,
-            heads: 16,
-        };
-        let blocks = |prefix: &str, kinds: &[Kind]| -> Result<Vec<Block>> {
-            kinds
-                .iter()
-                .enumerate()
-                .map(|(i, &k)| {
-                    Block::load(
-                        &Loader {
-                            prefix: &format!("{}{prefix}.{i}.", ld.prefix),
-                            ..*ld
-                        },
-                        spec(k),
-                    )
-                })
-                .collect()
-        };
         let pair = |n: &str, mat: bool| -> Result<(Tensor, Tensor)> {
             let w = if mat {
                 ld.mat(&format!("{n}.weight"))?
@@ -73,8 +53,8 @@ impl Stage2 {
             patch1,
             patch2: pair("patch_2.conv", true)?,
             gate: pair("patch_2_gate", true)?,
-            pre: blocks("pre_blocks", &pre)?,
-            last: blocks("final_blocks", &last)?,
+            pre: load_blocks(ld, "pre_blocks", &pre, false, 16)?,
+            last: load_blocks(ld, "final_blocks", &last, false, 16)?,
             depatch: pair("depatchify.deconv", false)?,
         })
     }
