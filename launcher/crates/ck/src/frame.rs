@@ -3,9 +3,13 @@
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::Result;
 
-/// A native `h0 × w0` frame centred in the model's `h × w`, reflect-padded.
+use crate::vit::{Resize, resize};
+
+/// A native `hn × wn` frame, Lanczos-scaled to `h0 × w0` and centred in the model's `h × w`, reflect-padded.
 #[derive(Clone, Copy, Debug)]
 pub struct Geometry {
+    pub hn: usize,
+    pub wn: usize,
     pub h0: usize,
     pub w0: usize,
     pub h: usize,
@@ -16,13 +20,34 @@ impl Geometry {
     /// Native size padded up to multiples of `quantum`.
     #[must_use]
     pub fn padded(h0: usize, w0: usize, quantum: usize) -> Self {
+        Self::scaled(h0, w0, 1.0, quantum)
+    }
+
+    /// Native size scaled by `scale` (rounded half to even, as Python), then padded to multiples of `quantum`.
+    #[must_use]
+    pub fn scaled(hn: usize, wn: usize, scale: f64, quantum: usize) -> Self {
+        let by = |n: usize| ((n as f64 * scale).round_ties_even() as usize).max(1);
         let up = |n: usize| n.div_ceil(quantum).max(1) * quantum;
+        let (h0, w0) = (by(hn), by(wn));
         Self {
+            hn,
+            wn,
             h0,
             w0,
             h: up(h0),
             w: up(w0),
         }
+    }
+
+    #[must_use]
+    pub fn native(self) -> bool {
+        (self.hn, self.wn) == (self.h0, self.w0)
+    }
+
+    /// The native frame alone, unpadded: where renders happen.
+    #[must_use]
+    pub fn output(self) -> Self {
+        Self::padded(self.hn, self.wn, 1)
     }
 
     fn args(self) -> [Arg; 6] {
@@ -75,34 +100,99 @@ pub struct Input {
     pub linear: bool,
 }
 
-/// u16 RGB `raw [n, h0, w0, 3]`, or f32 G, B, R planes `[n, 3, h0, w0]`, → f32 planes `[n, 3, h, w]` at `ld` floats
-/// per frame from `out`'s start.
+/// u16 `[n, h, w, c]` → f32 `[n, c, h, w]` in `[0, 1]`, planes G, B, R when `c = 3`.
+fn planar(gpu: &Gpu, raw: &Tensor, (h, w): (usize, usize), c: usize) -> Result<Tensor> {
+    let n = raw.numel() / (h * w * c);
+    let out = gpu.empty(&[n, c, h, w], Dtype::F32)?;
+    let args = [[raw, &out].map(Arg::from).as_slice(), &[n, h, w, c].map(Arg::from)].concat();
+    launch(gpu, "planar", out.numel(), &args)?;
+    Ok(out)
+}
+
+/// f32 planes `[n, c, h, w]` Lanczos-4 resampled to `(oh, ow)`.
+///
+/// # Errors
+/// On a launch failure.
+pub fn lanczos(gpu: &Gpu, x: &Tensor, (oh, ow): (usize, usize)) -> Result<Tensor> {
+    let (h, w) = (x.shape[2], x.shape[3]);
+    let unit = (gpu.zeros(&[1], Dtype::F32)?, gpu.upload_f32(&[1.0], &[1], Dtype::F32)?);
+    let step = ((h as f64 / oh as f64) as f32, (w as f64 / ow as f64) as f32);
+    resize(gpu, x, (oh, ow), step, Resize::Lanczos, (&unit.0, &unit.1))
+}
+
+/// u16 RGB `raw [n, hn, wn, 3]`, or f32 G, B, R planes `[n, 3, hn, wn]`, → f32 planes `[n, 3, h, w]` at `ld` floats
+/// per frame from `out`'s start, Lanczos-scaled first unless native.
 ///
 /// # Errors
 /// On a launch failure.
 pub fn prep(gpu: &Gpu, raw: &Tensor, out: &Tensor, g: Geometry, ld: usize, enc: Encoding, input: Input) -> Result<()> {
-    let n = raw.numel() / (g.h0 * g.w0 * 3);
     let float = raw.dtype == Dtype::F32;
-    let mode = [ld.into(), Arg::U(enc as u32)];
-    let linear = [usize::from(input.linear).into()];
+    if !g.native() {
+        let n = raw.numel() / (g.hn * g.wn * 3);
+        let planes = if float {
+            raw.reshape(&[n, 3, g.hn, g.wn])?
+        } else {
+            planar(gpu, raw, (g.hn, g.wn), 3)?
+        };
+        let scaled = lanczos(gpu, &planes, (g.h0, g.w0))?;
+        let input = Input {
+            linear: float && input.linear,
+            ..input
+        };
+        return prep_planes(gpu, &scaled, out, g, ld, enc, input);
+    }
+    if float {
+        return prep_planes(gpu, raw, out, g, ld, enc, input);
+    }
+    let n = raw.numel() / (g.h0 * g.w0 * 3);
     let args = [
         [raw.into(), out.into(), n.into()].as_slice(),
         &g.args(),
-        &mode,
-        if float { &linear } else { &[] },
+        &[ld.into(), Arg::U(enc as u32)],
         &input.adjust.args(),
     ]
     .concat();
-    launch(gpu, if float { "prep_f32" } else { "prep" }, n * 3 * g.h * g.w, &args)
+    launch(gpu, "prep", n * 3 * g.h * g.w, &args)
 }
 
-/// u16 grey `raw [n, h0, w0]` → f32 `[n, h, w]` at `ld` floats per frame, clipped to `[0, 1]`.
+/// f32 G, B, R planes `[n, 3, h0, w0]` → `[n, 3, h, w]`, as [`prep`].
+fn prep_planes(
+    gpu: &Gpu,
+    raw: &Tensor,
+    out: &Tensor,
+    g: Geometry,
+    ld: usize,
+    enc: Encoding,
+    input: Input,
+) -> Result<()> {
+    let n = raw.numel() / (g.h0 * g.w0 * 3);
+    let args = [
+        [raw.into(), out.into(), n.into()].as_slice(),
+        &g.args(),
+        &[ld.into(), Arg::U(enc as u32), usize::from(input.linear).into()],
+        &input.adjust.args(),
+    ]
+    .concat();
+    launch(gpu, "prep_f32", n * 3 * g.h * g.w, &args)
+}
+
+/// u16 grey `raw [n, hn, wn]` → f32 `[n, h, w]` at `ld` floats per frame, Lanczos-scaled unless native, clipped to
+/// `[0, 1]`.
 ///
 /// # Errors
 /// On a launch failure.
 pub fn hint(gpu: &Gpu, raw: &Tensor, out: &Tensor, g: Geometry, ld: usize) -> Result<()> {
-    let n = raw.numel() / (g.h0 * g.w0);
-    let args = [[raw.into(), out.into(), n.into()].as_slice(), &g.args(), &[ld.into()]].concat();
+    let mut grey = planar(gpu, raw, (g.hn, g.wn), 1)?;
+    if !g.native() {
+        grey = lanczos(gpu, &grey, (g.h0, g.w0))?;
+    }
+    let n = grey.numel() / (g.h0 * g.w0);
+    let args = [
+        [(&grey).into(), out.into(), n.into()].as_slice(),
+        &g.args(),
+        &[ld.into()],
+    ]
+    .concat();
     launch(gpu, "hint", n * g.h * g.w, &args)
 }
 
@@ -135,14 +225,30 @@ pub struct Look {
     pub adjust: Adjust,
 }
 
+/// Logits `[4, h, w]` as they render: unchanged when native, else cropped and Lanczos-scaled to the native size.
+///
+/// # Errors
+/// On a launch failure.
+pub fn native(gpu: &Gpu, logits: &Tensor, g: Geometry) -> Result<(Tensor, Geometry)> {
+    if g.native() {
+        return Ok((logits.clone(), g));
+    }
+    let cropped = gpu.empty(&[1, 4, g.h0, g.w0], Dtype::F32)?;
+    let dims = [4, g.h, g.w, g.h0, g.w0, (g.h - g.h0) / 2, (g.w - g.w0) / 2];
+    let args = [[logits, &cropped].map(Arg::from).as_slice(), &dims.map(Arg::from)].concat();
+    launch(gpu, "crop", cropped.numel(), &args)?;
+    Ok((lanczos(gpu, &cropped, (g.hn, g.wn))?, g.output()))
+}
+
 /// Logits `[4, h, w]` cropped to native as u16 BGR(A) `[h0, w0, 3 | 4]`.
 ///
 /// # Errors
 /// On a launch failure.
 pub fn render(gpu: &Gpu, logits: &Tensor, g: Geometry, out: Output, look: Look) -> Result<Tensor> {
+    let (logits, g) = native(gpu, logits, g)?;
     let img = gpu.empty(&[g.h0, g.w0, out.channels()], Dtype::U16)?;
     let args = [
-        [logits.into(), (&img).into()].as_slice(),
+        [(&logits).into(), (&img).into()].as_slice(),
         &g.args(),
         &[
             Arg::U(out as u32),
@@ -162,9 +268,10 @@ pub fn render(gpu: &Gpu, logits: &Tensor, g: Geometry, out: Output, look: Look) 
 /// # Errors
 /// On a launch failure.
 pub fn render_exr(gpu: &Gpu, logits: &Tensor, g: Geometry, out: Output, look: Look, half: bool) -> Result<Tensor> {
+    let (logits, g) = native(gpu, logits, g)?;
     let img = gpu.empty(&[out.planes(), g.h0, g.w0], Dtype::F32)?;
     let args = [
-        [logits.into(), (&img).into()].as_slice(),
+        [(&logits).into(), (&img).into()].as_slice(),
         &g.args(),
         &[Arg::U(out as u32), Arg::F(look.despill), usize::from(half).into()],
         &look.adjust.args(),

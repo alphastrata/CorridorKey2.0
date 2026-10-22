@@ -333,6 +333,7 @@ pub enum Resize {
     Area = 0,
     Bilinear = 1,
     Bicubic = 2,
+    Lanczos = 3,
 }
 
 /// f32 `[n, c, h, w]` → `[n, c, oh, ow]` at source step `scale = (sy, sx)`, then `(v − mean[ch]) / std[ch]`
