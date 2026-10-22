@@ -487,8 +487,13 @@ pub fn conv(gpu: &Gpu, x: &Tensor, nhwc: bool, geo: Conv, (w, bias): (&Tensor, &
     })
 }
 
-/// With `CK_MEM` set, prints live and interval-peak tensor memory, then restarts the peak.
-pub fn mem(gpu: &Gpu, what: &str) {
+thread_local! {
+    static LAST: std::cell::Cell<Option<std::time::Instant>> = const { std::cell::Cell::new(None) };
+}
+
+/// Diagnostics at a phase boundary: with `CK_MEM`, live and interval-peak tensor memory (then the peak restarts); with
+/// `CK_TIME`, milliseconds since the previous probe, the stream drained first.
+pub fn probe(gpu: &Gpu, what: &str) {
     if std::env::var_os("CK_MEM").is_some() {
         let gib = |b: usize| b as f64 / f64::from(1u32 << 30);
         println!(
@@ -497,5 +502,11 @@ pub fn mem(gpu: &Gpu, what: &str) {
             gib(gpu.meter.peak())
         );
         gpu.meter.reset();
+    }
+    if std::env::var_os("CK_TIME").is_some() && gpu.sync().is_ok() {
+        let now = std::time::Instant::now();
+        if let Some(then) = LAST.replace(Some(now)) {
+            println!("    time {what:>9}: {:8.1} ms", (now - then).as_secs_f64() * 1e3);
+        }
     }
 }
