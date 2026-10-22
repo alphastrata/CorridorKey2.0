@@ -1,7 +1,8 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use cudarc::driver::{CudaSlice, DevicePtr};
+use cudarc::driver::sys::{self, CUresult};
+use cudarc::driver::{CudaSlice, DevicePtr, DriverError};
 use eyre::{Result, WrapErr, ensure};
 use half::{bf16, f16};
 
@@ -180,6 +181,22 @@ impl Tensor {
 }
 
 impl Gpu {
+    /// `alloc`, and once more after the stream drains and the pool hands back what it holds spare.
+    fn retry<T>(&self, alloc: impl Fn() -> Result<T, DriverError>) -> Result<T> {
+        match alloc() {
+            Err(DriverError(CUresult::CUDA_ERROR_OUT_OF_MEMORY)) => {
+                self.stream.synchronize()?;
+                let mut pool = std::ptr::null_mut();
+                unsafe {
+                    sys::cuDeviceGetDefaultMemPool(&raw mut pool, self.ctx.cu_device()).result()?;
+                    sys::cuMemPoolTrimTo(pool, 0).result()?;
+                }
+                Ok(alloc()?)
+            }
+            other => Ok(other?),
+        }
+    }
+
     fn oom(&self, n: usize) -> String {
         let mib = |b: usize| b >> 20;
         format!("allocating {} MiB with {} MiB live", mib(n), mib(self.meter.live()))
@@ -191,7 +208,9 @@ impl Gpu {
     /// When the allocation fails.
     pub fn empty(&self, shape: &[usize], dtype: Dtype) -> Result<Tensor> {
         let n = shape.iter().product::<usize>() * dtype.size();
-        let buf = unsafe { self.stream.alloc::<u8>(n.max(16)) }.wrap_err_with(|| self.oom(n))?;
+        let buf = self
+            .retry(|| unsafe { self.stream.alloc::<u8>(n.max(16)) })
+            .wrap_err_with(|| self.oom(n))?;
         Ok(wrap(self, buf, dtype, shape))
     }
 
@@ -201,7 +220,9 @@ impl Gpu {
     /// When the allocation fails.
     pub fn zeros(&self, shape: &[usize], dtype: Dtype) -> Result<Tensor> {
         let n = shape.iter().product::<usize>() * dtype.size();
-        let buf = self.stream.alloc_zeros::<u8>(n.max(16)).wrap_err_with(|| self.oom(n))?;
+        let buf = self
+            .retry(|| self.stream.alloc_zeros::<u8>(n.max(16)))
+            .wrap_err_with(|| self.oom(n))?;
         Ok(wrap(self, buf, dtype, shape))
     }
 
