@@ -3,7 +3,7 @@ bench/footage
 bench/footage/
 bench/frames/
 justfile
-bench/results/*.md
+bench/results/
 
 # rust build sources and workspace config stay local; only the built ptx ships
 .cargo/
