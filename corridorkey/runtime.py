@@ -271,7 +271,8 @@ def load_model(paths: RuntimePaths, device: str = "cuda") -> CorridorKeyV3:
     model.eval()
     model.requires_grad_(False)
     for module in model.modules():
-        if isinstance(module, _BF16_WEIGHT_MODULES):
+        # Depthwise convs stay f32: ck's kernels use their exact weights (autocast rounds them for torch anyway).
+        if isinstance(module, _BF16_WEIGHT_MODULES) and getattr(module, "groups", 1) == 1:
             for p in module.parameters(recurse=False):
                 p.data = p.data.to(torch.bfloat16)
     if patched := ptx.enable(model):
