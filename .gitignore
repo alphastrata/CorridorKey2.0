@@ -37,3 +37,6 @@ tmp/
 # Local / studio-specific files
 path_mappings.json
 .claude/
+
+# Untracked build/workflow artefacts
+/justfile
