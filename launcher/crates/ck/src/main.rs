@@ -36,12 +36,12 @@ struct Args {
     /// scale of the frames the model sees, by Lanczos-4 (outputs stay native)
     #[argh(option, default = "1.0")]
     model_scale: f64,
-    /// frames per stage-1 window
-    #[argh(option, default = "80")]
-    chunk: usize,
-    /// frames between window starts
-    #[argh(option, default = "40")]
-    stride: usize,
+    /// frames per stage-1 window (default: the largest that fits free GPU memory, up to 80)
+    #[argh(option)]
+    chunk: Option<usize>,
+    /// frames between window starts (default: half the window)
+    #[argh(option)]
+    stride: Option<usize>,
     /// do not carry each window's alpha into the next as a hint
     #[argh(switch)]
     no_carry: bool,
@@ -122,10 +122,13 @@ fn main() -> Result<()> {
     color_eyre::install()?;
     let a: Args = argh::from_env();
     let gpu = Gpu::open(a.device, &a.ptx)?;
+    let free = gpu.ctx.mem_get_info()?.0 as f64 / f64::from(1u32 << 30);
+    let chunk = a.chunk.unwrap_or(80);
     let models = Models::load(&gpu, &a.weights, &a.vfms)?;
     let cfg = Config {
-        chunk: a.chunk,
-        stride: a.stride.max(1),
+        chunk,
+        stride: a.stride.unwrap_or(chunk / 2).max(1),
+        auto: (a.chunk.is_none() && a.stride.is_none()).then_some(free),
         carry: !a.no_carry,
         hint_quality: a.hint_quality,
         carry_quality: a.carry_quality,
