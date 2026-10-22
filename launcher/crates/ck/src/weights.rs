@@ -6,6 +6,7 @@ use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::{OptionExt, Result, WrapErr, bail};
 use half::{bf16, f16};
 use memmap2::Mmap;
+use rayon::prelude::*;
 use safetensors::SafeTensors;
 use safetensors::tensor::{Dtype as St, Metadata};
 
@@ -34,27 +35,45 @@ impl Weights {
         self.meta.info(name).is_some()
     }
 
+    /// Shape, type and raw bytes of `name`.
+    ///
+    /// # Errors
+    /// When `name` is missing.
+    pub fn view(&self, name: &str) -> Result<(Vec<usize>, St, &[u8])> {
+        let info = self.meta.info(name).ok_or_eyre(format!("no weight {name}"))?;
+        let bytes = &self.map[self.start + info.data_offsets.0..self.start + info.data_offsets.1];
+        Ok((info.shape.clone(), info.dtype, bytes))
+    }
+
     /// Shape and values (as f32) of `name`.
     ///
     /// # Errors
     /// When `name` is missing or not a float tensor.
     pub fn get(&self, name: &str) -> Result<(Vec<usize>, Vec<f32>)> {
-        let info = self.meta.info(name).ok_or_eyre(format!("no weight {name}"))?;
-        let bytes = &self.map[self.start + info.data_offsets.0..self.start + info.data_offsets.1];
-        let values = match info.dtype {
-            St::F32 => bytemuck::pod_collect_to_vec(bytes),
-            St::BF16 => bytemuck::pod_collect_to_vec::<u8, bf16>(bytes)
-                .into_iter()
-                .map(f32::from)
-                .collect(),
-            St::F16 => bytemuck::pod_collect_to_vec::<u8, f16>(bytes)
-                .into_iter()
-                .map(f32::from)
-                .collect(),
-            d => bail!("{name}: unsupported dtype {d:?}"),
-        };
-        Ok((info.shape.clone(), values))
+        let (shape, dtype, bytes) = self.view(name)?;
+        let mut v = vec![0.0f32; bytes.len() * 8 / dtype.bitsize().max(8)];
+        fill(bytes, dtype, &mut v, |x| x).wrap_err_with(|| name.to_owned())?;
+        Ok((shape, v))
     }
+}
+
+/// `dst[i] = to(src[i])` from a float tensor's raw bytes, in parallel.
+fn fill<T: Send>(src: &[u8], dtype: St, dst: &mut [T], to: impl Fn(f32) -> T + Sync) -> Result<()> {
+    let read: fn(&[u8]) -> f32 = match dtype {
+        St::F32 => |b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]),
+        St::BF16 => |b| f32::from(bf16::from_le_bytes([b[0], b[1]])),
+        St::F16 => |b| f32::from(f16::from_le_bytes([b[0], b[1]])),
+        d => bail!("unsupported dtype {d:?}"),
+    };
+    let size = dtype.bitsize() / 8;
+    dst.par_chunks_mut(1 << 14)
+        .zip(src.par_chunks(size << 14))
+        .for_each(|(out, bytes)| {
+            out.iter_mut()
+                .zip(bytes.chunks_exact(size))
+                .for_each(|(o, b)| *o = to(read(b)));
+        });
+    Ok(())
 }
 
 /// Uploads weights under `prefix` to one GPU; GEMM operands in `half`, everything else f32.
@@ -97,15 +116,32 @@ impl Loader<'_> {
         self.rows(&[n])
     }
 
-    /// Several weights stacked along `out`.
+    /// Several weights stacked along `out`, converted straight into the half type.
     ///
     /// # Errors
     /// When a weight is missing or widths differ.
     pub fn rows(&self, names: &[&str]) -> Result<Tensor> {
-        let parts = names.iter().map(|n| self.get(n)).collect::<Result<Vec<_>>>()?;
+        let parts = names
+            .iter()
+            .map(|n| self.weights.view(&self.name(n)))
+            .collect::<Result<Vec<_>>>()?;
         let width: usize = parts[0].0[1..].iter().product();
-        let v: Vec<f32> = parts.iter().flat_map(|(_, v)| v.iter().copied()).collect();
-        self.gpu.upload_f32(&v, &[v.len() / width, width], self.half)
+        let total: usize = parts.iter().map(|(s, _, _)| s.iter().product::<usize>()).sum();
+        let mut out = vec![0u16; total];
+        let to: fn(f32) -> u16 = if self.half == Dtype::F16 {
+            |v| f16::from_f32(v).to_bits()
+        } else {
+            |v| bf16::from_f32(v).to_bits()
+        };
+        parts
+            .iter()
+            .try_fold(out.as_mut_slice(), |rest, (shape, dtype, bytes)| {
+                let (head, tail) = rest.split_at_mut(shape.iter().product());
+                fill(bytes, *dtype, head, to)?;
+                Ok::<_, eyre::Report>(tail)
+            })?;
+        self.gpu
+            .upload(bytemuck::cast_slice(&out), &[total / width, width], self.half)
     }
 
     /// Biases (or any vectors) concatenated, f32.
