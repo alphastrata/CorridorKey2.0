@@ -33,6 +33,7 @@ def attention(
         *pairs,
         mask,
         mask if rid is None else spans(rid),
+        _range(q, k, v),
         out.view(torch.int32),
         n,
         h,
@@ -44,6 +45,29 @@ def attention(
         name, (-(-n // BR), b * h, 1), (256, 1, 1), args, shared
     )
     return out
+
+
+F16_SAFE = 14
+
+
+def _range(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+    """Multipliers for q, k, v: ones where operands stay bf16; on sm_75, which runs them as f16 (max 65504),
+    ``2^-e`` with ``e`` the least keeping ``max |x| · 2^-e ≤ 2^14`` (0 for any sane input). Powers of two, so
+    the kernel undoes them exactly; computed on the device, no host sync."""
+    if arch("ck_attn", q.device.index) >= 80:
+        return _ones(q.device.index)
+    top = torch.stack(
+        [
+            torch.linalg.vector_norm(t, float("inf"), dtype=torch.float32)
+            for t in (q, k, v)
+        ]
+    )
+    return torch.exp2(-(torch.log2(top).ceil() - F16_SAFE).clamp(min=0))
+
+
+@functools.cache
+def _ones(device: int) -> torch.Tensor:
+    return torch.ones(3, device=f"cuda:{device}")
 
 
 def spans(rid: torch.Tensor) -> torch.Tensor:
