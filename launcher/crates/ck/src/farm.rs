@@ -22,6 +22,8 @@ use crate::stage2::Baton;
 use crate::vram;
 use crate::write::{Exr, Writer};
 
+/// Frames past the sink's next one that stage 2 may start, so finished frames cannot outrun the encoders.
+const AHEAD: usize = 8;
 /// Host bytes of stage-2 jobs that may wait in the queue.
 const QUEUE_BYTES: usize = 3 << 30;
 
@@ -31,6 +33,8 @@ pub struct Meta {
     pub g: Geometry,
     pub pix: Dtype,
     pub done: flume::Sender<Done>,
+    /// Frames the sink has handed to the encoders.
+    pub written: Arc<AtomicUsize>,
 }
 
 /// One frame's stage 2: its blended baton (f32 NHWC, to be scaled by `scale`) and raw pixels. The baton stays on
@@ -66,6 +70,18 @@ pub struct Done {
     frame: usize,
     images: Vec<Vec<u8>>,
 }
+
+/// Another thread failed first; its error is the one reported.
+#[derive(Debug)]
+struct Aborted;
+
+impl std::fmt::Display for Aborted {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("aborted")
+    }
+}
+
+impl std::error::Error for Aborted {}
 
 /// Model weights and PTX.
 pub struct Assets {
@@ -127,6 +143,10 @@ fn queued(gpu: &Gpu, m: &Models, cfg: &Config, job: Job) -> Result<()> {
 }
 
 fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job<Tensor>) -> Result<()> {
+    while job.frame >= job.meta.written.load(Ordering::Acquire) + AHEAD {
+        ensure!(!job.meta.done.is_disconnected(), "{}: writer gone", job.meta.name);
+        std::thread::sleep(Duration::from_millis(2));
+    }
     KEYED.set(KEYED.get() + 1);
     let g = job.meta.g;
     let acc = &job.baton;
@@ -153,11 +173,16 @@ fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job<Tensor>) -> Result<()> 
 }
 
 /// Writes `total` frames in order as they arrive, then closes the encoders.
-fn sink(rx: &flume::Receiver<Done>, writers: Vec<(Output, Writer)>, total: usize, abort: &AtomicBool) -> Result<()> {
+fn sink(
+    rx: &flume::Receiver<Done>,
+    writers: Vec<(Output, Writer)>,
+    (total, written): (usize, &AtomicUsize),
+    abort: &AtomicBool,
+) -> Result<()> {
     let mut pending = BTreeMap::new();
     let mut next = 0;
     while next < total {
-        ensure!(!abort.load(Ordering::Acquire), "aborted");
+        ensure!(!abort.load(Ordering::Acquire), Aborted);
         match rx.recv_timeout(Duration::from_millis(100)) {
             Ok(d) => pending.insert(d.frame, d.images),
             Err(RecvTimeoutError::Timeout) => continue,
@@ -166,6 +191,7 @@ fn sink(rx: &flume::Receiver<Done>, writers: Vec<(Output, Writer)>, total: usize
         while let Some(images) = pending.remove(&next) {
             writers.iter().zip(images).try_for_each(|((_, w), img)| w.write(img))?;
             next += 1;
+            written.store(next, Ordering::Release);
         }
     }
     writers.into_iter().try_for_each(|(_, w)| w.finish())
@@ -181,7 +207,7 @@ fn submit(gpu: &Gpu, m: &Models, sh: &Shared, job: Job<Tensor>) -> Result<()> {
         .zip(&sh.leading)
         .any(|(a, l)| a.load(Ordering::Acquire) && !l.load(Ordering::Acquire));
     loop {
-        ensure!(!sh.abort.load(Ordering::Acquire), "aborted");
+        ensure!(!sh.abort.load(Ordering::Acquire), Aborted);
         if free && sh.queued.load(Ordering::Acquire) + bytes <= QUEUE_BYTES {
             sh.queued.fetch_add(bytes, Ordering::AcqRel);
             let baton = gpu.download(&job.baton)?;
@@ -225,8 +251,10 @@ fn lead<'s, 'e>(
         .map(|&o| Ok((o, cfg.writer(sh.out_dir, &name, &src, o)?)))
         .collect::<Result<Vec<_>>>()?;
     let (done, rx) = flume::unbounded();
+    let written = Arc::new(AtomicUsize::new(0));
+    let sunk = written.clone();
     s.spawn(move || {
-        let r = sink(&rx, writers, total, &sh.abort);
+        let r = sink(&rx, writers, (total, &sunk), &sh.abort);
         if r.is_err() {
             sh.abort.store(true, Ordering::Release);
         }
@@ -241,6 +269,7 @@ fn lead<'s, 'e>(
         g,
         pix: src.dtype(),
         done,
+        written,
     });
     Clip::open((gpu, m, &cfg), &src, total, sh.hints, meta)?.run(total, |job| submit(gpu, m, sh, job))
 }
@@ -327,9 +356,10 @@ pub fn run(
             .map(|h| h.join().map_err(|_| eyre!("worker panicked"))?)
             .collect()
     });
-    workers
+    let errors: Vec<eyre::Report> = workers.into_iter().chain(results.drain()).filter_map(Result::err).collect();
+    let knock_on = |e: &eyre::Report| e.chain().any(<dyn std::error::Error>::is::<Aborted>);
+    errors
         .into_iter()
-        .chain(results.drain())
-        .find(Result::is_err)
-        .unwrap_or(Ok(()))
+        .min_by_key(knock_on)
+        .map_or(Ok(()), Err)
 }
