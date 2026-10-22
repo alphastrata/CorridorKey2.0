@@ -1,4 +1,4 @@
-//! Frames between u16 pixels and the model: padding, colour encoding, rendering (`ck_ops` `prep`, `hint`, `render`).
+//! Frames between pixels and the model: padding, colour encoding, rendering (`ck_ops` `prep`, `hint`, `render`).
 
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::Result;
@@ -68,20 +68,32 @@ fn launch(gpu: &Gpu, name: &str, n: usize, args: &[Arg]) -> Result<()> {
     gpu.launch("ck_ops", name, (n.div_ceil(256) as u32, 1, 1), 256, 0, args)
 }
 
-/// u16 RGB `raw [n, h0, w0, 3]` → f32 planes `[n, 3, h, w]` at `ld` floats per frame from `out`'s start.
+/// How decoded frames read: exposure, and whether float frames are scene-linear (else display-coded).
+#[derive(Clone, Copy, Debug)]
+pub struct Input {
+    pub adjust: Adjust,
+    pub linear: bool,
+}
+
+/// u16 RGB `raw [n, h0, w0, 3]`, or f32 G, B, R planes `[n, 3, h0, w0]`, → f32 planes `[n, 3, h, w]` at `ld` floats
+/// per frame from `out`'s start.
 ///
 /// # Errors
 /// On a launch failure.
-pub fn prep(gpu: &Gpu, raw: &Tensor, out: &Tensor, g: Geometry, ld: usize, enc: Encoding, adj: Adjust) -> Result<()> {
+pub fn prep(gpu: &Gpu, raw: &Tensor, out: &Tensor, g: Geometry, ld: usize, enc: Encoding, input: Input) -> Result<()> {
     let n = raw.numel() / (g.h0 * g.w0 * 3);
+    let float = raw.dtype == Dtype::F32;
+    let mode = [ld.into(), Arg::U(enc as u32)];
+    let linear = [usize::from(input.linear).into()];
     let args = [
         [raw.into(), out.into(), n.into()].as_slice(),
         &g.args(),
-        &[ld.into(), Arg::U(enc as u32)],
-        &adj.args(),
+        &mode,
+        if float { &linear } else { &[] },
+        &input.adjust.args(),
     ]
     .concat();
-    launch(gpu, "prep", n * 3 * g.h * g.w, &args)
+    launch(gpu, if float { "prep_f32" } else { "prep" }, n * 3 * g.h * g.w, &args)
 }
 
 /// u16 grey `raw [n, h0, w0]` → f32 `[n, h, w]` at `ld` floats per frame, clipped to `[0, 1]`.
@@ -106,6 +118,12 @@ impl Output {
     #[must_use]
     pub fn channels(self) -> usize {
         if self == Self::Cutout { 4 } else { 3 }
+    }
+
+    /// Planes in an EXR render: alpha alone has one.
+    #[must_use]
+    pub fn planes(self) -> usize {
+        if self == Self::Alpha { 1 } else { self.channels() }
     }
 }
 
@@ -135,5 +153,23 @@ pub fn render(gpu: &Gpu, logits: &Tensor, g: Geometry, out: Output, look: Look) 
     ]
     .concat();
     launch(gpu, "render", g.h0 * g.w0, &args)?;
+    Ok(img)
+}
+
+/// Logits `[4, h, w]` cropped to native as unclamped scene-linear f32 planes `[planes, h0, w0]` (alpha clamped), each
+/// value rounded to the nearest finite half if `half`.
+///
+/// # Errors
+/// On a launch failure.
+pub fn render_exr(gpu: &Gpu, logits: &Tensor, g: Geometry, out: Output, look: Look, half: bool) -> Result<Tensor> {
+    let img = gpu.empty(&[out.planes(), g.h0, g.w0], Dtype::F32)?;
+    let args = [
+        [logits.into(), (&img).into()].as_slice(),
+        &g.args(),
+        &[Arg::U(out as u32), Arg::F(look.despill), usize::from(half).into()],
+        &look.adjust.args(),
+    ]
+    .concat();
+    launch(gpu, "render_exr", g.h0 * g.w0, &args)?;
     Ok(img)
 }

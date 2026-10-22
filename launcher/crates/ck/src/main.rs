@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 use argh::FromArgs;
 use ck::frame::{Adjust, Look, Output};
-use ck::io::Encoder;
 use ck::run::{Config, Hints, Models, run};
+use ck::write::{Encoder, Exr};
 use ck_gpu::Gpu;
 use eyre::{Result, bail};
 
@@ -66,6 +66,12 @@ struct Args {
     /// write the cutout in linear light
     #[argh(switch)]
     cutout_linear: bool,
+    /// float (EXR) input frames are scene-linear
+    #[argh(switch)]
+    linear: bool,
+    /// write EXR sequences: half or float
+    #[argh(option)]
+    exr: Option<String>,
     /// scene-linear gain
     #[argh(option, default = "1.0")]
     brightness: f32,
@@ -101,6 +107,14 @@ fn outputs(list: &str) -> Result<Vec<Output>> {
         .collect()
 }
 
+fn exr(s: &str) -> Result<Exr> {
+    match s {
+        "half" => Ok(Exr::Half),
+        "float" => Ok(Exr::Float),
+        other => bail!("unknown EXR type {other:?}"),
+    }
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
     let a: Args = argh::from_env();
@@ -125,6 +139,8 @@ fn main() -> Result<()> {
                 pivot: a.pivot,
             },
         },
+        linear_input: a.linear,
+        exr: a.exr.as_deref().map(exr).transpose()?,
         encoder: Encoder {
             codec: a.codec,
             crf: a.crf,

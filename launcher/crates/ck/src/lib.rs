@@ -12,3 +12,4 @@ pub mod stage2;
 pub mod vfm;
 pub mod vit;
 pub mod weights;
+pub mod write;
