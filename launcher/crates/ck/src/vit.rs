@@ -71,28 +71,23 @@ impl Linear {
     /// # Errors
     /// When a weight is missing.
     pub fn load(ld: &Loader, names: &[&str], gamma: Option<&str>) -> Result<Self> {
-        let parts = names
+        let gamma = gamma.map(|g| ld.get(g).map(|(_, g)| g)).transpose()?;
+        let weights: Vec<String> = names.iter().map(|n| format!("{n}.weight")).collect();
+        let weights: Vec<&str> = weights.iter().map(String::as_str).collect();
+        let mut b = names
             .iter()
-            .map(|n| Ok((ld.get(&format!("{n}.weight"))?, ld.get(&format!("{n}.bias"))?.1)))
-            .collect::<Result<Vec<_>>>()?;
-        let width: usize = parts[0].0.0[1..].iter().product();
-        let (mut w, mut b): (Vec<f32>, Vec<f32>) =
-            parts
-                .into_iter()
-                .fold((vec![], vec![]), |(mut w, mut b), ((_, pw), pb)| {
-                    w.extend(pw);
-                    b.extend(pb);
-                    (w, b)
-                });
-        if let Some(g) = gamma {
-            let g = ld.get(g)?.1;
-            w.chunks_mut(width)
-                .zip(&g)
-                .for_each(|(row, s)| row.iter_mut().for_each(|v| *v *= s));
-            b.iter_mut().zip(&g).for_each(|(v, s)| *v *= s);
-        }
+            .map(|n| Ok(ld.get(&format!("{n}.bias"))?.1))
+            .collect::<Result<Vec<_>>>()?
+            .concat();
+        let w = match &gamma {
+            Some(g) => {
+                b.iter_mut().zip(g).for_each(|(v, s)| *v *= s);
+                ld.scaled(&weights, g)?
+            }
+            None => ld.rows(&weights)?,
+        };
         Ok(Self {
-            w: ld.gpu.upload_f32(&w, &[b.len(), width], ld.half)?,
+            w,
             b: ld.gpu.upload_f32(&b, &[b.len()], Dtype::F32)?,
         })
     }

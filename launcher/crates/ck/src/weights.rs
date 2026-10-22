@@ -52,13 +52,13 @@ impl Weights {
     pub fn get(&self, name: &str) -> Result<(Vec<usize>, Vec<f32>)> {
         let (shape, dtype, bytes) = self.view(name)?;
         let mut v = vec![0.0f32; bytes.len() * 8 / dtype.bitsize().max(8)];
-        fill(bytes, dtype, &mut v, |x| x).wrap_err_with(|| name.to_owned())?;
+        fill(bytes, dtype, &mut v, |_, x| x).wrap_err_with(|| name.to_owned())?;
         Ok((shape, v))
     }
 }
 
-/// `dst[i] = to(src[i])` from a float tensor's raw bytes, in parallel.
-fn fill<T: Send>(src: &[u8], dtype: St, dst: &mut [T], to: impl Fn(f32) -> T + Sync) -> Result<()> {
+/// `dst[i] = to(i, src[i])` from a float tensor's raw bytes, in parallel.
+fn fill<T: Send>(src: &[u8], dtype: St, dst: &mut [T], to: impl Fn(usize, f32) -> T + Sync) -> Result<()> {
     let read: fn(&[u8]) -> f32 = match dtype {
         St::F32 => |b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]),
         St::BF16 => |b| f32::from(bf16::from_le_bytes([b[0], b[1]])),
@@ -68,10 +68,12 @@ fn fill<T: Send>(src: &[u8], dtype: St, dst: &mut [T], to: impl Fn(f32) -> T + S
     let size = dtype.bitsize() / 8;
     dst.par_chunks_mut(1 << 14)
         .zip(src.par_chunks(size << 14))
-        .for_each(|(out, bytes)| {
+        .enumerate()
+        .for_each(|(c, (out, bytes))| {
             out.iter_mut()
                 .zip(bytes.chunks_exact(size))
-                .for_each(|(o, b)| *o = to(read(b)));
+                .enumerate()
+                .for_each(|(j, (o, b))| *o = to((c << 14) + j, read(b)));
         });
     Ok(())
 }
@@ -121,6 +123,18 @@ impl Loader<'_> {
     /// # Errors
     /// When a weight is missing or widths differ.
     pub fn rows(&self, names: &[&str]) -> Result<Tensor> {
+        self.stack(names, None)
+    }
+
+    /// [`Loader::rows`] with row `r` scaled by `gamma[r]` in f32 before rounding.
+    ///
+    /// # Errors
+    /// When a weight is missing or widths differ.
+    pub fn scaled(&self, names: &[&str], gamma: &[f32]) -> Result<Tensor> {
+        self.stack(names, Some(gamma))
+    }
+
+    fn stack(&self, names: &[&str], gamma: Option<&[f32]>) -> Result<Tensor> {
         let parts = names
             .iter()
             .map(|n| self.weights.view(&self.name(n)))
@@ -135,10 +149,14 @@ impl Loader<'_> {
         };
         parts
             .iter()
-            .try_fold(out.as_mut_slice(), |rest, (shape, dtype, bytes)| {
-                let (head, tail) = rest.split_at_mut(shape.iter().product());
-                fill(bytes, *dtype, head, to)?;
-                Ok::<_, eyre::Report>(tail)
+            .try_fold((out.as_mut_slice(), 0), |(rest, row), (shape, dtype, bytes)| {
+                let n: usize = shape.iter().product();
+                let (head, tail) = rest.split_at_mut(n);
+                match gamma {
+                    Some(g) => fill(bytes, *dtype, head, |i, v| to(v * g[row + i / width]))?,
+                    None => fill(bytes, *dtype, head, |_, v| to(v))?,
+                }
+                Ok::<_, eyre::Report>((tail, row + n / width))
             })?;
         self.gpu
             .upload(bytemuck::cast_slice(&out), &[total / width, width], self.half)
