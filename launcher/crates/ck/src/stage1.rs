@@ -190,11 +190,13 @@ impl Stage1 {
                 accumulate: false,
             },
         )?;
+        ops::mem(gpu, "stem");
         let enc = self
             .enc
             .iter()
             .try_fold(gpu.copy(&patch)?, |x, b| b.forward(gpu, cache, &x, Some(i.quality)))?;
 
+        ops::mem(gpu, "enc");
         let vfm: usize = i.features.iter().map(|f| f.shape[1]).sum();
         let combined = gpu.empty(&[frames, h64, w64, vfm + d16], Dtype::F32)?;
         i.features.iter().try_fold(0, |off, f| {
@@ -216,16 +218,19 @@ impl Stage1 {
         )?;
         let f64 = self.fuse.forward(gpu, &combined)?.reshape(&[i.b, i.t, h64, w64, d64])?;
 
+        ops::mem(gpu, "fuse");
         let split = self.body.len() / 2;
         let f64 = self.body[..split]
             .iter()
             .try_fold(f64, |x, b| b.forward(gpu, cache, &x, None))?;
+        ops::mem(gpu, "body");
         let mid = self.mid_up.forward(gpu, &f64.reshape(&[frames, h64, w64, d64])?)?;
         ops::add_scaled(gpu, &mid, &enc, &self.mid_scale)?;
         let mid = self
             .mid
             .iter()
             .try_fold(mid.reshape(&grid16)?, |x, b| b.forward(gpu, cache, &x, None))?;
+        ops::mem(gpu, "mid");
         let mid_frames = mid.reshape(&[frames, h16, w16, d16])?;
         ops::conv(
             gpu,
@@ -244,6 +249,7 @@ impl Stage1 {
             .iter()
             .try_fold(f64, |x, b| b.forward(gpu, cache, &x, None))?;
 
+        ops::mem(gpu, "body2");
         let dec = self.up.forward(gpu, &f64.reshape(&[frames, h64, w64, d64])?)?;
         ops::add_scaled(gpu, &dec, &mid, &self.skip_scale)?;
         let late = self.dec.len().saturating_sub(2);
@@ -258,9 +264,11 @@ impl Stage1 {
                 b.forward(gpu, cache, &x, None)
             })?;
 
+        ops::mem(gpu, "dec");
         let cols = gpu.empty(&[frames * h16 * w16, self.aux.0.shape[0]], Dtype::F32)?;
         gpu.linear(&ops::to_half(gpu, &baton)?, &self.aux.0, None, &cols, false)?;
         let aux = ops::col2im(gpu, &cols, &self.aux.1, (frames, 4, h16, w16), AUX)?;
+        ops::mem(gpu, "aux");
         Ok(Outputs { baton, aux })
     }
 }
