@@ -13,6 +13,7 @@ import torch
 import torch.nn.functional as F
 
 from . import color_utils as cu
+from . import ptx
 from .model import CorridorKeyV3
 from .video_io import (
     ExrSequenceWriter,
@@ -261,6 +262,8 @@ def load_model(paths: RuntimePaths, device: str = "cuda") -> CorridorKeyV3:
             f"missing={train_missing[:8]} unexpected={train_unexpected[:8]}")
     print(f"  loaded weights; omitted frozen foundation tensors={len(missing)}")
     model.eval()
+    if patched := ptx.enable(model):
+        print(f"  ck kernels: {patched} modules")
     del ckpt
     return model
 
