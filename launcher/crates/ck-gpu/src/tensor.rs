@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use cudarc::driver::{CudaSlice, DevicePtr};
-use eyre::{Result, ensure};
+use eyre::{Result, WrapErr, ensure};
 use half::{bf16, f16};
 
 use crate::Gpu;
@@ -108,6 +108,22 @@ impl Tensor {
         })
     }
 
+    /// [`Tensor::reshape`] by value, so the old binding cannot keep the memory alive.
+    ///
+    /// # Errors
+    /// When the element counts differ.
+    pub fn into_shape(self, shape: &[usize]) -> Result<Self> {
+        ensure!(
+            shape.iter().product::<usize>() == self.numel(),
+            "reshape {:?} → {shape:?}",
+            self.shape
+        );
+        Ok(Self {
+            shape: shape.to_vec(),
+            ..self
+        })
+    }
+
     /// Rows `start..start + len` of the outermost dimension.
     ///
     /// # Errors
@@ -164,13 +180,18 @@ impl Tensor {
 }
 
 impl Gpu {
+    fn oom(&self, n: usize) -> String {
+        let mib = |b: usize| b >> 20;
+        format!("allocating {} MiB with {} MiB live", mib(n), mib(self.meter.live()))
+    }
+
     /// An uninitialised tensor.
     ///
     /// # Errors
     /// When the allocation fails.
     pub fn empty(&self, shape: &[usize], dtype: Dtype) -> Result<Tensor> {
         let n = shape.iter().product::<usize>() * dtype.size();
-        let buf = unsafe { self.stream.alloc::<u8>(n.max(16)) }?;
+        let buf = unsafe { self.stream.alloc::<u8>(n.max(16)) }.wrap_err_with(|| self.oom(n))?;
         Ok(wrap(self, buf, dtype, shape))
     }
 
@@ -180,7 +201,7 @@ impl Gpu {
     /// When the allocation fails.
     pub fn zeros(&self, shape: &[usize], dtype: Dtype) -> Result<Tensor> {
         let n = shape.iter().product::<usize>() * dtype.size();
-        let buf = self.stream.alloc_zeros::<u8>(n.max(16))?;
+        let buf = self.stream.alloc_zeros::<u8>(n.max(16)).wrap_err_with(|| self.oom(n))?;
         Ok(wrap(self, buf, dtype, shape))
     }
 
