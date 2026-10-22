@@ -17,6 +17,7 @@ TIE, NEAR = 1.001, 1.02
 COMPONENTS = ("attn", "swiglu", "qkv")
 PARTS = ("VFMs", "stage 1", "stage 2", "end-to-end")
 nan = math.nan
+
 ARCH = {
     120: "`ck_attn` runs bf16 `m16n8k16` MMA with `cp.async` double-buffered K/V tiles; unmasked attention "
     "stays on PyTorch's flash kernel, which it does not beat",
@@ -24,6 +25,7 @@ ARCH = {
     "and runs two `m16n8k8`; all attention goes through it, as PyTorch has no bf16 flash or "
     "memory-efficient SDPA before sm_80",
 }
+
 KERNELS = (
     (
         "`ck_attn`: flash attention, bf16, head sizes 64/80/96, with Swin's shifted-window regions as one launch "
@@ -115,6 +117,7 @@ def precision(r: R, s: R, o: R | None) -> str:
         return "✓"
     if o is not None and o.frames and max(ratios(r, o)) <= TIE:
         return "≈"
+
     if not (r.frames and s.frames):
         return "≈" if max(ratios(r, s)) <= NEAR else "✗"
     worse = any(
@@ -158,6 +161,7 @@ class Gpu:
             ("|---" if gpu_column else "")
             + "|---|--:|--:|--:|--:|--:|--:|--:|--:|:-:|",
         ]
+
         for t in self.meta["tiers"]:
             s, o = (
                 self.get(f"end-to-end {t}p", "stock"),
@@ -169,6 +173,7 @@ class Gpu:
             saved = (
                 1 - (weights + o.gib) / (weights + s.gib) if s.ran and o.ran else nan
             )
+
             lines.append(
                 (f"| {self.name} " if gpu_column else "")
                 + f"| {t}p ({w}×{h}) | {num(s.frame_ms)} | {num(o.frame_ms)} "
@@ -187,6 +192,7 @@ class Gpu:
             ),
             "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|:-:|",
         ]
+
         for t in self.meta["tiers"]:
             for part in PARTS:
                 stage = f"{part} {t}p"
@@ -198,6 +204,7 @@ class Gpu:
                     else (nan, nan)
                 )
                 ideal = s.ideal / s.batch if not math.isnan(s.ideal) else nan
+
                 lines.append(
                     f"| {t}p | {part} | {num(s.frame_ms)} | {num(o.frame_ms)} "
                     f"| {num(s.ms / o.ms if both else nan, '.2f', '—')}{'×' if both else ''} "
@@ -213,11 +220,17 @@ class Gpu:
             self.get(f"end-to-end {t}p", "stock"),
             self.get(f"end-to-end {t}p", "ours"),
         )
-        cat = lambda r: by_category(r.kernels)
+
+        def cat(r: R) -> dict[str, float]:
+            return by_category(r.kernels)
+
+        def pct(v: float, total: float) -> str:
+            return num(100 * v / total, ".1f", "—") if total else "—"
+
         cs, co = cat(s), cat(o)
         busy_s, busy_o = sum(cs.values()), sum(co.values())
         rows = sorted(set(cs) | set(co), key=lambda k: -max(cs.get(k, 0), co.get(k, 0)))
-        pct = lambda v, total: num(100 * v / total, ".1f", "—") if total else "—"
+
         lines = [
             "| kernels | stock ms / frame | stock % | ours ms / frame | ours % | saved ms / frame |",
             "|---|--:|--:|--:|--:|--:|",
@@ -226,13 +239,16 @@ class Gpu:
             (s.frame_ms if s.kernels else nan),
             (o.frame_ms if o.kernels else nan),
         )
+
         for k in rows:
             a, b = cs.get(k, 0.0), co.get(k, 0.0)
             name = f"**{k}**" if k.startswith(OURS) else k
             lines.append(
                 f"| {name} | {a:.2f} | {pct(a, wall_s)} | {b:.2f} | {pct(b, wall_o)} | {a - b:+.2f} |"
             )
+
         idle_s, idle_o = wall_s - busy_s, wall_o - busy_o
+
         lines.append(
             f"| GPU idle (launches, host, sync) | {num(idle_s, '.2f', '—')} | {pct(idle_s, wall_s)} "
             f"| {num(idle_o, '.2f', '—')} | {pct(idle_o, wall_o)} | {num(idle_s - idle_o, '+.2f', '—')} |"
@@ -249,6 +265,7 @@ class Gpu:
         for ks in o.kernels.values():
             for k, v in ks.items():
                 flat[k] = flat.get(k, 0.0) + v
+
         lines = [
             "| kernel (ours, end to end) | category | ms / frame | % of frame |",
             "|---|---|--:|--:|",
@@ -268,6 +285,7 @@ class Gpu:
             ),
             "|---|--:|--:|--:|--:|--:|--:|--:|:-:|",
         ]
+
         for r in (
             r
             for r in self.rows
@@ -290,6 +308,7 @@ class Gpu:
             ),
             "|---|---|--:|--:|--:|--:|--:|--:|:-:|:-:|",
         ]
+
         for r in (
             r
             for r in self.rows
@@ -303,6 +322,7 @@ class Gpu:
                 if judged
                 else ""
             )
+
             prec = self.verdict(r.stage) if r.config == "ours" else ""
             blank = "—" if r.config == "oracle" else "OOM"
             lines.append(
@@ -316,11 +336,13 @@ class Gpu:
         m, p = self.meta, self.meta["peaks"]
         cap = m["capability"][0] * 10 + m["capability"][1]
         sm = next(iter(m["kernels"].values()))
+
         return [
             (
                 f"- **GPU:** {self.name} (sm_{cap}), torch {m['torch']}. Measured peaks: {p['tensor'] / 1e12:.0f} TFLOPS "
                 f"16-bit tensor, {p['fp32'] / 1e12:.0f} TFLOPS f32, {p['dram'] / 1e9:.0f} GB/s DRAM."
             ),
+
             f"- **Kernels:** {self.sm()}. {ARCH.get(sm, '')}.",
             (
                 f"- **Data:** {m['clips']} clips × {m['frames']} consecutive frames per resolution from public green-screen "
@@ -332,20 +354,23 @@ class Gpu:
                 "(`corridorkey.ptx.enable`). `oracle` is stock with our depthwise and MLP slots in strict f32: what exact "
                 "ops there would score."
             ),
+
             (
                 "- **Time:** CUDA events on each resolution's first clip, stock and ours alternating call by call on "
                 "shared inputs so clock and thermal drift fall on both alike; median per config. Per frame = per call "
                 "÷ frames in the call (stage 1 and end to end run the whole window); fps = 1000 ÷ ms per frame. The "
                 "oracle is a precision bound only, not timed."
             ),
+
             (
-                f"- **Memory:** per call, the peak torch allocates above what is already live (after a warm-up call); "
+                "- **Memory:** per call, the peak torch allocates above what is already live (after a warm-up call); "
                 f"peak = that plus the {self.meta['weights_gib']:.1f} GiB of weights (model and VFMs, f32)."
             ),
             (
                 "- **Kernel split:** CUPTI device time per kernel (`torch.profiler`) over one call each of the VFMs, "
                 "stage 1 and stage 2, per frame; idle = wall − kernel time."
             ),
+
             (
                 "- **SOL %:** FLOPs counted by `FlopCounterMode` at the measured tensor peak (model rows), or each op's "
                 "own FLOP / byte bound (`bench/sol.py`), ÷ measured time."
@@ -360,12 +385,14 @@ class Gpu:
 
 def report(g: Gpu) -> str:
     tiers = g.meta["tiers"]
+
     split = [
         f"### {t}p\n\n" + "\n".join(g.time_split(t)) + "\n\n" + "\n".join(g.top(t))
         for t in tiers
         if g.get(f"end-to-end {t}p", "ours").kernels
     ]
     first, rest = (split[0], split[1:]) if split else ("", [])
+
     folded = "".join(
         f"\n\n<details><summary>{s.split(chr(10))[0][4:]}</summary>\n\n{s}\n\n</details>"
         for s in rest
@@ -375,34 +402,41 @@ def report(g: Gpu) -> str:
             f"# CorridorKey 2.0 on {g.name}: stock vs ours",
             "",
             f"Time per frame end to end (VFMs, stage 1, stage 2) at every resolution; kernels {g.sm()}.",
+
             "",
             "## Time per frame",
             "",
             *g.headline(),
+
             "",
             "## Per part",
             "",
             *g.parts(),
+
             "",
             "## Where a frame's time goes",
             "",
             "GPU time by kernel category, stock and ours; **bold** rows are our kernels.",
             "",
             first + folded,
+
             "",
             "## Our kernels vs the ops they replace",
             "",
             "Each distinct call of the first window stock fits, replayed on identical inputs.",
             "",
             *g.components(),
+
             "",
             "## Precision detail",
             "",
             *g.detail(),
+
             "",
             "## What ours is",
             "",
             *(f"- {k}" for k in KERNELS),
+
             "",
             "## Method",
             "",
@@ -416,11 +450,13 @@ def main() -> str:
     gpus = [Gpu(p) for p in sorted(RESULTS.glob("*.json"))]
     for g in gpus:
         (RESULTS / g.file).write_text(report(g))
+
     rows = [
         line
         for i, g in enumerate(gpus)
         for line in g.headline(gpu_column=True)[0 if i == 0 else 2 :]
     ]
+
     readme = "\n".join(
         [
             "# CorridorKey 2.0: stock vs ours",
@@ -432,9 +468,11 @@ def main() -> str:
             "",
             *rows,
             "",
+
             "## What ours is",
             "",
             *(f"- {k}" for k in KERNELS),
+
             *(
                 f"- {g.name}: {g.sm()}. {ARCH.get(next(iter(g.meta['kernels'].values())), '')}."
                 for g in gpus

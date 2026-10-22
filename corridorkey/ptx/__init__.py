@@ -42,7 +42,7 @@ def _check(code: int) -> None:
 class Module:
     def __init__(self, ptx: bytes) -> None:
         drv = _driver()
-        assert drv is not None
+        assert drv is not None, "CUDA driver not available"
         torch.cuda.init()
         self._mod = ctypes.c_void_p()
         _check(
@@ -53,12 +53,12 @@ class Module:
 
     def _fn(self, name: str) -> ctypes.c_void_p:
         if name not in self._fns:
+            drv = _driver()
+            assert drv is not None, "CUDA driver not available"
             fn = ctypes.c_void_p()
             _check(
-                _driver().cuModuleGetFunction(
-                    ctypes.byref(fn), self._mod, name.encode()
-                )
-            )  # type: ignore[union-attr]
+                drv.cuModuleGetFunction(ctypes.byref(fn), self._mod, name.encode())
+            )
             self._fns[name] = fn
         return self._fns[name]
 
@@ -70,21 +70,26 @@ class Module:
         args: list[Arg],
         shared: int = 0,
     ) -> None:
+        drv = _driver()
+        assert drv is not None, "CUDA driver not available"
+
         if shared > self._shared.get(name, 48 * 1024):
             _check(
-                _driver().cuFuncSetAttribute(self._fn(name), MAX_DYNAMIC_SHARED, shared)
-            )  # type: ignore[union-attr]
+                drv.cuFuncSetAttribute(self._fn(name), MAX_DYNAMIC_SHARED, shared)
+            )
             self._shared[name] = shared
+
         params = [p for a in args for p in _lower(a)]
         argv = (ctypes.c_void_p * len(params))(
             *(ctypes.cast(ctypes.byref(p), ctypes.c_void_p) for p in params)
         )
+
         stream = ctypes.c_void_p(torch.cuda.current_stream().cuda_stream)
         _check(
-            _driver().cuLaunchKernel(
+            drv.cuLaunchKernel(
                 self._fn(name), *grid, *block, shared, stream, argv, None
             )
-        )  # type: ignore[union-attr]
+        )
 
 
 def _lower(a: Arg) -> list[ctypes._SimpleCData]:

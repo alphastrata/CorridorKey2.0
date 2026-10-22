@@ -6,6 +6,7 @@ import argparse
 import json
 import struct
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import torch
@@ -29,10 +30,13 @@ def config(path: Path) -> dict:
 
 def stages(path: Path) -> tuple[Stage1, Stage2]:
     cfg = config(path)
+
     s1 = Stage1(
         d_16=cfg["d_16"],
         d_64=cfg["d_64"],
-        **VFM,
+        cradio_dim=VFM["cradio_dim"],
+        moge_dim=VFM["moge_dim"],
+        rvm_dim=VFM["rvm_dim"],
         n_enc_16=cfg["n_enc_16"],
         n_body_64=cfg["n_body_64"],
         n_dec_16=cfg["n_dec_16"],
@@ -42,6 +46,7 @@ def stages(path: Path) -> tuple[Stage1, Stage2]:
         mlp_mult=cfg["mlp_mult"],
         local_mix_kernel=cfg["stage1_local_mix_kernel"],
         body64_local_mix_kernel=cfg["stage1_body64_local_mix_kernel"],
+
         recurrent_64_sites=(),
         hint_adaln_blocks=cfg["stage1_hint_adaln_blocks"],
         mid_16_blocks=cfg["stage1_mid_16_blocks"],
@@ -53,6 +58,7 @@ def stages(path: Path) -> tuple[Stage1, Stage2]:
         bottleneck_head_stride=cfg["bottleneck_head_stride"],
         rope_base=cfg["rope_base"],
     )
+
     s2 = Stage2(
         d=cfg["d_stage2"],
         d_baton=cfg["d_16"],
@@ -66,6 +72,7 @@ def stages(path: Path) -> tuple[Stage1, Stage2]:
         mlp_dw_kernel=cfg["mlp_dw_kernel"],
         qkv_dw_kernel=cfg["qkv_dw_kernel"],
         qkv_dw_fraction=cfg["qkv_dw_fraction"],
+
         rope_base=cfg["rope_base"],
     )
     if path.suffix == ".safetensors":
@@ -81,7 +88,7 @@ def stages(path: Path) -> tuple[Stage1, Stage2]:
     return s1.cuda().eval(), s2.cuda().eval()
 
 
-def ms(fn: object, reps: int = 3) -> float:
+def ms(fn: Callable[[], object], reps: int = 3) -> float:
     fn()
     torch.cuda.synchronize()
     s, e = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
@@ -102,9 +109,12 @@ def main() -> None:
     p.add_argument("--ck", action="store_true")
     a = p.parse_args()
     h, w = map(int, a.hw.split("x"))
+
     s1, s2 = stages(a.checkpoint)
+
     if a.ck:
         print(f"ck patched {ptx.enable(s1) + ptx.enable(s2)} modules")
+
     t = a.frames
     rgb = torch.randn(1, t, 3, h, w, device="cuda")
     hint = torch.zeros(1, t, 1, h, w, device="cuda")
@@ -112,16 +122,22 @@ def main() -> None:
         k[:-4] + "_feat": torch.randn(1, t, c, h // 64, w // 64, device="cuda")
         for k, c in VFM.items()
     }
+
     with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-        run1 = lambda: s1(
-            rgb,
-            hint,
-            feats["moge_feat"],
-            cradio_feat=feats["cradio_feat"],
-            rvm_feat=feats["rvm_feat"],
-        )
+        def run1() -> dict:
+            return s1(
+                rgb,
+                hint,
+                feats["moge_feat"],
+                cradio_feat=feats["cradio_feat"],
+                rvm_feat=feats["rvm_feat"],
+            )
+
         baton = run1()["baton"]
-        run2 = lambda: s2(rgb[:, :1], baton[:, :1])
+
+        def run2() -> dict:
+            return s2(rgb[:, :1], baton[:, :1])
+
         if a.nvtx:
             for name, fn in (("stage1", run1), ("stage2", run2)):
                 fn()

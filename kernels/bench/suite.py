@@ -49,6 +49,7 @@ from harness import (
 )
 
 from corridorkey import ptx
+from corridorkey.model import CorridorKeyV3
 from corridorkey.runtime import RuntimePaths, load_model
 
 CONFIGS = ("stock", "oracle", "ours")
@@ -82,10 +83,11 @@ def event_ms(fn: Callable[[], object]) -> float:
 
 
 def inputs(
-    model: torch.nn.Module, c: Clip
+    model: CorridorKeyV3, c: Clip
 ) -> tuple[torch.Tensor, torch.Tensor, Feats, torch.Tensor] | None:
     """Shared timing inputs: the clip, its VFM features and a stage-1 baton (stock's, else ours if stock OOMs)."""
     x, display = c.x.cuda(), c.display.cuda()
+
     for name in TIMED:
         with config(model, name):
             f = oom(functools.partial(vfm, model, display), None)
@@ -94,13 +96,13 @@ def inputs(
                 if f is not None
                 else None
             )
-        if baton is not None:
+        if baton is not None and f is not None:
             return x, display, f, baton
     return None
 
 
 def timings(
-    model: torch.nn.Module, rows: dict[str, dict[str, Row]], c: Clip, p: sol.Peaks
+    model: CorridorKeyV3, rows: dict[str, dict[str, Row]], c: Clip, p: sol.Peaks
 ) -> None:
     """Stock and ours alternate call by call on shared inputs, so clock and thermal drift fall on both alike;
     median per config. Each config is also profiled by kernel."""
@@ -109,12 +111,14 @@ def timings(
         return
     x, display, f, baton = got
     t = x.shape[1]
+
     calls: dict[str, tuple[Callable[[], object], int]] = {
         "VFMs": (lambda: vfm(model, display), t),
         "stage 1": (lambda: stage1(model, x, f), t),
         "stage 2": (lambda: frame2(model, x[:, :1], baton), 1),
         "end-to-end": (lambda: e2e(model, c), t),
     }
+
     for part, (fn, n) in calls.items():
         live = []
         for name in TIMED:
@@ -123,6 +127,7 @@ def timings(
             if gib is not None:
                 rows[name][part].gib, rows[name][part].batch = gib, n
                 live.append(name)
+
         times: dict[str, list[float]] = {name: [] for name in live}
         for i in range(10 if n == 1 or part == "VFMs" else 4):
             for name in live if i % 2 == 0 else live[::-1]:
@@ -130,9 +135,11 @@ def timings(
                     times[name].append(event_ms(fn))
         for name in live:
             rows[name][part].ms = statistics.median(times[name])
+
         if "stock" in live:
             with config(model, "stock"):
                 rows["stock"][part].ideal = 1e3 * sol.flops(fn) / p.tensor
+
     for name in TIMED:
         with config(model, name):
             parts = {k: calls[k] for k in breakdown.PARTS}
@@ -141,12 +148,15 @@ def timings(
             )
 
 
-def errors(model: torch.nn.Module, rows: dict[str, Row], clips: list[Clip]) -> None:
+def errors(model: CorridorKeyV3, rows: dict[str, Row], clips: list[Clip]) -> None:
     """Stage rows on the reference's inputs (that stage alone); end to end chained. Set only once all fit."""
     got: list[list[Err]] = [[], [], []]
     for c in clips:
         x, f = c.x.cuda(), {k: c.ref[k].cuda() for k in ("cradio", "moge", "rvm")}
-        got[0] += per_frame(stage1(model, x, f), [c.ref["baton"], c.ref["aux"]])
+
+        baton, aux = stage1(model, x, f)
+        got[0] += per_frame([baton, aux], [c.ref["baton"], c.ref["aux"]])
+
         got[1] += per_frame(
             [stage2(model, x, c.ref["baton"].cuda())], [c.ref["logits"]]
         )
@@ -167,27 +177,34 @@ def main() -> None:
     a = ap.parse_args()
     torch.cuda.set_device(a.device)
     dev = torch.cuda.current_device()
+
     model = load_model(RuntimePaths.from_package(REPO, None), bf16_weights=False).cuda()
     keep_fp32(model)
     p = sol.peaks()
+
     rows: list[Row] = []
     shapes: dict[int, list[int]] = {}
+
     for tier in a.tiers:
         clips = [
             load(d, a.frames)
             for d in sorted((ROOT / "frames").glob(f"*/{tier}p"))[: a.clips]
         ]
         shapes[tier] = list(clips[0].x.shape[-2:])
+
         if not any(
             r.config == "stock" and r.stage.startswith(render.COMPONENTS) for r in rows
         ):
             rows += oom(functools.partial(component_rows, model, clips[0], p), [])
+
         reference(model, clips)
+
         tier_rows = {
             name: {part: Row(f"{part} {tier}p", name) for part in PARTS}
             for name in CONFIGS
         }
         oom(functools.partial(timings, model, tier_rows, clips[0], p), None)
+
         judged = [c for c in clips if c.ref]
         for name in CONFIGS:
             if judged:
@@ -195,6 +212,7 @@ def main() -> None:
                     oom(functools.partial(errors, model, tier_rows[name], judged), None)
             rows += tier_rows[name].values()
         torch.cuda.empty_cache()
+
     gpu = torch.cuda.get_device_name(dev)
     out = ROOT / "results" / f"{gpu.replace(' ', '_')}.json"
     out.parent.mkdir(exist_ok=True)
@@ -208,12 +226,14 @@ def main() -> None:
         "clips": a.clips,
         "frames": a.frames,
         "shapes": shapes,
+
         "weights_gib": sum(
             t.numel() * t.element_size()
             for t in [*model.parameters(), *model.buffers()]
         )
         / 2**30,
     }
+
     out.write_text(
         json.dumps({"meta": meta, "rows": [asdict(r) for r in rows]}, indent=1)
     )
