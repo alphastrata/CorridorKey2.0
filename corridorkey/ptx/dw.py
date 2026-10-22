@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import types
 
 import torch
 
 from corridorkey.blocks import DepthwiseSwiGLU2D, QKVDepthwiseSpatial
 
-from . import available, load
+from . import Arg, available, load
 
 K = 7
 CG, TH, TW = 32, 8, 16
@@ -24,7 +25,12 @@ def _taps(*convs: torch.nn.Conv2d) -> torch.Tensor:
 
 
 def _bias(*convs: torch.nn.Conv2d) -> torch.Tensor:
-    return torch.cat([c.bias.detach().float() for c in convs]).contiguous()
+    biases = []
+    for c in convs:
+        bias = c.bias
+        assert bias is not None, f"{c} must have a bias"
+        biases.append(bias.detach().float())
+    return torch.cat(biases).contiguous()
 
 
 def _shared(filters: int) -> int:
@@ -39,18 +45,35 @@ def _reflect(h: int, w: int) -> int:
     return int(h > K // 2 and w > K // 2)
 
 
-def swiglu(m: DepthwiseSwiGLU2D, x: torch.Tensor, add: bool = False) -> torch.Tensor:
-    """``m(x)`` (``x + m(x)`` with ``add``) for NHWC ``x``, contiguous, in ``x.dtype``."""
-    if not hasattr(m, "_ck"):
-        m._ck = (
+def _swiglu_ck(
+    m: DepthwiseSwiGLU2D,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    cached = getattr(m, "_ck", None)
+    if cached is None:
+        cached = (
             m.norm.weight.detach().float(),
             _taps(m.value, m.gate),
             _bias(m.value, m.gate),
             m.gamma.detach().float(),
         )
-    wn, taps, bias, gamma = m._ck
+        setattr(m, "_ck", cached)
+    return cached
+
+
+def _qkv_ck(m: QKVDepthwiseSpatial) -> tuple[torch.Tensor, torch.Tensor]:
+    cached = getattr(m, "_ck", None)
+    if cached is None:
+        cached = (_taps(m.dw), _bias(m.dw))
+        setattr(m, "_ck", cached)
+    return cached
+
+
+def swiglu(m: DepthwiseSwiGLU2D, x: torch.Tensor, add: bool = False) -> torch.Tensor:
+    """``m(x)`` (``x + m(x)`` with ``add``) for NHWC ``x``, contiguous, in ``x.dtype``."""
+    wn, taps, bias, gamma = _swiglu_ck(m)
     n, h, w, c = x.shape
     x = x.contiguous()
+
     mod = load("ck_dw", x.device.index)
     r = x.new_empty(n * h * w, dtype=torch.float32)
     sfx = SUFFIX[x.dtype]
@@ -60,21 +83,22 @@ def swiglu(m: DepthwiseSwiGLU2D, x: torch.Tensor, add: bool = False) -> torch.Te
         (256, 1, 1),
         [x.view(-1), r, r.numel(), c, float(m.norm.eps)],
     )
+
     out = torch.empty_like(x)
-    args = [x, r, wn, taps, bias, gamma, out, h, w, c, _reflect(h, w), int(add)]
+
+    args: list[Arg] = [x, r, wn, taps, bias, gamma, out, h, w, c, _reflect(h, w), int(add)]
     mod.launch(f"mix_{sfx}", _grid(n, h, w, c), (256, 1, 1), args, _shared(2))
     return out
 
 
 def qkv(m: QKVDepthwiseSpatial, y: torch.Tensor) -> torch.Tensor:
-    if not hasattr(m, "_ck"):
-        m._ck = (_taps(m.dw), _bias(m.dw))
-    taps, bias = m._ck
+    taps, bias = _qkv_ck(m)
     h, w, c = y.shape[-3:]
     y = y.contiguous()
     out = torch.empty_like(y)
     n = y.numel() // (h * w * c)
-    args = [y, taps, bias, out, h, w, c, _reflect(h, w)]
+
+    args: list[Arg] = [y, taps, bias, out, h, w, c, _reflect(h, w)]
     load("ck_dw", y.device.index).launch(
         "dw_bf16", _grid(n, h, w, c), (256, 1, 1), args, _shared(1)
     )
@@ -119,10 +143,14 @@ def patch(model: torch.nn.Module) -> int:
     """Swap the forward of every 7×7 depthwise branch; returns how many were patched."""
     if not available():
         return 0
-    fwd = {DepthwiseSwiGLU2D: _swiglu_forward, QKVDepthwiseSpatial: _qkv_forward}
+
+    fwd: dict[type, Callable] = {
+        DepthwiseSwiGLU2D: _swiglu_forward,
+        QKVDepthwiseSpatial: _qkv_forward,
+    }
     mods = [m for m in model.modules() if type(m) in fwd]
     for m in mods:
-        m.forward = types.MethodType(fwd[type(m)], m)
+        setattr(m, "forward", types.MethodType(fwd[type(m)], m))
     return len(mods)
 
 

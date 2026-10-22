@@ -20,9 +20,7 @@ from .video_io import (
     ExrSequenceWriter,
     ThreadedVideoWriter,
     WriterConfig,
-    apply_linear_adjust,
-    frame_paths,
-    has_linear_adjust,
+
     iter_frame_dir_chunks,
     iter_video_frame_chunks,
     load_initial_hint_frame,
@@ -109,6 +107,7 @@ class InferenceConfig:
     num_frames: int = -1
     start_mode: str = "begin"
     seed: int = 0
+
     low_vram: bool = False
     # Pick hann_chunk/hann_stride/low_vram per clip from free GPU memory.
     auto_vram: bool = False
@@ -118,6 +117,7 @@ class InferenceConfig:
     low_vram_swin_window_batch: int = 16
     low_vram_full_attn_query_chunk_tokens: int = 2048
     stage2_batch: int = 1
+
     outputs: set[str] = field(default_factory=lambda: {"alpha", "fg"})
     temp_dir: Path = Path(tempfile.gettempdir()) / "corridorkey_v2"
     linear_brightness: float = 1.0
@@ -140,6 +140,7 @@ _VRAM_PEAK_GB = {
         (3.93, (9.06, 14.78, 23.92, 33.19)),
         (8.36, (13.94, 25.96, 45.15, 70.45)),
     )),
+
     True: ((1, 2, 4, 8, 24, 48, 80), (
         (0.98, (2.71, 2.78, 2.94, 3.25, 4.54, 6.57, 9.50)),
         (2.21, (2.80, 2.97, 3.35, 4.12, 7.69, 13.20, 20.56)),
@@ -332,10 +333,12 @@ def precompute_rvm_to_memmap(model, source, meta, rvm_path: Path,
     h_e, w_e = H_e // 16, W_e // 16
     print(f"    RVM continuous prepass: T={T_all}, chunk={chunk}, "
           f"input={W_e}x{H_e}, grid={w_e}x{h_e}")
+
     out = np.memmap(rvm_path, dtype=np.float16, mode="w+",
                     shape=(T_all, D, h_e, w_e))
     mean = model.foundations.rvm_mean.view(1, 1, -1, 1, 1).float().cpu()
     std = model.foundations.rvm_std.view(1, 1, -1, 1, 1).float().cpu().clamp(min=1e-6)
+
     if reader_kind == "video":
         chunks = iter_video_frame_chunks(str(source), meta, chunk_size=chunk, need_model=False)
     else:
@@ -350,6 +353,7 @@ def precompute_rvm_to_memmap(model, source, meta, rvm_path: Path,
             future = pool.submit(_next_or_none, chunks)
             t0, _model, display = item
             Tc = display.shape[0]
+
             rgb = display.unsqueeze(0).to(device, non_blocking=True).float()
             rgb_rvm = F.interpolate(
                 rgb.reshape(Tc, 3, H, W), size=(H_e, W_e),
@@ -376,6 +380,7 @@ def precompute_foundations_to_memmap(model, source, meta, prefix: Path,
     C_moge = int(getattr(model.stage1, "moge_dim", 0) or 0)
     if C_moge <= 0:
         raise RuntimeError("MoGe is required for this model")
+
     paths = {
         "moge": str(prefix) + "_moge.f32",
         "moge_shape": (T_all, C_moge, h64, w64),
@@ -388,7 +393,9 @@ def precompute_foundations_to_memmap(model, source, meta, prefix: Path,
         paths["cradio_shape"] = (T_all, C_cradio, h64, w64)
         cradio_out = np.memmap(paths["cradio"], dtype=np.float32, mode="w+",
                                shape=paths["cradio_shape"])
+
     print(f"    frozen VFM prepass: T={T_all}, grid={w64}x{h64}, chunk={chunk}")
+
     if reader_kind == "video":
         chunks = iter_video_frame_chunks(str(source), meta, chunk_size=chunk, need_model=False)
     else:
@@ -402,6 +409,7 @@ def precompute_foundations_to_memmap(model, source, meta, prefix: Path,
             future = pool.submit(_next_or_none, chunks)
             t0, _model, display = item
             Tc = display.shape[0]
+
             rgb = display.unsqueeze(0).to(device, non_blocking=True)
             rgb_radio, rgb_moge = _build_foundation_inputs(rgb)
             with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -409,6 +417,7 @@ def precompute_foundations_to_memmap(model, source, meta, prefix: Path,
                     rgb_cradio=rgb_radio.reshape(Tc, 3, *rgb_radio.shape[-2:]),
                     rgb_moge=rgb_moge.reshape(Tc, 3, *rgb_moge.shape[-2:]),
                 )
+
             moge_out[t0:t0 + Tc] = ff["moge"].float().cpu().numpy()
             if cradio_out is not None:
                 cradio_out[t0:t0 + Tc] = ff["cradio"].float().cpu().numpy()
@@ -445,6 +454,7 @@ def _phase2_setup(model):
 def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
                        chunk: int, stride: int, baton_path: Path,
                        initial_hint, initial_hint_quality: float,
+
                        full_hint_video_path: str | None,
                        full_hint_quality: float,
                        rvm_path: Path | None,
@@ -453,13 +463,15 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
                        carry_hint_quality: float,
                        on_baton_frames):
     device = next(model.stage1.parameters()).device
+
     T_all = int(meta["num_frames"])
     H, W = meta["shape_hw"]
     d_16 = model.stage1.d_16
     h16, w16 = H // 16, W // 16
     starts = window_starts(T_all, chunk, stride)
     overlap = max(0, chunk - stride)
-    baton_fp16 = None
+
+    baton_fp16: np.memmap | None = None
     if on_baton_frames is None:
         baton_fp16 = np.memmap(baton_path, dtype=np.float16, mode="w+",
                                shape=(T_all, d_16, h16, w16))
@@ -490,8 +502,8 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
         ready = []
         for k in sorted(k for k in live_acc if k < t_limit):
             frame = (live_acc.pop(k) / max(live_w.pop(k), 1e-6)).astype(np.float16)
-            if on_baton_frames is None:
-                baton_fp16[k] = frame
+            if (mm := baton_fp16) is not None:
+                mm[k] = frame
             else:
                 model_frame = stage2_frame_cache.pop(k)
                 ready.append((k, frame, model_frame))
@@ -503,6 +515,7 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
             t1 = min(t0 + chunk, T_all)
             Tc = t1 - t0
             model_chunk, display_chunk, review_chunk = reader.window(t0, t1)
+
             hint_cpu = torch.zeros(1, Tc, 1, H, W, dtype=torch.bfloat16)
             hint_quality_cpu = torch.zeros(1, Tc, dtype=torch.bfloat16)
             hint_present = torch.zeros(1, Tc, dtype=torch.bool)
@@ -515,6 +528,7 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
                     hint_cpu[0, j] = carry_cache[t_abs]
                     hint_quality_cpu[0, j] = float(carry_hint_quality)
                     hint_present[0, j] = True
+
             if initial_hint is not None and t0 == 0:
                 hint_cpu[0, 0] = initial_hint.to(dtype=hint_cpu.dtype)
                 hint_quality_cpu[0, 0] = float(initial_hint_quality)
@@ -529,6 +543,7 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
             rgb_c = model_chunk.unsqueeze(0).to(device, non_blocking=True)
             hint_c = hint_cpu.to(device, non_blocking=True)
             hint_quality_c = hint_quality_cpu.to(device, non_blocking=True)
+
             ff = rgb_radio = rgb_moge = None
             if foundation_paths is None:
                 rgb_found = display_chunk.unsqueeze(0).to(device, non_blocking=True)
@@ -541,20 +556,25 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
                 cradio_feat = ff["cradio"].reshape(1, Tc, -1, H // 64, W // 64)
                 moge_feat = ff["moge"].reshape(1, Tc, -1, H // 64, W // 64)
             else:
+                assert moge_map is not None, "moge features were not precomputed"
                 moge_feat = torch.from_numpy(np.asarray(moge_map[t0:t1]).copy())
                 moge_feat = moge_feat.unsqueeze(0).to(device, non_blocking=True).float()
+
+                assert cradio_map is not None, "cradio features were not precomputed"
                 cradio_feat = torch.from_numpy(np.asarray(cradio_map[t0:t1]).copy())
                 cradio_feat = cradio_feat.unsqueeze(0).to(device, non_blocking=True).float()
             rvm_feat = None
             if rvm_map is not None:
                 rvm_feat = torch.from_numpy(np.asarray(rvm_map[t0:t1]).copy())
                 rvm_feat = rvm_feat.unsqueeze(0).to(device, non_blocking=True).float()
+
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 s1 = model.stage1(
                     rgb_c, hint_c, moge_feat, cradio_feat=cradio_feat,
                     rvm_feat=rvm_feat, t_stride=1.0,
                     hint_quality=hint_quality_c,
                 )
+
             baton_gpu = s1["baton"][0].float()
             if carry_hint_from_aux:
                 aux_alpha = s1["aux"][0, :, 0:1].float()
@@ -568,11 +588,13 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
                 for old_t in [k for k in carry_cache if k < next_start]:
                     del carry_cache[old_t]
                 del aux_alpha, aux_full, aux_cpu
+
             w = taper_weights(Tc, overlap, is_first=(i == 0),
                               is_last=(i == len(starts) - 1),
                               device="cpu", dtype=torch.float32)
             weighted = (baton_gpu * w.to(device).view(Tc, 1, 1, 1)).to("cpu").numpy()
             w_np = w.numpy()
+
             for j, t_abs in enumerate(range(t0, t1)):
                 if t_abs not in live_acc:
                     live_acc[t_abs] = weighted[j].copy()
@@ -584,6 +606,7 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
             del s1, baton_gpu, weighted, ff, cradio_feat, moge_feat, rvm_feat
             del rgb_c, hint_c, hint_quality_c, hint_cpu, hint_quality_cpu
             del model_chunk, display_chunk, review_chunk
+
             flush_before(next_start)
             print(f"      window {i + 1}/{len(starts)} [{t0}:{t1}]", flush=True)
         torch.cuda.synchronize()
@@ -595,7 +618,6 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
 
     if baton_fp16 is not None:
         baton_fp16.flush()
-    del baton_fp16, live_acc, live_w, rvm_map, cradio_map, moge_map
     torch.cuda.empty_cache()
 
 
@@ -693,6 +715,7 @@ def _render_predictions_exr_torch(meta: dict, outputs: set[str],
         pf_linear_despilled = _despill_average_srgb_torch(
             pf_linear, strength=despill_strength)
         rendered["cutout"] = _chw_to_bgra_f32_cpu(pf_linear_despilled, pa)
+
     if "checker" in outputs:
         checker_b = checker.to(device=pf_linear.device,
                                dtype=pf_linear.dtype).unsqueeze(0)
@@ -728,6 +751,7 @@ def _render_predictions_torch(meta: dict, outputs: set[str],
     pf_linear = _linear_adjust_inverse_torch(cu.asinh_to_linear(pf_model), meta)
     pf_linear_pos = pf_linear.clamp(min=0.0)
     pf = _resize_output_torch(cu.linear_to_srgb(pf_linear_pos), meta).clamp(0.0, 1.0)
+
     if "fg" in outputs:
         rendered["fg"] = _srgb_to_bgr_uint16_cpu(pf)
     if "cutout" in outputs:
@@ -738,6 +762,7 @@ def _render_predictions_torch(meta: dict, outputs: set[str],
         else:
             pf_despill = _despill_average_srgb_torch(pf, strength=despill_strength)
             rendered["cutout"] = _srgb_to_bgra_uint16_cpu(pf_despill, pa)
+
     if "checker" in outputs:
         checker_b = checker.to(device=pf.device, dtype=pf.dtype).unsqueeze(0)
         bg_lin = cu.srgb_to_linear(checker_b)
@@ -761,6 +786,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
     is_dir = os.path.isdir(input_path)
     reader_kind = "frame_dir" if is_dir else "video"
     reader_cls = SequentialFrameDirWindowReader if is_dir else SequentialVideoWindowReader
+
     if is_dir:
         meta = probe_frame_dir_meta(
             input_path, num_frames=cfg.num_frames,
@@ -772,6 +798,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
             print("  [WARNING] EXR input frames are being treated as "
                   "display-coded and clipped to [0, 1]. For scene-linear HDR "
                   "EXR plates, pass --frame_dir_linear.")
+
     else:
         meta = probe_video_meta(
             input_path, num_frames=cfg.num_frames,
@@ -781,6 +808,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
             linear_brightness=cfg.linear_brightness,
             linear_contrast=cfg.linear_contrast,
             linear_contrast_pivot=cfg.linear_contrast_pivot)
+
     T_all = int(meta["num_frames"])
     H, W = meta["shape_hw"]
     if cfg.auto_vram:
@@ -788,6 +816,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
     H_out, W_out = meta["output_hw"]
     meta["cutout_linear"] = cfg.cutout_linear
     meta["despill_strength"] = cfg.despill_strength
+
     fps = float(meta["native_fps"])
     clip_name = raw_clip_name(input_path)
     checker = make_checker(H_out, W_out)
@@ -799,6 +828,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
         "checker": f"checker_comp_despill{int(cfg.despill_strength * 100):03d}",
         "cutout": "cutout",
     }
+
     try:
         use_exr = cfg.output_format == "exr"
         if cfg.output_format not in ("video", "exr"):
@@ -806,6 +836,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
         for name in sorted(cfg.outputs):
             if name not in suffix:
                 raise ValueError(f"unsupported output choice: {name}")
+
             if use_exr:
                 channels = 4 if name == "cutout" else (1 if name == "alpha" else 3)
                 writers[name] = ExrSequenceWriter(
@@ -822,10 +853,11 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
 
         # Write settings log file in the output folder
         settings_path = os.path.join(output_dir, f"{clip_name}_settings.txt")
+
         try:
             with open(settings_path, "w") as sf:
-                sf.write(f"CorridorKey v2 Inference Settings Log\n")
-                sf.write(f"====================================\n")
+                sf.write("CorridorKey v2 Inference Settings Log\n")
+                sf.write("====================================\n")
                 sf.write(f"Input: {input_path}\n")
                 sf.write(f"Output Directory: {output_dir}\n")
                 sf.write(f"Resolution: {W_out}x{H_out}\n")
@@ -837,6 +869,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
                 sf.write(f"Hint First Frame: {initial_hint_path}\n")
                 sf.write(f"Hint Video: {hint_video_path}\n")
                 sf.write(f"Hint Quality (Trust): {cfg.hint_quality}\n")
+
                 sf.write(f"Carry Hint: {cfg.carry_hint}\n")
                 sf.write(f"Carry Hint Quality: {cfg.carry_hint_quality}\n")
                 sf.write(f"Despill Strength: {cfg.despill_strength}\n")
@@ -845,6 +878,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
                 sf.write(f"Hann Chunk: {cfg.hann_chunk}\n")
                 sf.write(f"Hann Stride: {cfg.hann_stride}\n")
                 sf.write(f"Low VRAM: {cfg.low_vram}\n")
+
                 sf.write(f"Model Scale: {cfg.model_scale}\n")
                 sf.write(f"Num Frames: {cfg.num_frames}\n")
                 sf.write(f"Start Mode: {cfg.start_mode}\n")
@@ -855,13 +889,14 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
         except Exception as e:
             print(f"[WARNING] Failed to write settings file: {e}")
 
+        hint_in = none_path(initial_hint_path)
         initial_hint = (
-            load_initial_hint_frame(initial_hint_path, meta)
-            if none_path(initial_hint_path) is not None else None
+            load_initial_hint_frame(hint_in, meta) if hint_in is not None else None
         )
         _phase1_setup(model, stage1_on_gpu=not cfg.low_vram)
         if cfg.low_vram:
             configure_low_vram_inference(model, cfg)
+
         rvm_path = cfg.temp_dir / f"{clip_name}_rvm_feat.f16"
         baton_path = cfg.temp_dir / f"{clip_name}_baton.f16"
         foundation_prefix = cfg.temp_dir / f"{clip_name}_foundation"
@@ -870,6 +905,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
             Path(str(foundation_prefix) + "_moge.f32"),
         ):
             safe_remove(p)
+
         if model.foundations.rvm is not None:
             precompute_rvm_to_memmap(
                 model, input_path, meta, rvm_path,
@@ -878,6 +914,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
             rvm_feat_path = rvm_path
         else:
             rvm_feat_path = None
+
         foundation_paths = None
         if cfg.low_vram:
             foundation_paths = precompute_foundations_to_memmap(
@@ -904,6 +941,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
                 baton_np = np.stack([item[1] for item in sub], axis=0)
                 baton_t = torch.from_numpy(baton_np).unsqueeze(0)
                 baton_t = baton_t.to(device, non_blocking=True).float()
+
                 with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
                     logits = model.stage2(rgb_t, baton_t)
                     if isinstance(logits, tuple):
@@ -932,6 +970,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
             baton = np.memmap(
                 baton_path, dtype=np.float16, mode="r",
                 shape=(T_all, model.stage1.d_16, H // 16, W // 16))
+
             reader = reader_cls(input_path, meta)
             try:
                 for t0 in range(0, T_all, stage2_batch):
@@ -943,6 +982,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
                     ]
                     write_prediction_batches(items)
                     del model_chunk, _display_chunk, _review_chunk, items
+
             finally:
                 reader.close()
                 del baton

@@ -32,6 +32,7 @@ def extract(clip: Path, tier: int, w: int, h: int, duration: float) -> None:
     dest = OUT / clip.stem / f"{tier}p"
     if len(list(dest.glob("*.png"))) == FRAMES:
         return
+
     dest.mkdir(parents=True, exist_ok=True)
     scale = f"scale=-2:{tier}" if h <= w else f"scale={tier}:-2"
     subprocess.run(
