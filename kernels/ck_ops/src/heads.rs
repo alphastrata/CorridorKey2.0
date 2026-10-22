@@ -2,13 +2,15 @@
 //! windows of `wh × ww` (all `t`) are numbered `(b, wy, wx)` and their tokens `(t, iy, ix)`: Swin windows, `CSwin`
 //! strips (`gh × 1`, `1 × gw`) or the whole grid. Padding tokens split to zeros and merge nowhere.
 //! `split`: bf16 `qkv [tokens, 3, heads, D]` → bf16 `q`, `k`, `v [windows, hc, N, D]` for heads `head0..head0 + hc`,
-//! `mode` bit 0 RMS-norming q and k by `qw`/`kw [D]`, bit 1 rotating them by f32 `cos`/`sin [N, D / 2]`; one thread
-//! per (window, head, token). `merge`: `out[token, head · D + d] = o · sigmoid(gate[token, head])`, bf16.
+//! `mode` bit 0 RMS-norming q and k by `qw`/`kw [D]`, bit 1 rotating them by f32 `cos`/`sin [N, D / 2]`; one warp
+//! per (window, head, token), eight to a block of 256. `merge`: `out[token, head · D + d] = o · sigmoid(gate[token,
+//! head])`, bf16.
 
 use crate::{bf, gid, rn, sigmoid};
 use ptx::kernel;
 use ptx::prelude::*;
 use ptx::slice::{GpuSlice, GpuSliceMut};
+use ptx::warp_ops::shfl_bfly_sync_b32;
 
 #[derive(Clone, Copy)]
 struct Windows {
@@ -53,26 +55,40 @@ impl Windows {
     }
 }
 
+/// A lane's `RoPE` pairs of a `d`-wide head: `lane` and `lane + 32`, where they exist.
+fn pairs(lane: usize, d: usize) -> impl Iterator<Item = usize> {
+    [lane, lane + 32].into_iter().filter(move |&j| j < d / 2)
+}
+
+fn warp_sum(v: f32) -> f32 {
+    [16, 8, 4, 2, 1].into_iter().fold(v, |acc, m| {
+        acc + f32::from_bits(shfl_bfly_sync_b32(acc.to_bits(), m, 0x1f))
+    })
+}
+
+/// One head row `src[from..from + d]` by a warp: RMS-normed by `norm` (every lane joins the sum), rotated by
+/// `rope`, written at `dst[to..]`.
 fn head(
     src: GpuSlice<u16>,
     from: usize,
     norm: Option<GpuSlice<f32>>,
     rope: Option<(GpuSlice<f32>, GpuSlice<f32>, usize)>,
-    eps: f32,
+    (eps, d, lane): (f32, usize, usize),
     dst: &mut GpuSliceMut<u16>,
     to: usize,
-    d: usize,
 ) {
+    let pair = |j: usize| (bf(src[from + 2 * j]), bf(src[from + 2 * j + 1]));
     let inv = norm.map_or(1.0, |_| {
-        let sq = (0..d).fold(0.0f32, |acc, j| {
-            let v = bf(src[from + j]);
-            v.fma_rn(v, acc)
+        let sq = pairs(lane, d).fold(0.0f32, |acc, j| {
+            let (x0, x1) = pair(j);
+            x1.fma_rn(x1, x0.fma_rn(x0, acc))
         });
-        (sq / d as f32 + eps).rsqrt()
+        (warp_sum(sq) / d as f32 + eps).rsqrt()
     });
-    let val = |j: usize| bf(src[from + j]) * inv * norm.map_or(1.0, |w| w[j]);
-    (0..d / 2).for_each(|j| {
-        let (even, odd) = (val(2 * j), val(2 * j + 1));
+    let scale = |i: usize| inv * norm.map_or(1.0, |w| w[i]);
+    pairs(lane, d).for_each(|j| {
+        let (x0, x1) = pair(j);
+        let (even, odd) = (x0 * scale(2 * j), x1 * scale(2 * j + 1));
         let (a, b) = rope.map_or((even, odd), |(cos, sin, at)| {
             let (c, s) = (cos[at + j], sin[at + j]);
             (even * c - odd * s, even * s + odd * c)
@@ -119,34 +135,26 @@ pub fn split(
         ww,
     };
     let n = win.tokens();
-    let i = gid();
+    let (i, lane) = (gid() / 32, thread_idx_x() as usize % 32);
     if i >= windows as usize * hc * n {
         return;
     }
     let (tok, hh, w) = (i % n, i / n % hc, i / (n * hc));
     let Some(g) = win.grid(w, tok) else {
-        (0..d).for_each(|j| {
-            q.set(i * d + j, 0);
-            k.set(i * d + j, 0);
-            v.set(i * d + j, 0);
+        pairs(lane, d).flat_map(|j| [2 * j, 2 * j + 1]).for_each(|e| {
+            q.set(i * d + e, 0);
+            k.set(i * d + e, 0);
+            v.set(i * d + e, 0);
         });
         return;
     };
     let row = g * 3 * heads * d + (head0 + hh) * d;
     let norm = mode & 1 != 0;
     let rope = (mode & 2 != 0).then_some((cos, sin, tok * d / 2));
-    head(qkv, row, norm.then_some(qw), rope, eps, &mut q, i * d, d);
-    head(
-        qkv,
-        row + heads * d,
-        norm.then_some(kw),
-        rope,
-        eps,
-        &mut k,
-        i * d,
-        d,
-    );
-    head(qkv, row + 2 * heads * d, None, None, eps, &mut v, i * d, d);
+    let geo = (eps, d, lane);
+    head(qkv, row, norm.then_some(qw), rope, geo, &mut q, i * d);
+    head(qkv, row + heads * d, norm.then_some(kw), rope, geo, &mut k, i * d);
+    head(qkv, row + 2 * heads * d, None, None, geo, &mut v, i * d);
 }
 
 #[kernel]
