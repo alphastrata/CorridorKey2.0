@@ -1,0 +1,12 @@
+[default]
+locale = "en-gb"
+
+[default.extend-words]
+flavor = "flavor"
+setp = "setp"
+iy = "iy"
+# torch / CUDA API names
+synchronize  = "synchronize"
+
+[files]
+extend-exclude = ["target", "bench/footage", "bench/frames"]
