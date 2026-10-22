@@ -1,6 +1,7 @@
 //! `resize`: f32 planes `[planes, h, w]` → `[planes, oh, ow]`, as `F.interpolate` without antialias and
 //! `align_corners = False`: `mode` 0 area (adaptive average), 1 bilinear, 2 bicubic (`A = −0.75`), source
-//! coordinate `(o + ½) · scale − ½`. Then `(v − mean[ch]) / std[ch]` with `ch = plane % c`.
+//! coordinate `(o + ½) · scale − ½`. Then `(v − mean[ch]) / std[ch]` with `ch = plane % c`,
+//! clamped to `[lo, hi]`.
 
 use crate::gid;
 use ptx::kernel;
@@ -70,6 +71,8 @@ pub fn resize(
     scale_y: f32,
     scale_x: f32,
     mode: u32,
+    lo: f32,
+    hi: f32,
 ) {
     let i = gid();
     let [planes, c, h, w, oh, ow] = [planes, c, h, w, oh, ow].map(|v| v as usize);
@@ -87,5 +90,5 @@ pub fn resize(
         1 => bilinear(x, base, (h, w), src),
         _ => bicubic(x, base, (h, w), src),
     };
-    out.set(i, (v - mean[p % c]) / std[p % c]);
+    out.set(i, ((v - mean[p % c]) / std[p % c]).clamp(lo, hi));
 }
