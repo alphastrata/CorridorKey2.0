@@ -9,6 +9,8 @@ use ptx::prelude::*;
 mod conv;
 mod elem;
 mod heads;
+mod resize;
+mod vit;
 
 pub(crate) fn gid() -> usize {
     block_idx_x() as usize * 256 + thread_idx_x() as usize
