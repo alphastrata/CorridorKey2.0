@@ -37,12 +37,18 @@ struct Args {
     /// scale of the frames the model sees, by Lanczos-4 (outputs stay native)
     #[argh(option, default = "1.0")]
     model_scale: f64,
-    /// frames per stage-1 window (default: the largest that fits free GPU memory, up to 80)
-    #[argh(option)]
+    /// frames per stage-1 window, or `auto` to pick it (and the stride) per clip from free GPU memory
+    #[argh(option, default = "Some(80)", from_str_fn(window))]
     chunk: Option<usize>,
-    /// frames between window starts (default: half the window)
-    #[argh(option)]
-    stride: Option<usize>,
+    /// frames between window starts
+    #[argh(option, default = "40")]
+    stride: usize,
+    /// model frames are padded to multiples of this
+    #[argh(option, default = "128")]
+    quantum: usize,
+    /// frames per foundation-model batch
+    #[argh(option, default = "8")]
+    vfm_batch: usize,
     /// do not carry each window's alpha into the next as a hint
     #[argh(switch)]
     no_carry: bool,
@@ -114,6 +120,16 @@ fn outputs(list: &str) -> Result<Vec<Output>> {
         .collect()
 }
 
+fn window(s: &str) -> Result<Option<usize>, String> {
+    match s {
+        "auto" => Ok(None),
+        n => match n.parse() {
+            Ok(0) | Err(_) => Err(format!("--chunk wants a positive frame count or `auto`, got {n:?}")),
+            Ok(n) => Ok(Some(n)),
+        },
+    }
+}
+
 fn exr(s: &str) -> Result<Exr> {
     match s {
         "half" => Ok(Exr::Half),
@@ -139,14 +155,17 @@ fn main() -> Result<()> {
         a.device.clone()
     };
     let chunk = a.chunk.unwrap_or(80);
+    ensure!((1..=chunk).contains(&a.stride), "want 0 < stride <= chunk");
+    ensure!(a.quantum > 0 && a.quantum % 64 == 0, "--quantum must be a multiple of 64");
+    ensure!(a.vfm_batch > 0, "--vfm-batch must be positive");
     let cfg = Config {
         chunk,
-        stride: a.stride.unwrap_or(chunk / 2).max(1),
-        auto: a.chunk.is_none() && a.stride.is_none(),
+        stride: a.stride,
+        auto: a.chunk.is_none(),
         carry: !a.no_carry,
         hint_quality: a.hint_quality,
         carry_quality: a.carry_quality,
-        quantum: 128,
+        quantum: a.quantum,
         scale: a.model_scale,
         frames: a.frames,
         dir_fps: a.fps,
@@ -169,7 +188,7 @@ fn main() -> Result<()> {
             pix_fmt: a.pix_fmt,
             threads: a.threads,
         },
-        vfm_batch: 8,
+        vfm_batch: a.vfm_batch,
     };
     let hints = Hints {
         first: a.hint,
