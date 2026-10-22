@@ -14,7 +14,7 @@ use cudarc::nvrtc::Ptx;
 use eyre::{Context, OptionExt, Result};
 
 pub use gemm::{Epilogue, Gemm};
-pub use tensor::{Dtype, Tensor};
+pub use tensor::{Dtype, Meter, Tensor};
 
 /// One kernel argument as the PTX entries take them: a buffer (pointer, element count), a `u32` or an `f32`.
 #[derive(Clone, Copy)]
@@ -50,6 +50,7 @@ pub struct Gpu {
     functions: RefCell<HashMap<(String, String), CudaFunction>>,
     biases: RefCell<HashMap<(u64, Dtype), Tensor>>,
     lt: gemm::Lt,
+    pub meter: Arc<Meter>,
 }
 
 impl Gpu {
@@ -82,6 +83,7 @@ impl Gpu {
             functions: RefCell::default(),
             biases: RefCell::default(),
             lt,
+            meter: Arc::default(),
         })
     }
 
