@@ -55,6 +55,15 @@ impl Conv {
     pub fn out(self, n: usize) -> usize {
         (n + 2 * self.p - self.k) / self.s + 1
     }
+
+    /// The transposed convolution's output size from `(th, tw)` taps.
+    #[must_use]
+    pub fn inverse(self, th: usize, tw: usize) -> (usize, usize) {
+        (
+            (th - 1) * self.s + self.k - 2 * self.p,
+            (tw - 1) * self.s + self.k - 2 * self.p,
+        )
+    }
 }
 
 /// `x` f32 `[n, c, h, w]` (or `[n, h, w, c]` with `nhwc`) → bf16 patches `[n · oh · ow, c · k · k]`.
@@ -89,19 +98,28 @@ pub fn col2im(
     (n, c, th, tw): (usize, usize, usize, usize),
     conv: Conv,
 ) -> Result<Tensor> {
-    let (oh, ow) = (
-        (th - 1) * conv.s + conv.k - 2 * conv.p,
-        (tw - 1) * conv.s + conv.k - 2 * conv.p,
-    );
+    let (oh, ow) = conv.inverse(th, tw);
     let out = gpu.empty(&[n, c, oh, ow], Dtype::F32)?;
+    col2im_into(gpu, cols, bias, conv, &out)?;
+    Ok(out)
+}
+
+/// [`col2im`] into `out [n, c, oh, ow]`.
+///
+/// # Errors
+/// On a launch failure.
+pub fn col2im_into(gpu: &Gpu, cols: &Tensor, bias: &Tensor, conv: Conv, out: &Tensor) -> Result<()> {
+    let [n, c, oh, ow] = out.shape[..] else {
+        eyre::bail!("col2im wants [n, c, oh, ow]")
+    };
+    let (th, tw) = (conv.out(oh), conv.out(ow));
     let dims = [n, c, th, tw, conv.k, conv.s, conv.p, oh, ow].map(Arg::from);
     ops(
         gpu,
         "col2im",
         out.numel(),
-        &[[cols.into(), bias.into(), (&out).into()].as_slice(), &dims].concat(),
-    )?;
-    Ok(out)
+        &[[cols.into(), bias.into(), out.into()].as_slice(), &dims].concat(),
+    )
 }
 
 /// NHWC pixel shuffle `[n, h, w, c · r²]` → `[n, h · r, w · r, c]`, f32.

@@ -275,12 +275,13 @@ impl Clip<'_> {
         let inputs = Inputs {
             b: 1,
             t,
-            x: &x,
+            x,
             quality: &quality,
             features: [&feats[0], &feats[1], &feats[2]],
         };
         mem(self.gpu, "inputs");
-        let out = self.m.s1.forward(self.gpu, &self.m.cache, &inputs)?;
+        let out = self.m.s1.forward(self.gpu, &self.m.cache, inputs)?;
+        drop((feats, quality));
         let baton = out.baton.reshape(&[t, out.baton.numel() / t])?;
         let weights = taper(t, self.cfg.chunk.saturating_sub(self.cfg.stride), first, last);
         (0..t).try_for_each(|j| -> Result<()> {
@@ -299,12 +300,12 @@ impl Clip<'_> {
             Ok(())
         })?;
         mem(self.gpu, "blend");
-        self.flush(next, &x, t0)?;
+        self.flush(next)?;
         mem(self.gpu, "stage 2");
         Ok(())
     }
 
-    fn flush(&mut self, limit: usize, x: &Tensor, t0: usize) -> Result<()> {
+    fn flush(&mut self, limit: usize) -> Result<()> {
         let (g, ready): (Geometry, Vec<usize>) = (self.g, self.frames.range(..limit).map(|(k, _)| *k).collect());
         ready.into_iter().try_for_each(|k| {
             let f = self.frames.remove(&k).ok_or_eyre("frame gone")?;
@@ -312,7 +313,17 @@ impl Clip<'_> {
                 .acc
                 .ok_or_eyre("frame never blended")?
                 .reshape(&[1, g.h / 16, g.w / 16, 512])?;
-            let rgb = x.rows(k - t0, 1)?.at(0, &[1, 3, g.h, g.w])?;
+            let rgb = self.gpu.empty(&[1, 3, g.h, g.w], Dtype::F32)?;
+            let raw = upload(self.gpu, &[&f.raw], &[1, 3 * g.hn * g.wn], self.pix)?;
+            frame::prep(
+                self.gpu,
+                &raw,
+                &rgb,
+                g,
+                3 * g.h * g.w,
+                Encoding::Model,
+                self.cfg.input(),
+            )?;
             let baton = Baton::Nhwc(&acc, 1.0 / f.weight.max(1e-6));
             let logits = self.m.s2.forward(self.gpu, &self.m.cache, &rgb, baton)?;
             self.writers.iter().try_for_each(|&(o, ref w)| {

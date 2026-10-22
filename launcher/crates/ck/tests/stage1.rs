@@ -61,11 +61,11 @@ fn stage1_720() -> Result<()> {
     let inputs = Inputs {
         b: 1,
         t: x.shape[0],
-        x: &x,
+        x,
         quality: &quality,
         features: [&cradio, &moge, &rvm],
     };
-    let out = s1.forward(&gpu, &cache, &inputs)?;
+    let out = s1.forward(&gpu, &cache, inputs)?;
     let [_, _, h, w, c] = out.baton.shape[..] else {
         eyre::bail!("baton shape")
     };

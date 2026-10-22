@@ -13,6 +13,11 @@ const DOWN: Conv = Conv { k: 8, s: 4, p: 2 };
 const SMOOTH: Conv = Conv { k: 3, s: 1, p: 1 };
 const AUX: Conv = Conv { k: 16, s: 8, p: 4 };
 
+/// Bytes of encoder transients (about 18 bytes a channel a token) one pass may hold; more frames go in turns.
+const ENC_BYTES: usize = 1 << 30;
+/// Bytes of aux columns one pass may hold.
+const AUX_BYTES: usize = 512 << 20;
+
 type Pair = (Tensor, Tensor);
 
 /// `Upsample4ICNR`: 1×1 projection, pixel shuffle by 4, plus a residual 3×3 smoothing.
@@ -69,12 +74,12 @@ impl Fuse {
     }
 }
 
-/// One window's inputs: `x [b · t, 4, H, W]` (RGB, hint), `quality [b · t]`, and NCHW f32 foundation features
-/// at /64, concatenated in this order.
+/// One window's inputs: `x [b · t, 4, H, W]` (RGB, hint; freed once patchified), `quality [b · t]`, and NCHW f32
+/// foundation features at /64, concatenated in this order.
 pub struct Inputs<'a> {
     pub b: usize,
     pub t: usize,
-    pub x: &'a Tensor,
+    pub x: Tensor,
     pub quality: &'a Tensor,
     pub features: [&'a Tensor; 3],
 }
@@ -166,20 +171,17 @@ impl Stage1 {
         self.enc.iter().chain(&self.body).chain(&self.mid).chain(&self.dec)
     }
 
-    /// # Errors
-    /// On a launch or GEMM failure.
-    pub fn forward(&self, gpu: &Gpu, cache: &Cache, i: &Inputs) -> Result<Outputs> {
-        let [frames, _, hh, ww] = i.x.shape[..] else {
+    /// The stem patches `[frames, h16, w16, d16]` and the encoder's output over them, a few frames at a time.
+    fn encode(&self, gpu: &Gpu, cache: &Cache, x: Tensor, quality: &Tensor) -> Result<(Tensor, Tensor)> {
+        let [frames, _, hh, ww] = x.shape[..] else {
             eyre::bail!("x wants [b · t, 4, H, W]")
         };
-        let (h16, w16, h64, w64) = (hh / 16, ww / 16, hh / 64, ww / 64);
+        let (h16, w16) = (hh / 16, ww / 16);
         let d16 = self.stem.0.shape[0];
-        let d64 = self.fuse.short.0.shape[0];
-        let grid16 = [i.b, i.t, h16, w16, d16];
-        let patch = gpu.empty(&grid16, Dtype::F32)?;
+        let patch = gpu.empty(&[frames, h16, w16, d16], Dtype::F32)?;
         ops::conv(
             gpu,
-            i.x,
+            &x,
             false,
             STEM,
             (&self.stem.0, &self.stem.1),
@@ -190,16 +192,64 @@ impl Stage1 {
                 accumulate: false,
             },
         )?;
+        drop(x);
         ops::mem(gpu, "stem");
-        let enc = self
-            .enc
-            .iter()
-            .try_fold(gpu.copy(&patch)?, |x, b| b.forward(gpu, cache, &x, Some(i.quality)))?;
+        let enc = gpu.copy(&patch)?;
+        let step = (ENC_BYTES / (h16 * w16 * d16 * 18)).clamp(1, frames);
+        (0..frames).step_by(step).try_for_each(|f| {
+            let n = step.min(frames - f);
+            let x = enc.rows(f, n)?.reshape(&[1, n, h16, w16, d16])?;
+            let q = quality.rows(f, n)?;
+            self.enc
+                .iter()
+                .try_fold(x, |x, b| b.forward(gpu, cache, &x, Some(&q)))
+                .map(drop)
+        })?;
+        Ok((patch, enc))
+    }
+
+    /// Aux logits `[frames, 4, h2, w2]` from the baton, a few frames at a time.
+    fn aux(&self, gpu: &Gpu, baton: &Tensor, (h16, w16): (usize, usize)) -> Result<Tensor> {
+        let d16 = *baton.shape.last().unwrap_or(&0);
+        let frames = baton.numel() / (h16 * w16 * d16);
+        let (h2, w2) = AUX.inverse(h16, w16);
+        let aux = gpu.empty(&[frames, 4, h2, w2], Dtype::F32)?;
+        let taps = self.aux.0.shape[0];
+        let rows = baton.reshape(&[frames, h16 * w16, d16])?;
+        let step = (AUX_BYTES / (h16 * w16 * taps * 4)).clamp(1, frames);
+        (0..frames).step_by(step).try_for_each(|f| {
+            let n = step.min(frames - f);
+            let cols = gpu.empty(&[n * h16 * w16, taps], Dtype::F32)?;
+            gpu.linear(&ops::to_half(gpu, &rows.rows(f, n)?)?, &self.aux.0, None, &cols, false)?;
+            ops::col2im_into(gpu, &cols, &self.aux.1, AUX, &aux.rows(f, n)?)
+        })?;
+        Ok(aux)
+    }
+
+    /// # Errors
+    /// On a launch or GEMM failure.
+    pub fn forward(&self, gpu: &Gpu, cache: &Cache, i: Inputs) -> Result<Outputs> {
+        let Inputs {
+            b,
+            t,
+            x,
+            quality,
+            features,
+        } = i;
+        let [frames, _, hh, ww] = x.shape[..] else {
+            eyre::bail!("x wants [b · t, 4, H, W]")
+        };
+        let (h16, w16, h64, w64) = (hh / 16, ww / 16, hh / 64, ww / 64);
+        let d16 = self.stem.0.shape[0];
+        let d64 = self.fuse.short.0.shape[0];
+        let grid16 = [b, t, h16, w16, d16];
+        let (patch, enc) = self.encode(gpu, cache, x, quality)?;
+        let (patch, enc) = (patch.into_shape(&grid16)?, enc.into_shape(&grid16)?);
 
         ops::mem(gpu, "enc");
-        let vfm: usize = i.features.iter().map(|f| f.shape[1]).sum();
+        let vfm: usize = features.iter().map(|f| f.shape[1]).sum();
         let combined = gpu.empty(&[frames, h64, w64, vfm + d16], Dtype::F32)?;
-        i.features.iter().try_fold(0, |off, f| {
+        features.iter().try_fold(0, |off, f| {
             ops::to_nhwc(gpu, f, &combined, (vfm + d16, off)).map(|()| off + f.shape[1])
         })?;
         let enc_frames = enc.reshape(&[frames, h16, w16, d16])?;
@@ -216,7 +266,8 @@ impl Stage1 {
                 accumulate: false,
             },
         )?;
-        let f64 = self.fuse.forward(gpu, &combined)?.reshape(&[i.b, i.t, h64, w64, d64])?;
+        let f64 = self.fuse.forward(gpu, &combined)?.into_shape(&[b, t, h64, w64, d64])?;
+        drop(combined);
 
         ops::mem(gpu, "fuse");
         let split = self.body.len() / 2;
@@ -226,10 +277,11 @@ impl Stage1 {
         ops::mem(gpu, "body");
         let mid = self.mid_up.forward(gpu, &f64.reshape(&[frames, h64, w64, d64])?)?;
         ops::add_scaled(gpu, &mid, &enc, &self.mid_scale)?;
+        drop((enc, enc_frames));
         let mid = self
             .mid
             .iter()
-            .try_fold(mid.reshape(&grid16)?, |x, b| b.forward(gpu, cache, &x, None))?;
+            .try_fold(mid.into_shape(&grid16)?, |x, b| b.forward(gpu, cache, &x, None))?;
         ops::mem(gpu, "mid");
         let mid_frames = mid.reshape(&[frames, h16, w16, d16])?;
         ops::conv(
@@ -250,24 +302,24 @@ impl Stage1 {
             .try_fold(f64, |x, b| b.forward(gpu, cache, &x, None))?;
 
         ops::mem(gpu, "body2");
-        let dec = self.up.forward(gpu, &f64.reshape(&[frames, h64, w64, d64])?)?;
+        let dec = self.up.forward(gpu, &f64.into_shape(&[frames, h64, w64, d64])?)?;
         ops::add_scaled(gpu, &dec, &mid, &self.skip_scale)?;
+        drop((mid, mid_frames));
         let late = self.dec.len().saturating_sub(2);
         let baton = self
             .dec
             .iter()
             .enumerate()
-            .try_fold(dec.reshape(&grid16)?, |x, (k, b)| {
+            .try_fold(dec.into_shape(&grid16)?, |x, (k, b)| {
                 if k == late {
                     ops::add_scaled(gpu, &x, &patch, &self.late_scale)?;
                 }
                 b.forward(gpu, cache, &x, None)
             })?;
+        drop(patch);
 
         ops::mem(gpu, "dec");
-        let cols = gpu.empty(&[frames * h16 * w16, self.aux.0.shape[0]], Dtype::F32)?;
-        gpu.linear(&ops::to_half(gpu, &baton)?, &self.aux.0, None, &cols, false)?;
-        let aux = ops::col2im(gpu, &cols, &self.aux.1, (frames, 4, h16, w16), AUX)?;
+        let aux = self.aux(gpu, &baton, (h16, w16))?;
         ops::mem(gpu, "aux");
         Ok(Outputs { baton, aux })
     }
