@@ -149,6 +149,14 @@ impl Gpu {
         Ok(())
     }
 
+    /// Visible CUDA devices.
+    ///
+    /// # Errors
+    /// When the driver cannot be initialised.
+    pub fn count() -> Result<usize> {
+        Ok(usize::try_from(CudaContext::device_count()?)?)
+    }
+
     /// Waits for all work queued on this GPU's stream.
     ///
     /// # Errors
