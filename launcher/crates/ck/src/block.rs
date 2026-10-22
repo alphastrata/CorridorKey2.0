@@ -8,6 +8,12 @@ use crate::attn::{Cache, Group, Layout, Qk, attend};
 use crate::ops::{self, Act, Gate, Mix, Shift};
 use crate::weights::Loader;
 
+/// Bytes of undepthwised `qkv` one pass may hold; more frames go in turns.
+const DW_BYTES: usize = 256 << 20;
+
+/// Bytes of `SwiGLU` hidden (`gate | up` and their product) one MLP pass may hold; more frames go in turns.
+const MLP_BYTES: usize = 512 << 20;
+
 #[derive(Clone, Copy, Debug)]
 pub enum Kind {
     Full,
@@ -206,13 +212,21 @@ impl Block {
             None => ops::norm(gpu, &frames, &self.norm1, shift)?,
         };
         let qkv = gpu.empty(&[b * t, gh, gw, 3 * c], Dtype::Bf16)?;
-        gpu.linear(&xn, &self.qkv_w, Some(&self.qkv_b), &qkv, false)?;
-        let qkv = match &self.dw {
-            Some((taps, bias)) => ops::dw_qkv(gpu, &qkv, taps, bias)?,
-            None => qkv,
-        };
+        match &self.dw {
+            Some(dw) => {
+                let step = (DW_BYTES / (gh * gw * 3 * c * 2)).clamp(1, b * t);
+                (0..b * t).step_by(step).try_for_each(|f| {
+                    let n = step.min(b * t - f);
+                    let lin = gpu.empty(&[n, gh, gw, 3 * c], Dtype::Bf16)?;
+                    gpu.linear(&xn.rows(f, n)?, &self.qkv_w, Some(&self.qkv_b), &lin, false)?;
+                    ops::dw_qkv(gpu, &lin, (&dw.0, &dw.1), &qkv.rows(f, n)?)
+                })?;
+            }
+            None => gpu.linear(&xn, &self.qkv_w, Some(&self.qkv_b), &qkv, false)?,
+        }
         let gate = gpu.empty(&[b * t * gh * gw, heads], Dtype::F32)?;
         gpu.linear(&xn, &self.gate_w, None, &gate, false)?;
+        drop(xn);
         let ao = gpu.empty(&[b * t, gh, gw, c], Dtype::Bf16)?;
         let qk = Qk {
             q_norm: &self.q_norm,
@@ -223,6 +237,7 @@ impl Block {
         groups
             .into_iter()
             .try_for_each(|g| attend(gpu, cache, &qkv, &gate, &ao, &qk, g))?;
+        drop((qkv, gate));
 
         match &params {
             Some(p) => {
@@ -248,24 +263,42 @@ impl Block {
             None => gpu.linear(&ao, &self.proj_w, Some(&self.proj_b), &frames, true)?,
         }
 
-        let frames = match &self.mix {
-            Some(m) => ops::mix_add(gpu, &frames, m)?,
-            None => frames,
+        drop(ao);
+        if let Some(m) = &self.mix {
+            ops::mix_add(gpu, &frames, m)?;
+        }
+        let step = (MLP_BYTES / (per * self.gu_w.shape[0] * 3)).clamp(1, b * t);
+        (0..b * t)
+            .step_by(step)
+            .try_for_each(|f| self.mlp(gpu, &frames.rows(f, step.min(b * t - f))?, params.as_ref(), f))?;
+        frames.reshape(&[b, t, h, w, c])
+    }
+}
+
+impl Block {
+    /// The `SwiGLU` half on `frames [n, h, w, c]` (updated in place), frame `f0` onwards of the `AdaLN` rows.
+    fn mlp(&self, gpu: &Gpu, frames: &Tensor, params: Option<&Tensor>, f0: usize) -> Result<()> {
+        let [n, h, w, c] = frames.shape[..] else {
+            eyre::bail!("mlp wants [n, h, w, c]")
         };
+        let per = h * w;
+        let params = params.map(|p| p.rows(f0, n)).transpose()?;
         let xn = match &params {
-            Some(p) => ops::norm_mod(gpu, &frames, &self.norm2, p, per, (3 * c, 4 * c))?,
-            None => ops::norm(gpu, &frames, &self.norm2, Shift::none(h, w))?,
+            Some(p) => ops::norm_mod(gpu, frames, &self.norm2, p, per, (3 * c, 4 * c))?,
+            None => ops::norm(gpu, frames, &self.norm2, Shift::none(h, w))?,
         };
-        let gu = gpu.empty(&[b * t * h * w, self.gu_w.shape[0]], Dtype::Bf16)?;
+        let gu = gpu.empty(&[n * per, self.gu_w.shape[0]], Dtype::Bf16)?;
         gpu.linear(&xn, &self.gu_w, Some(&self.gu_b), &gu, false)?;
+        drop(xn);
         let mid = ops::swiglu(gpu, &gu)?;
+        drop(gu);
         match &params {
             Some(p) => {
-                let m = gpu.empty(&[b * t * h * w, c], Dtype::F32)?;
+                let m = gpu.empty(&[n * per, c], Dtype::F32)?;
                 gpu.linear(&mid, &self.down_w, Some(&self.down_b), &m, false)?;
                 ops::add_gated(
                     gpu,
-                    &frames,
+                    frames,
                     &m,
                     Gate::Frame {
                         gate: &p.at(5 * c, &[p.numel() - 5 * c])?,
@@ -273,11 +306,10 @@ impl Block {
                         ld: 6 * c,
                     },
                     (c, 0),
-                )?;
+                )
             }
-            None => gpu.linear(&mid, &self.down_w, Some(&self.down_b), &frames, true)?,
+            None => gpu.linear(&mid, &self.down_w, Some(&self.down_b), frames, true),
         }
-        frames.reshape(&[b, t, h, w, c])
     }
 }
 

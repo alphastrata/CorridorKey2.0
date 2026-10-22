@@ -163,11 +163,28 @@ pub struct Qk<'a> {
     pub head: usize,
 }
 
-/// Attends `qkv [tokens, 3, heads, D]` for `group`, writing gated heads into `out [tokens, heads · D]` (bf16).
+/// Bytes of split heads (`q`, `k`, `v`, `o`) one [`attend`] pass may hold; more heads go in turns.
+const HEAD_BYTES: usize = 512 << 20;
+
+/// Attends `qkv [tokens, 3, heads, D]` for `group`, writing gated heads into `out [tokens, heads · D]` (bf16), as many
+/// heads at a time as fit [`HEAD_BYTES`].
 ///
 /// # Errors
 /// On a launch failure.
 pub fn attend(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk: &Qk, g: Group) -> Result<()> {
+    let per_head = g.layout.windows() * g.layout.tokens() * qk.head * 2 * 4;
+    let step = (HEAD_BYTES / per_head).clamp(1, g.heads);
+    (0..g.heads).step_by(step).try_for_each(|h| {
+        let part = Group {
+            head0: g.head0 + h,
+            heads: step.min(g.heads - h),
+            ..g
+        };
+        heads(gpu, cache, qkv, gate, out, qk, part)
+    })
+}
+
+fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk: &Qk, g: Group) -> Result<()> {
     let l = g.layout;
     let (windows, n, d) = (l.windows(), l.tokens(), qk.head);
     let shape = [windows, g.heads, n, d];
