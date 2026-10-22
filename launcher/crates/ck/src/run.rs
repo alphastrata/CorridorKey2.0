@@ -9,13 +9,14 @@ use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::{OptionExt, Result, ensure};
 
 use crate::attn::Cache;
-use crate::frame::{self, Encoding, Geometry, Look, Output};
-use crate::io::{Encoder, Source, Writer};
+use crate::frame::{self, Encoding, Geometry, Input, Look, Output};
+use crate::io::{Plane, Source};
 use crate::ops::axpy;
 use crate::stage1::{Inputs, Stage1};
 use crate::stage2::{Baton, Stage2};
 use crate::vfm::Vfms;
 use crate::weights::{Loader, Weights};
+use crate::write::{Encoder, Exr, Format, Writer};
 
 pub struct Models {
     pub vfms: Vfms,
@@ -55,7 +56,11 @@ pub struct Config {
     pub dir_fps: f64,
     pub outputs: Vec<Output>,
     pub look: Look,
+    /// Float frames are scene-linear (else display-coded, clipped to `[0, 1]`).
+    pub linear_input: bool,
     pub encoder: Encoder,
+    /// EXR sequences in place of videos.
+    pub exr: Option<Exr>,
     pub vfm_batch: usize,
 }
 
@@ -99,8 +104,8 @@ pub fn taper(t: usize, overlap: usize, first: bool, last: bool) -> Vec<f32> {
 
 #[derive(Default)]
 struct Frame {
-    raw: Vec<u16>,
-    hint: Option<Vec<u16>>,
+    raw: Vec<u8>,
+    hint: Option<Vec<u8>>,
     feats: Option<[Tensor; 3]>,
     carry: Option<Tensor>,
     acc: Option<Tensor>,
@@ -116,15 +121,16 @@ struct Clip<'a> {
     decoded: usize,
     featured: usize,
     state: Option<Tensor>,
-    rgb: flume::Receiver<Result<Vec<u16>>>,
-    hints: Option<flume::Receiver<Result<Vec<u16>>>>,
-    first: Option<Vec<u16>>,
+    pix: Dtype,
+    rgb: flume::Receiver<Result<Vec<u8>>>,
+    hints: Option<flume::Receiver<Result<Vec<u8>>>>,
+    first: Option<Vec<u8>>,
     unit: (Tensor, Tensor),
     writers: Vec<(Output, Writer)>,
 }
 
-fn upload(gpu: &Gpu, parts: &[&[u16]], shape: &[usize]) -> Result<Tensor> {
-    gpu.upload(bytemuck::cast_slice(&parts.concat()), shape, Dtype::U16)
+fn upload(gpu: &Gpu, parts: &[&[u8]], shape: &[usize], dtype: Dtype) -> Result<Tensor> {
+    gpu.upload(&parts.concat(), shape, dtype)
 }
 
 impl Clip<'_> {
@@ -153,7 +159,8 @@ impl Clip<'_> {
         upload(
             self.gpu,
             &parts.collect::<Result<Vec<_>>>()?,
-            &[range.len(), g.h0, g.w0, 3],
+            &[range.len(), 3 * g.h0 * g.w0],
+            self.pix,
         )
     }
 
@@ -170,7 +177,7 @@ impl Clip<'_> {
                 g,
                 3 * g.h * g.w,
                 Encoding::Display,
-                self.cfg.look.adjust,
+                self.cfg.input(),
             )?;
             let f = self.m.vfms.forward(self.gpu, &display, self.state.as_ref())?;
             (0..n).try_for_each(|j| -> Result<()> {
@@ -195,7 +202,7 @@ impl Clip<'_> {
             let parts = (t0..t0 + t)
                 .map(|f| self.frames[&f].hint.as_deref().ok_or_eyre("hint frame missing"))
                 .collect::<Result<Vec<_>>>()?;
-            let raw = upload(self.gpu, &parts, &[t, g.h0, g.w0])?;
+            let raw = upload(self.gpu, &parts, &[t, g.h0, g.w0], Dtype::U16)?;
             frame::hint(self.gpu, &raw, &x.at(3 * plane, &[(4 * t - 3) * plane])?, g, 4 * plane)?;
             quality.fill(Some(self.cfg.hint_quality));
         }
@@ -207,7 +214,7 @@ impl Clip<'_> {
             Ok(())
         })?;
         if let (Some(first), 0) = (&self.first, t0) {
-            let raw = upload(self.gpu, &[first], &[1, g.h0, g.w0])?;
+            let raw = upload(self.gpu, &[first], &[1, g.h0, g.w0], Dtype::U16)?;
             frame::hint(self.gpu, &raw, &x.at(3 * plane, &[plane])?, g, 4 * plane)?;
             quality[0] = Some(self.cfg.hint_quality);
         }
@@ -246,7 +253,7 @@ impl Clip<'_> {
             g,
             4 * plane,
             Encoding::Model,
-            self.cfg.look.adjust,
+            self.cfg.input(),
         )?;
         let quality = self.hints(&x, t0, t)?;
         let feats = (0..3)
@@ -301,11 +308,12 @@ impl Clip<'_> {
             let rgb = x.rows(k - t0, 1)?.at(0, &[1, 3, g.h, g.w])?;
             let baton = Baton::Nhwc(&acc, 1.0 / f.weight.max(1e-6));
             let logits = self.m.s2.forward(self.gpu, &self.m.cache, &rgb, baton)?;
-            self.writers.iter().try_for_each(|(o, w)| {
-                w.write(
-                    self.gpu
-                        .download(&frame::render(self.gpu, &logits, g, *o, self.cfg.look)?)?,
-                )
+            self.writers.iter().try_for_each(|&(o, ref w)| {
+                let img = match self.cfg.exr {
+                    Some(t) => frame::render_exr(self.gpu, &logits, g, o, self.cfg.look, t == Exr::Half)?,
+                    None => frame::render(self.gpu, &logits, g, o, self.cfg.look)?,
+                };
+                w.write(self.gpu.download(&img)?)
             })
         })
     }
@@ -322,12 +330,38 @@ fn clip_name(input: &Path) -> String {
     }
 }
 
-fn suffix(o: Output, despill: f32) -> String {
+fn stem(o: Output, despill: f32) -> String {
     match o {
-        Output::Alpha => "alpha.mp4".into(),
-        Output::Fg => "fg.mp4".into(),
-        Output::Cutout => "cutout.mov".into(),
-        Output::Checker => format!("checker_comp_despill{:03}.mp4", (despill * 100.0) as u32),
+        Output::Alpha => "alpha".into(),
+        Output::Fg => "fg".into(),
+        Output::Cutout => "cutout".into(),
+        Output::Checker => format!("checker_comp_despill{:03}", (despill * 100.0) as u32),
+    }
+}
+
+impl Config {
+    fn input(&self) -> Input {
+        Input {
+            adjust: self.look.adjust,
+            linear: self.linear_input,
+        }
+    }
+
+    /// `{clip}_{stem}.mp4|mov`, or frames `{stem}_000000.exr` in `{clip}_{stem}_exr/`.
+    fn writer(&self, out_dir: &Path, clip: &str, src: &Source, o: Output) -> Result<Writer> {
+        let stem = stem(o, self.look.despill);
+        let size = (src.w, src.h);
+        if let Some(t) = self.exr {
+            let dir = out_dir.join(format!("{clip}_{stem}_exr"));
+            std::fs::create_dir_all(&dir)?;
+            return Writer::spawn(&dir.join(format!("{stem}_%06d.exr")), src.fps, size, o.planes(), Format::Exr(t));
+        }
+        let ext = if o == Output::Cutout { "mov" } else { "mp4" };
+        let format = Format::Video {
+            enc: &self.encoder,
+            linear: o == Output::Cutout && self.look.linear_cutout,
+        };
+        Writer::spawn(&out_dir.join(format!("{clip}_{stem}.{ext}")), src.fps, size, o.channels(), format)
     }
 }
 
@@ -340,21 +374,17 @@ pub fn run(gpu: &Gpu, m: &Models, input: &Path, out_dir: &Path, cfg: &Config, hi
     let total = cfg.frames.map_or(src.frames, |n| n.min(src.frames));
     ensure!(total > 0, "{}: no frames", input.display());
     let g = Geometry::padded(src.h, src.w, cfg.quantum);
+    if src.float() && !cfg.linear_input {
+        println!("warning: float frames read as display-coded and clipped to [0, 1]; pass --linear for scene-linear");
+    }
     std::fs::create_dir_all(out_dir)?;
     let name = clip_name(input);
     let writers = cfg
         .outputs
         .iter()
-        .map(|&o| {
-            let path = out_dir.join(format!("{name}_{}", suffix(o, cfg.look.despill)));
-            let linear = o == Output::Cutout && cfg.look.linear_cutout;
-            Ok((
-                o,
-                Writer::spawn(&path, src.fps, (src.w, src.h), o.channels(), linear, &cfg.encoder)?,
-            ))
-        })
+        .map(|&o| Ok((o, cfg.writer(out_dir, &name, &src, o)?)))
         .collect::<Result<Vec<_>>>()?;
-    let side = |p: &Path, n: usize| -> Result<flume::Receiver<Result<Vec<u16>>>> {
+    let side = |p: &Path, n: usize, first: bool| -> Result<flume::Receiver<Result<Vec<u8>>>> {
         let s = Source::open(p, cfg.dir_fps)?;
         ensure!(
             (s.w, s.h) == (src.w, src.h),
@@ -365,9 +395,9 @@ pub fn run(gpu: &Gpu, m: &Models, input: &Path, out_dir: &Path, cfg: &Config, hi
             src.w,
             src.h
         );
-        Ok(s.decode(1, n))
+        Ok(s.decode(if first && s.alpha() { Plane::Alpha } else { Plane::Grey }, n))
     };
-    let first = hints.first.as_deref().map(|p| side(p, 1)?.recv()?).transpose()?;
+    let first = hints.first.as_deref().map(|p| side(p, 1, true)?.recv()?).transpose()?;
     let mut clip = Clip {
         gpu,
         m,
@@ -377,8 +407,9 @@ pub fn run(gpu: &Gpu, m: &Models, input: &Path, out_dir: &Path, cfg: &Config, hi
         decoded: 0,
         featured: 0,
         state: None,
-        rgb: src.decode(3, total),
-        hints: hints.video.as_deref().map(|p| side(p, total)).transpose()?,
+        pix: src.dtype(),
+        rgb: src.decode(Plane::Rgb, total),
+        hints: hints.video.as_deref().map(|p| side(p, total, false)).transpose()?,
         first,
         unit: (gpu.zeros(&[1], Dtype::F32)?, gpu.upload_f32(&[1.0], &[1], Dtype::F32)?),
         writers,

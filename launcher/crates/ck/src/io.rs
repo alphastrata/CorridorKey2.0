@@ -1,11 +1,11 @@
-//! ffmpeg pipes: probing a video or frame directory, decoding to u16 frames, encoding u16 BGR(A) frames.
+//! ffmpeg decode pipes: probing a video or frame directory, decoding to u16 or f32 frames.
 
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::thread::JoinHandle;
 
-use eyre::{OptionExt, Result, WrapErr, bail, ensure};
+use ck_gpu::Dtype;
+use eyre::{OptionExt, Result, WrapErr, ensure};
 
 /// A clip ffmpeg can read: its `-i` arguments, size, rate and length.
 #[derive(Clone, Debug)]
@@ -15,7 +15,15 @@ pub struct Source {
     pub h: usize,
     pub fps: f64,
     pub frames: usize,
-    pub deep: bool,
+    pub pix_fmt: String,
+}
+
+/// What [`Source::decode`] extracts.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Plane {
+    Rgb,
+    Grey,
+    Alpha,
 }
 
 fn ffprobe(args: &[&str]) -> Result<String> {
@@ -34,12 +42,6 @@ fn ffprobe(args: &[&str]) -> Result<String> {
 
 fn field<'a>(text: &'a str, key: &str) -> Option<&'a str> {
     text.lines().find_map(|l| l.strip_prefix(key)?.strip_prefix('='))
-}
-
-/// Whether a pixel format holds more than 8 bits per channel.
-fn deep(text: &str) -> bool {
-    field(text, "pix_fmt")
-        .is_some_and(|f| ["9", "10", "12", "14", "16", "48", "64", "f16", "f32"].iter().any(|d| f.contains(d)))
 }
 
 fn size(path: &str) -> Result<(usize, usize, String)> {
@@ -84,7 +86,7 @@ impl Source {
                 h,
                 fps: dir_fps,
                 frames: ext.1.len(),
-                deep: deep(&text),
+                pix_fmt: field(&text, "pix_fmt").unwrap_or_default().into(),
             });
         }
         let name = path.to_string_lossy().into_owned();
@@ -114,36 +116,67 @@ impl Source {
             h,
             fps,
             frames,
-            deep: deep(&text),
+            pix_fmt: field(&text, "pix_fmt").unwrap_or_default().into(),
         })
     }
 
-    /// Frames as u16 rows of `channels`, the first `limit`, decoded on a thread; 8-bit sources decode at 8 bits
-    /// and widen exactly (`v · 257`), as swscale's 16-bit path rounds differently.
+    /// More than 8 bits per channel.
     #[must_use]
-    pub fn decode(&self, channels: usize, limit: usize) -> flume::Receiver<Result<Vec<u16>>> {
+    pub fn deep(&self) -> bool {
+        ["9", "10", "12", "14", "16", "48", "64", "f16", "f32"]
+            .iter()
+            .any(|d| self.pix_fmt.contains(d))
+    }
+
+    /// Floating-point samples (EXR).
+    #[must_use]
+    pub fn float(&self) -> bool {
+        self.pix_fmt.contains("f16") || self.pix_fmt.contains("f32")
+    }
+
+    /// Carries an alpha channel.
+    #[must_use]
+    pub fn alpha(&self) -> bool {
+        ["rgba", "bgra", "argb", "abgr", "ya", "gbrap"]
+            .iter()
+            .any(|p| self.pix_fmt.starts_with(p))
+    }
+
+    /// The tensor type of decoded [`Plane::Rgb`] frames.
+    #[must_use]
+    pub fn dtype(&self) -> Dtype {
+        if self.float() { Dtype::F32 } else { Dtype::U16 }
+    }
+
+    /// The first `limit` frames' bytes, decoded on a thread: RGB as u16 `[h, w, 3]` or, for float sources, f32
+    /// G, B, R planes; grey and alpha as u16 `[h, w]`. 8-bit sources decode at 8 bits and widen exactly (`v · 257`),
+    /// as swscale's 16-bit path rounds differently.
+    #[must_use]
+    pub fn decode(&self, plane: Plane, limit: usize) -> flume::Receiver<Result<Vec<u8>>> {
         let (tx, rx) = flume::bounded(4);
-        let deep = self.deep;
-        let pix = match (channels, deep) {
-            (3, true) => "rgb48le",
-            (3, false) => "rgb24",
-            (_, true) => "gray16le",
-            _ => "gray",
+        let (pix, size, widen) = match (plane, self.float(), self.deep()) {
+            (Plane::Rgb, true, _) => ("gbrpf32le", 12, false),
+            (Plane::Rgb, _, true) => ("rgb48le", 6, false),
+            (Plane::Rgb, _, false) => ("rgb24", 3, true),
+            (_, _, true) => ("gray16le", 2, false),
+            _ => ("gray", 1, true),
         };
-        let len = self.w * self.h * channels * (1 + usize::from(deep));
+        let len = self.w * self.h * size;
         let mut cmd = Command::new("ffmpeg");
-        cmd.args(["-v", "error", "-nostdin"])
-            .args(&self.args)
-            .args([
-                "-frames:v",
-                &limit.to_string(),
-                "-f",
-                "rawvideo",
-                "-pix_fmt",
-                pix,
-                "pipe:1",
-            ])
-            .stdout(Stdio::piped());
+        cmd.args(["-v", "error", "-nostdin"]).args(&self.args);
+        if plane == Plane::Alpha {
+            cmd.args(["-vf", "alphaextract"]);
+        }
+        cmd.args([
+            "-frames:v",
+            &limit.to_string(),
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            pix,
+            "pipe:1",
+        ])
+        .stdout(Stdio::piped());
         std::thread::spawn(move || {
             let mut run = || -> Result<()> {
                 let mut child = cmd.spawn().wrap_err("ffmpeg")?;
@@ -151,13 +184,12 @@ impl Source {
                 let mut buf = vec![0u8; len];
                 (0..limit).try_for_each(|_| {
                     out.read_exact(&mut buf).wrap_err("ffmpeg ended early")?;
-                    let frame = if deep {
-                        bytemuck::pod_collect_to_vec(&buf)
+                    let frame = if widen {
+                        buf.iter().flat_map(|&b| (u16::from(b) * 257).to_le_bytes()).collect()
                     } else {
-                        buf.iter().map(|&b| u16::from(b) * 257).collect()
+                        buf.clone()
                     };
-                    tx.send(Ok(frame))
-                        .map_err(|_| eyre::eyre!("decoder dropped"))
+                    tx.send(Ok(frame)).map_err(|_| eyre::eyre!("decoder dropped"))
                 })?;
                 drop(out);
                 child.wait()?;
@@ -182,125 +214,4 @@ pub fn frame_files(dir: &Path, ext: &str) -> Vec<PathBuf> {
         .collect();
     files.sort();
     files
-}
-
-/// Encoder settings for the 3-channel outputs (4-channel ones are `ProRes` 4444).
-#[derive(Clone, Debug)]
-pub struct Encoder {
-    pub codec: String,
-    pub crf: u32,
-    pub preset: String,
-    pub pix_fmt: String,
-    pub threads: usize,
-}
-
-/// An ffmpeg encoder fed u16 BGR(A) frames on a thread.
-pub struct Writer {
-    tx: Option<flume::Sender<Vec<u8>>>,
-    join: Option<JoinHandle<Result<()>>>,
-}
-
-impl Writer {
-    /// # Errors
-    /// When ffmpeg cannot start.
-    pub fn spawn(
-        path: &Path,
-        fps: f64,
-        (w, h): (usize, usize),
-        channels: usize,
-        linear: bool,
-        enc: &Encoder,
-    ) -> Result<Self> {
-        let mut cmd = Command::new("ffmpeg");
-        cmd.args([
-            "-y",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-nostats",
-            "-f",
-            "rawvideo",
-            "-pix_fmt",
-        ])
-        .arg(if channels == 4 { "bgra64le" } else { "bgr48le" })
-        .args([
-            "-s:v",
-            &format!("{w}x{h}"),
-            "-r",
-            &format!("{fps:.8}"),
-            "-i",
-            "pipe:0",
-            "-an",
-        ]);
-        if channels == 4 {
-            cmd.args(["-c:v", "prores_ks", "-profile:v", "4", "-pix_fmt", "yuva444p10le"]);
-        } else {
-            cmd.args([
-                "-c:v",
-                &enc.codec,
-                "-preset",
-                &enc.preset,
-                "-pix_fmt",
-                &enc.pix_fmt,
-                "-crf",
-                &enc.crf.to_string(),
-            ]);
-        }
-        cmd.args([
-            "-threads",
-            &enc.threads.max(1).to_string(),
-            "-colorspace",
-            "bt709",
-            "-color_primaries",
-            "bt709",
-        ])
-        .args([
-            "-color_trc",
-            if linear { "linear" } else { "iec61966-2-1" },
-            "-movflags",
-            "+write_colr",
-        ])
-        .arg(path)
-        .stdin(Stdio::piped());
-        let mut child = cmd.spawn().wrap_err("ffmpeg")?;
-        let mut stdin = child.stdin.take().ok_or_eyre("ffmpeg stdin")?;
-        let (tx, rx) = flume::bounded::<Vec<u8>>(2);
-        let name = path.display().to_string();
-        let join = std::thread::spawn(move || {
-            rx.iter().try_for_each(|f| stdin.write_all(&f))?;
-            drop(stdin);
-            let status = child.wait()?;
-            if !status.success() {
-                bail!("ffmpeg failed ({status}): {name}");
-            }
-            Ok(())
-        });
-        Ok(Self {
-            tx: Some(tx),
-            join: Some(join),
-        })
-    }
-
-    /// # Errors
-    /// When the encoder has stopped.
-    pub fn write(&self, frame: Vec<u8>) -> Result<()> {
-        self.tx
-            .as_ref()
-            .ok_or_eyre("writer closed")?
-            .send(frame)
-            .map_err(|_| eyre::eyre!("encoder stopped"))
-    }
-
-    /// Closes the pipe and waits for ffmpeg.
-    ///
-    /// # Errors
-    /// When ffmpeg failed.
-    pub fn finish(mut self) -> Result<()> {
-        drop(self.tx.take());
-        self.join
-            .take()
-            .ok_or_eyre("writer joined")?
-            .join()
-            .map_err(|_| eyre::eyre!("writer panicked"))?
-    }
 }
