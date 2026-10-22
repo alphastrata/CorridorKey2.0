@@ -15,6 +15,7 @@ pub struct Source {
     pub h: usize,
     pub fps: f64,
     pub frames: usize,
+    pub deep: bool,
 }
 
 fn ffprobe(args: &[&str]) -> Result<String> {
@@ -35,12 +36,18 @@ fn field<'a>(text: &'a str, key: &str) -> Option<&'a str> {
     text.lines().find_map(|l| l.strip_prefix(key)?.strip_prefix('='))
 }
 
+/// Whether a pixel format holds more than 8 bits per channel.
+fn deep(text: &str) -> bool {
+    field(text, "pix_fmt")
+        .is_some_and(|f| ["9", "10", "12", "14", "16", "48", "64", "f16", "f32"].iter().any(|d| f.contains(d)))
+}
+
 fn size(path: &str) -> Result<(usize, usize, String)> {
     let text = ffprobe(&[
         "-select_streams",
         "v:0",
         "-show_entries",
-        "stream=width,height,r_frame_rate,nb_frames",
+        "stream=width,height,r_frame_rate,nb_frames,pix_fmt",
         "-of",
         "default=nw=1",
         path,
@@ -61,7 +68,7 @@ impl Source {
                     (!files.is_empty()).then_some((e, files))
                 })
                 .ok_or_eyre(format!("{}: no frames", path.display()))?;
-            let (w, h, _) = size(&ext.1[0].to_string_lossy())?;
+            let (w, h, text) = size(&ext.1[0].to_string_lossy())?;
             let pattern = path.join(format!("*.{}", ext.0)).to_string_lossy().into_owned();
             let args = [
                 "-framerate",
@@ -77,6 +84,7 @@ impl Source {
                 h,
                 fps: dir_fps,
                 frames: ext.1.len(),
+                deep: deep(&text),
             });
         }
         let name = path.to_string_lossy().into_owned();
@@ -106,15 +114,23 @@ impl Source {
             h,
             fps,
             frames,
+            deep: deep(&text),
         })
     }
 
-    /// Frames as u16 rows of `channels` (`rgb48le` or `gray16le`), the first `limit`, decoded on a thread.
+    /// Frames as u16 rows of `channels`, the first `limit`, decoded on a thread; 8-bit sources decode at 8 bits
+    /// and widen exactly (`v · 257`), as swscale's 16-bit path rounds differently.
     #[must_use]
     pub fn decode(&self, channels: usize, limit: usize) -> flume::Receiver<Result<Vec<u16>>> {
         let (tx, rx) = flume::bounded(4);
-        let pix = if channels == 3 { "rgb48le" } else { "gray16le" };
-        let len = self.w * self.h * channels * 2;
+        let deep = self.deep;
+        let pix = match (channels, deep) {
+            (3, true) => "rgb48le",
+            (3, false) => "rgb24",
+            (_, true) => "gray16le",
+            _ => "gray",
+        };
+        let len = self.w * self.h * channels * (1 + usize::from(deep));
         let mut cmd = Command::new("ffmpeg");
         cmd.args(["-v", "error", "-nostdin"])
             .args(&self.args)
@@ -135,7 +151,12 @@ impl Source {
                 let mut buf = vec![0u8; len];
                 (0..limit).try_for_each(|_| {
                     out.read_exact(&mut buf).wrap_err("ffmpeg ended early")?;
-                    tx.send(Ok(bytemuck::pod_collect_to_vec(&buf)))
+                    let frame = if deep {
+                        bytemuck::pod_collect_to_vec(&buf)
+                    } else {
+                        buf.iter().map(|&b| u16::from(b) * 257).collect()
+                    };
+                    tx.send(Ok(frame))
                         .map_err(|_| eyre::eyre!("decoder dropped"))
                 })?;
                 drop(out);
