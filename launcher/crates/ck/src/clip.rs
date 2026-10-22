@@ -41,7 +41,7 @@ pub struct Clip<'a> {
 }
 
 pub(crate) fn upload(gpu: &Gpu, parts: &[&[u8]], shape: &[usize], dtype: Dtype) -> Result<Tensor> {
-    gpu.upload(&parts.concat(), shape, dtype)
+    gpu.upload_parts(parts, shape, dtype)
 }
 
 impl<'a> Clip<'a> {
