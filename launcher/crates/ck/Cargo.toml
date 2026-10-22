@@ -1,0 +1,18 @@
+[package]
+name = "ck"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
+argh = "0.1.19"
+bytemuck = "1.25.2"
+ck-gpu = { version = "0.1.0", path = "../ck-gpu" }
+color-eyre = "0.6.5"
+eyre = "0.6.14"
+half = "2.7.1"
+memmap2 = "0.9.12"
+safetensors = "0.8.0"
+
+[lints]
+workspace = true
