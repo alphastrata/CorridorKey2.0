@@ -12,6 +12,7 @@ CATEGORIES = (
     (OURS + "norm, roll, residual (ck_glue)", r"^(norm_bf16|unshift_add)"),
     (OURS + "SwiGLU silu·mul (ck_glue)", r"^swiglu_bf16"),
     (OURS + "qk-norm, RoPE (ck_glue)", r"^head\d+"),
+
     ("attention (flash / SDPA)", r"flash|fmha|attention|efficient|softmax"),
     ("depthwise conv", r"conv_depthwise"),
     ("convolution", r"fprop|dgrad|wgrad|implicit|cudnn|[Nn]hwc|[Nn]chw|conv"),

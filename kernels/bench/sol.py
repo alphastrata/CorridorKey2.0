@@ -42,11 +42,13 @@ def peaks() -> Peaks:
         torch.randn(n, n, device="cuda").half(),
     )
     tensor = 2 * n**3 / seconds(lambda: a @ b)
+
     prec = torch.get_float32_matmul_precision()
     torch.set_float32_matmul_precision("highest")
     a, b = a[:4096, :4096].float(), b[:4096, :4096].float()
     fp32 = 2 * 4096**3 / seconds(lambda: a @ b)
     torch.set_float32_matmul_precision(prec)
+
     x = torch.empty(2**28, device="cuda")
     y = torch.empty_like(x)
     dram = 2 * x.numel() * 4 / seconds(lambda: y.copy_(x))
