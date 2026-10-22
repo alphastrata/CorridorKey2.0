@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import cast
 
 import sol
 import torch
@@ -17,6 +18,7 @@ import torch.nn.functional as F
 
 from corridorkey import ptx
 from corridorkey.blocks import DepthwiseSwiGLU2D, QKVDepthwiseSpatial, SwiGLU
+from corridorkey.model import CorridorKeyV3
 from corridorkey.runtime import (
     InferenceConfig,
     _build_foundation_inputs,
@@ -98,7 +100,11 @@ def load(d: Path, t: int) -> Clip:
     views = [
         preprocess_frame_dir_path(p, meta, need_model=True) for p in meta["frame_paths"]
     ]
-    return Clip(*(torch.stack([v[i] for v in views])[None] for i in (0, 1)))
+
+    return Clip(
+        x=torch.stack([v[0] for v in views])[None],
+        display=torch.stack([v[1] for v in views])[None],
+    )
 
 
 @contextmanager
@@ -112,9 +118,11 @@ def config(model: torch.nn.Module, name: str) -> Iterator[None]:
         configure_low_vram_inference(model, InferenceConfig())
     if name == "oracle":
         exact_slots(model)
+
     torch.backends.cuda.matmul.allow_tf32 = torch.backends.cudnn.allow_tf32 = (
         name not in ("ref", "oracle")
     )
+
     try:
         with (
             torch.inference_mode(),
@@ -142,22 +150,33 @@ def exact_slots(model: torch.nn.Module) -> None:
             m.forward = types.MethodType(_exact, m)
 
 
-def vfm(model: torch.nn.Module, display: torch.Tensor) -> Feats:
+def vfm(model: CorridorKeyV3, display: torch.Tensor) -> Feats:
     """The runtime's VFM features: C-RADIO and MoGe per frame, RVM over the window, normalised."""
     f = model.foundations
     b, t, _, h, w = display.shape
     radio, moge = _build_foundation_inputs(display)
     ff = f(rgb_cradio=radio.flatten(0, 1), rgb_moge=moge.flatten(0, 1))
+
     small = F.interpolate(
         display.flatten(0, 1).float(), size=(h // 4, w // 4), mode="bilinear"
     )
-    raw, _ = f.rvm(small.view(b, t, 3, h // 4, w // 4).clamp(0, 1), state=None)
-    norm = lambda s: s.view(1, 1, -1, 1, 1).float()
+
+    rv = f.rvm
+    assert rv is not None, "model does not load the RVM foundation"
+    raw, _ = rv(small.view(b, t, 3, h // 4, w // 4).clamp(0, 1), state=None)
+
+    def norm(s: torch.Tensor) -> torch.Tensor:
+        return s.view(1, 1, -1, 1, 1).float()
+
     rvm = (
-        ((raw.float() - norm(f.rvm_mean)) / norm(f.rvm_std).clamp(min=1e-6))
+        (
+            (raw.float() - norm(cast(torch.Tensor, f.rvm_mean)))
+            / norm(cast(torch.Tensor, f.rvm_std)).clamp(min=1e-6)
+        )
         .half()
         .float()
     )
+
     grid = (b, t, -1, h // 64, w // 64)
     return {
         "cradio": ff["cradio"].reshape(grid),
@@ -167,11 +186,12 @@ def vfm(model: torch.nn.Module, display: torch.Tensor) -> Feats:
 
 
 def stage1(
-    model: torch.nn.Module, x: torch.Tensor, f: Feats
+    model: CorridorKeyV3, x: torch.Tensor, f: Feats
 ) -> tuple[torch.Tensor, torch.Tensor]:
     b, t = x.shape[:2]
     hint = x.new_zeros(b, t, 1, *x.shape[-2:])
     quality = torch.full((b, t), -1.0, device=x.device, dtype=x.dtype)
+
     s = model.stage1(
         x,
         hint,
@@ -185,14 +205,14 @@ def stage1(
 
 
 def frame2(
-    model: torch.nn.Module, x: torch.Tensor, baton: torch.Tensor
+    model: CorridorKeyV3, x: torch.Tensor, baton: torch.Tensor
 ) -> torch.Tensor:
     out = model.stage2(x, baton)
     return (out[0] if isinstance(out, tuple) else out).float()
 
 
 def stage2(
-    model: torch.nn.Module, x: torch.Tensor, baton: torch.Tensor
+    model: CorridorKeyV3, x: torch.Tensor, baton: torch.Tensor
 ) -> torch.Tensor:
     return torch.cat(
         [
@@ -203,12 +223,12 @@ def stage2(
     )
 
 
-def e2e(model: torch.nn.Module, c: Clip) -> torch.Tensor:
+def e2e(model: CorridorKeyV3, c: Clip) -> torch.Tensor:
     x = c.x.cuda()
     return stage2(model, x, stage1(model, x, vfm(model, c.display.cuda()))[0])
 
 
-def reference(model: torch.nn.Module, clips: list[Clip]) -> None:
+def reference(model: CorridorKeyV3, clips: list[Clip]) -> None:
     """fp32 outputs per clip; a clip whose reference does not fit keeps ``ref`` empty (timed, not judged)."""
     with config(model, "ref"):
         for c in clips:
@@ -216,7 +236,7 @@ def reference(model: torch.nn.Module, clips: list[Clip]) -> None:
             torch.cuda.empty_cache()
 
 
-def _reference(model: torch.nn.Module, c: Clip) -> None:
+def _reference(model: CorridorKeyV3, c: Clip) -> None:
     x = c.x.cuda().float()
     f = vfm(model, c.display.cuda().float())
     baton, aux = stage1(model, x, f)

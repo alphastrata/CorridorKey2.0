@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import math
 import types
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -29,6 +30,7 @@ def attention(
     mask = rid if rid is not None else q.new_zeros(2, dtype=torch.int32)
     windows = rid.shape[0] if rid is not None else 0
     pairs = [t.contiguous().view(torch.int32) for t in (q, k, v)]
+
     args = [
         *pairs,
         mask,
@@ -40,6 +42,7 @@ def attention(
         windows,
         math.log2(math.e) / math.sqrt(d),
     ]
+
     name = f"attn{d}" + ("_masked" if rid is not None else "")
     load("ck_attn", dev).launch(
         name, (-(-n // BR), b * h, 1), (256, 1, 1), args, shared
@@ -77,11 +80,13 @@ def spans(rid: torch.Tensor) -> torch.Tensor:
         return hit
     w, n = rid.shape
     tiles = -(-n // BC)
+
     padded = torch.cat([rid, rid[:, -1:].expand(w, tiles * BC - n)], 1).view(
         w, tiles, BC
     )
-    rid._ck_spans = torch.stack([padded.amin(2), padded.amax(2)], 2).int().contiguous()
-    return rid._ck_spans
+    s = torch.stack([padded.amin(2), padded.amax(2)], 2).int().contiguous()
+    setattr(rid, "_ck_spans", s)
+    return s
 
 
 @functools.cache
@@ -112,22 +117,23 @@ def _sdpa(
     attn_mask: torch.Tensor | None = None,
     dropout_p: float = 0.0,
     is_causal: bool = False,
-    **kw: object,
+    **kw: Any,
 ) -> torch.Tensor:
     ok = dropout_p == 0.0 and not is_causal and not kw and supported(q, k, v)
     if ok and attn_mask is None and plain(q.device.index):
         return attention(q, k, v)
+
     key_pad = (
         attn_mask is not None
         and attn_mask.dtype == torch.bool
         and attn_mask.shape == (q.shape[0], 1, 1, q.shape[2])
     )
+
     if ok and key_pad:
-        return attention(
-            q, k, v, torch.where(attn_mask.view(q.shape[0], -1), 0, -1).int()
-        )
+        return attention(q, k, v, torch.where(attn_mask.view(q.shape[0], -1), 0, -1).int())
+
     return F.scaled_dot_product_attention(
-        q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal, **kw
+        q, k, v, attn_mask, dropout_p, is_causal, **kw
     )
 
 
@@ -146,6 +152,7 @@ def _group_rid(
         return hit
     rid = torch.zeros(num_windows, n, dtype=torch.int32)
     partial = sorted({w for _, wins in groups for w in wins})
+
     rid[partial] = -1
     for label, (tokens, wins) in enumerate(groups, 1):
         rid[torch.tensor(wins)[:, None], torch.tensor(tokens)[None, :]] = label
@@ -191,9 +198,10 @@ def patch() -> bool:
     """Route ``corridorkey.blocks``' attention through ck_attn (module-wide)."""
     if not available():
         return False
-    blocks.F = _Functional("F")
-    blocks._sdpa_with_region_groups = _region_groups
-    blocks._sdpa_with_region_ids = _region_ids
+
+    setattr(blocks, "F", _Functional("F"))
+    setattr(blocks, "_sdpa_with_region_groups", _region_groups)
+    setattr(blocks, "_sdpa_with_region_ids", _region_ids)
     return True
 
 

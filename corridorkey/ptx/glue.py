@@ -4,6 +4,7 @@ qk-norm and RoPE as one f32 pass each over bf16 heads."""
 from __future__ import annotations
 
 import types
+from typing import cast
 
 import torch
 import torch.nn.functional as F
@@ -12,7 +13,7 @@ from corridorkey import blocks
 from corridorkey.blocks import RMSNorm, SwiGLU
 from corridorkey.rope import apply_rotary
 
-from . import available, load
+from . import Arg, available, load
 
 BF16 = torch.bfloat16
 HEADS = (64, 80, 96)
@@ -36,7 +37,8 @@ def norm(m: RMSNorm, x: torch.Tensor, shift: Shift | None = None) -> torch.Tenso
     x = x.contiguous()
     out = x.new_empty(*x.shape[:-3], hp, wp, c, dtype=BF16)
     pixels = out.numel() // c
-    args = [
+
+    args: list[Arg] = [
         x,
         m.weight.detach(),
         out.view(torch.int32),
@@ -50,6 +52,7 @@ def norm(m: RMSNorm, x: torch.Tensor, shift: Shift | None = None) -> torch.Tenso
         sh,
         sw,
     ]
+
     load("ck_glue", x.device.index).launch(
         "norm_bf16", (-(-pixels // 8), 1, 1), (256, 1, 1), args
     )
@@ -65,7 +68,9 @@ def unshift_add(
     x, a = x.contiguous(), a.contiguous()
     out = torch.empty_like(x)
     pixels = x.numel() // c
-    args = [x, a.view(torch.int32), out, pixels, c, h, w, hp, wp, sh, sw]
+
+    args: list[Arg] = [x, a.view(torch.int32), out, pixels, c, h, w, hp, wp, sh, sw]
+
     load("ck_glue", x.device.index).launch(
         "unshift_add", (-(-pixels * c // 8 // 256), 1, 1), (256, 1, 1), args
     )
@@ -77,7 +82,8 @@ def silu_mul(gu: torch.Tensor) -> torch.Tensor:
     h = gu.shape[-1] // 2
     out = gu.new_empty(*gu.shape[:-1], h)
     rows = gu.numel() // (2 * h)
-    args = [gu.view(torch.int32), out.view(torch.int32), rows, h]
+
+    args: list[Arg] = [gu.view(torch.int32), out.view(torch.int32), rows, h]
     load("ck_glue", gu.device.index).launch(
         "swiglu_bf16", (-(-rows * h // 8 // 256), 1, 1), (256, 1, 1), args
     )
@@ -98,8 +104,9 @@ def head(
     rows = x.numel() // d
     inner, stride = _layout(x)
     span = (rows // inner - 1) * stride * 2 + inner * d
+
     one = x.new_zeros(4, dtype=torch.float32)
-    args = [
+    args: list[Arg] = [
         x.as_strided((span,), (1,)).view(torch.int32),
         one if weight is None else weight,
         one if cos is None else cos,
@@ -112,6 +119,7 @@ def head(
         eps,
         mode,
     ]
+
     load("ck_glue", x.device.index).launch(
         f"head{d}", (-(-rows // 256), 1, 1), (256, 1, 1), args
     )
@@ -153,17 +161,20 @@ def _qk_forward(self: RMSNorm, x: torch.Tensor) -> torch.Tensor:
 
 def _fuse(m: SwiGLU) -> tuple[torch.nn.Parameter, torch.Tensor | None]:
     """One ``[gate; up]`` weight (a parameter, so autocast caches its cast); ``w_gate``/``w_up`` become views."""
-    if not hasattr(m, "_ck"):
-        w = torch.nn.Parameter(torch.cat([m.w_gate.weight, m.w_up.weight]).detach())
-        m.w_gate.weight = torch.nn.Parameter(w[: m.hidden])
-        m.w_up.weight = torch.nn.Parameter(w[m.hidden :])
-        b = (
-            None
-            if m.w_gate.bias is None
-            else torch.cat([m.w_gate.bias, m.w_up.bias]).detach()
-        )
-        m._ck = (w, b)
-    return m._ck
+    pair = m.__dict__.get("_ck")
+    if pair is not None:
+        return cast("tuple[torch.nn.Parameter, torch.Tensor | None]", pair)
+
+    w = torch.nn.Parameter(torch.cat([m.w_gate.weight, m.w_up.weight]).detach())
+    m.w_gate.weight = torch.nn.Parameter(w[: m.hidden])
+    m.w_up.weight = torch.nn.Parameter(w[m.hidden :])
+    b = (
+        None
+        if m.w_gate.bias is None
+        else torch.cat([m.w_gate.bias, m.w_up.bias]).detach()
+    )
+    m.__dict__["_ck"] = (w, b)
+    return w, b
 
 
 def _norm_forward(self: RMSNorm, x: torch.Tensor) -> torch.Tensor:
@@ -191,7 +202,9 @@ def patch(model: torch.nn.Module) -> int:
     ``q_norm``/``k_norm``, and ``blocks.apply_rotary``; returns the module count."""
     if not available():
         return 0
-    blocks.apply_rotary = rotary
+
+    setattr(blocks, "apply_rotary", rotary)
+
     qk = [
         getattr(b, n)
         for b in model.modules()
@@ -200,7 +213,8 @@ def patch(model: torch.nn.Module) -> int:
         and getattr(b, n).weight.numel() in HEADS
     ]
     for m in qk:
-        m.forward = types.MethodType(_qk_forward, m)
+        setattr(m, "forward", types.MethodType(_qk_forward, m))
+
     mlps = [m for m in model.modules() if type(m) is SwiGLU]
     norms = [
         b.norm2
@@ -210,14 +224,14 @@ def patch(model: torch.nn.Module) -> int:
         and getattr(b, "adaln", None) is None
     ]
     for m in mlps:
-        m.forward = types.MethodType(_swiglu_forward, m)
+        setattr(m, "forward", types.MethodType(_swiglu_forward, m))
     for m in norms:
-        m.forward = types.MethodType(_norm_forward, m)
+        setattr(m, "forward", types.MethodType(_norm_forward, m))
     return len(mlps) + len(norms) + len(qk)
 
 
 def unpatch(model: torch.nn.Module) -> None:
-    blocks.apply_rotary = apply_rotary
+    setattr(blocks, "apply_rotary", apply_rotary)
     for m in model.modules():
         if type(m) in (SwiGLU, RMSNorm):
             m.__dict__.pop("forward", None)
