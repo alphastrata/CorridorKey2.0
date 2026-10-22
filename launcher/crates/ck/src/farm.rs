@@ -24,8 +24,6 @@ use crate::write::{Exr, Writer};
 
 /// Host bytes of stage-2 jobs that may wait in the queue.
 const QUEUE_BYTES: usize = 3 << 30;
-/// Stage-2 jobs a lead queues per other worker before running them itself.
-const DEPTH: usize = 4;
 
 /// What every stage-2 job of a clip shares.
 pub struct Meta {
@@ -173,19 +171,18 @@ fn sink(rx: &flume::Receiver<Done>, writers: Vec<(Output, Writer)>, total: usize
     writers.into_iter().try_for_each(|(_, w)| w.finish())
 }
 
-/// Queues `job` for the other workers, up to [`DEPTH`] jobs each and [`QUEUE_BYTES`] in all; past that the oldest
-/// queued job, or `job` itself, runs here, so a lone GPU keys each frame as it is blended.
+/// Queues `job` while some other worker is free to drain the queue and it holds under [`QUEUE_BYTES`]; otherwise the
+/// oldest queued job, or `job` itself, runs here, so a lone GPU keys each frame as it is blended.
 fn submit(gpu: &Gpu, m: &Models, sh: &Shared, job: Job<Tensor>) -> Result<()> {
     let bytes = job.baton.bytes() + job.raw.len();
-    let others = sh
+    let free = sh
         .alive
         .iter()
-        .filter(|a| a.load(Ordering::Acquire))
-        .count()
-        .saturating_sub(1);
+        .zip(&sh.leading)
+        .any(|(a, l)| a.load(Ordering::Acquire) && !l.load(Ordering::Acquire));
     loop {
         ensure!(!sh.abort.load(Ordering::Acquire), "aborted");
-        if sh.jobs.1.len() < DEPTH * others && sh.queued.load(Ordering::Acquire) + bytes <= QUEUE_BYTES {
+        if free && sh.queued.load(Ordering::Acquire) + bytes <= QUEUE_BYTES {
             sh.queued.fetch_add(bytes, Ordering::AcqRel);
             let baton = gpu.download(&job.baton)?;
             return sh.jobs.0.send(job.with(baton)).map_err(|_| eyre!("job queue closed"));
