@@ -39,15 +39,17 @@ impl Dims {
         }
     }
 
+    /// Source index of padded position `i`; a tile's overhang past one reflection only feeds discarded outputs, so
+    /// it is clamped in bounds.
     fn edge(self, i: usize, n: usize) -> usize {
         let i = i as isize - (K / 2) as isize;
         let n = n as isize;
         let r = match (self.reflect, i < 0, i >= n) {
             (true, true, _) => -i,
             (true, _, true) => 2 * n - 2 - i,
-            _ => i.clamp(0, n - 1),
+            _ => i,
         };
-        r as usize
+        r.clamp(0, n - 1) as usize
     }
 }
 
