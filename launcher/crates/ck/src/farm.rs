@@ -1,8 +1,7 @@
 //! Many GPUs, many clips. One worker per GPU loads every model. A clip's stage 1 is serial, so one worker leads it
-//! (a GPU leads only once every faster one does), turning each finished frame into a stage-2 job on a shared queue of
-//! at most [`QUEUE_BYTES`]. Every worker drains that queue first; a lead finding it full runs jobs itself, so no GPU
-//! waits on a slower one, and a deep queue lets slower GPUs work through a flush while the lead moves on. Each clip's
-//! sink writes its frames in order.
+//! (a GPU leads only once every faster one does), turning each finished frame into a stage-2 job on a shared queue.
+//! Every worker drains that queue first; a lead finding it full runs jobs itself, so no GPU waits on a slower one.
+//! Each clip's sink writes its frames in order.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
@@ -25,6 +24,8 @@ use crate::write::{Exr, Writer};
 
 /// Host bytes of stage-2 jobs that may wait in the queue.
 const QUEUE_BYTES: usize = 3 << 30;
+/// Stage-2 jobs a lead queues per other worker before running them itself.
+const DEPTH: usize = 4;
 
 /// What every stage-2 job of a clip shares.
 pub struct Meta {
@@ -154,18 +155,25 @@ fn sink(rx: &flume::Receiver<Done>, writers: Vec<(Output, Writer)>, total: usize
     writers.into_iter().try_for_each(|(_, w)| w.finish())
 }
 
-/// Queues `job`, running queued jobs here while the queue is full.
+/// Queues `job` for the other workers, up to [`DEPTH`] jobs each and [`QUEUE_BYTES`] in all; past that the oldest
+/// queued job, or `job` itself, runs here, so a lone GPU keys each frame as it is blended.
 fn submit(gpu: &Gpu, m: &Models, sh: &Shared, job: Job) -> Result<()> {
     let bytes = job.bytes();
+    let others = sh
+        .alive
+        .iter()
+        .filter(|a| a.load(Ordering::Acquire))
+        .count()
+        .saturating_sub(1);
     loop {
         ensure!(!sh.abort.load(Ordering::Acquire), "aborted");
-        let queued = sh.queued.load(Ordering::Acquire);
-        if queued == 0 || queued + bytes <= QUEUE_BYTES {
+        if sh.jobs.1.len() < DEPTH * others && sh.queued.load(Ordering::Acquire) + bytes <= QUEUE_BYTES {
             sh.queued.fetch_add(bytes, Ordering::AcqRel);
             return sh.jobs.0.send(job).map_err(|_| eyre!("job queue closed"));
         }
-        if let Some(other) = sh.take(Duration::ZERO) {
-            stage2(gpu, m, sh.cfg, &other)?;
+        match sh.take(Duration::ZERO) {
+            Some(other) => stage2(gpu, m, sh.cfg, &other)?,
+            None => return stage2(gpu, m, sh.cfg, &job),
         }
     }
 }
