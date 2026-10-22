@@ -6,4 +6,5 @@ pub mod ops;
 pub mod rope;
 pub mod stage1;
 pub mod stage2;
+pub mod vit;
 pub mod weights;
