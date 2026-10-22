@@ -73,6 +73,7 @@ fn cuda(d: Dtype) -> cudaDataType_t {
         Dtype::Bf16 => cudaDataType_t::CUDA_R_16BF,
         Dtype::F16 => cudaDataType_t::CUDA_R_16F,
         Dtype::I32 => cudaDataType_t::CUDA_R_32I,
+        Dtype::U16 => cudaDataType_t::CUDA_R_16U,
     }
 }
 

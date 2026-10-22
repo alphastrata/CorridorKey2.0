@@ -12,6 +12,7 @@ pub enum Dtype {
     Bf16,
     F16,
     I32,
+    U16,
 }
 
 impl Dtype {
@@ -19,7 +20,7 @@ impl Dtype {
     pub fn size(self) -> usize {
         match self {
             Self::F32 | Self::I32 => 4,
-            Self::Bf16 | Self::F16 => 2,
+            Self::Bf16 | Self::F16 | Self::U16 => 2,
         }
     }
 }
@@ -152,6 +153,29 @@ impl Gpu {
         Ok(out)
     }
 
+    /// Copies `src` into the same-sized view `dst`.
+    ///
+    /// # Errors
+    /// When the sizes differ or the copy fails.
+    pub fn copy_into(&self, src: &Tensor, dst: &Tensor) -> Result<()> {
+        ensure!(src.bytes() == dst.bytes(), "copy {:?} into {:?}", src.shape, dst.shape);
+        unsafe {
+            cudarc::driver::result::memcpy_dtod_async(dst.ptr(), src.ptr(), src.bytes(), self.stream.cu_stream())
+        }?;
+        Ok(())
+    }
+
+    /// Raw little-endian bytes of `t`.
+    ///
+    /// # Errors
+    /// When the copy fails.
+    pub fn download(&self, t: &Tensor) -> Result<Vec<u8>> {
+        let mut bytes = vec![0u8; t.bytes()];
+        self.stream
+            .memcpy_dtoh(&t.buf.slice(t.off..t.off + t.bytes()), &mut bytes)?;
+        Ok(bytes)
+    }
+
     /// Uploads raw little-endian bytes as a tensor.
     ///
     /// # Errors
@@ -174,7 +198,7 @@ impl Gpu {
             Dtype::F32 => bytemuck::cast_slice(v).to_vec(),
             Dtype::Bf16 => bytemuck::cast_slice(&v.iter().copied().map(bf16::from_f32).collect::<Vec<_>>()).to_vec(),
             Dtype::F16 => bytemuck::cast_slice(&v.iter().copied().map(f16::from_f32).collect::<Vec<_>>()).to_vec(),
-            Dtype::I32 => eyre::bail!("upload_f32 to i32"),
+            Dtype::I32 | Dtype::U16 => eyre::bail!("upload_f32 to an integer type"),
         };
         self.upload(&bytes, shape, dtype)
     }
@@ -184,9 +208,7 @@ impl Gpu {
     /// # Errors
     /// When the copy fails or `t` is an integer tensor.
     pub fn download_f32(&self, t: &Tensor) -> Result<Vec<f32>> {
-        let mut bytes = vec![0u8; t.bytes()];
-        let view = t.buf.slice(t.off..t.off + t.bytes());
-        self.stream.memcpy_dtoh(&view, &mut bytes)?;
+        let bytes = self.download(t)?;
         Ok(match t.dtype {
             Dtype::F32 => bytemuck::pod_collect_to_vec(&bytes),
             Dtype::Bf16 => bytemuck::pod_collect_to_vec::<u8, bf16>(&bytes)
@@ -197,7 +219,7 @@ impl Gpu {
                 .into_iter()
                 .map(f32::from)
                 .collect(),
-            Dtype::I32 => eyre::bail!("download_f32 of i32"),
+            Dtype::I32 | Dtype::U16 => eyre::bail!("download_f32 of an integer type"),
         })
     }
 }
