@@ -193,7 +193,7 @@ impl Stage1 {
             },
         )?;
         drop(x);
-        ops::mem(gpu, "stem");
+        ops::probe(gpu, "stem");
         let enc = gpu.copy(&patch)?;
         let step = (ENC_BYTES / (h16 * w16 * d16 * 18)).clamp(1, frames);
         (0..frames).step_by(step).try_for_each(|f| {
@@ -246,7 +246,7 @@ impl Stage1 {
         let (patch, enc) = self.encode(gpu, cache, x, quality)?;
         let (patch, enc) = (patch.into_shape(&grid16)?, enc.into_shape(&grid16)?);
 
-        ops::mem(gpu, "enc");
+        ops::probe(gpu, "enc");
         let vfm: usize = features.iter().map(|f| f.shape[1]).sum();
         let combined = gpu.empty(&[frames, h64, w64, vfm + d16], Dtype::F32)?;
         features.iter().try_fold(0, |off, f| {
@@ -269,12 +269,12 @@ impl Stage1 {
         let f64 = self.fuse.forward(gpu, &combined)?.into_shape(&[b, t, h64, w64, d64])?;
         drop(combined);
 
-        ops::mem(gpu, "fuse");
+        ops::probe(gpu, "fuse");
         let split = self.body.len() / 2;
         let f64 = self.body[..split]
             .iter()
             .try_fold(f64, |x, b| b.forward(gpu, cache, &x, None))?;
-        ops::mem(gpu, "body");
+        ops::probe(gpu, "body");
         let mid = self.mid_up.forward(gpu, &f64.reshape(&[frames, h64, w64, d64])?)?;
         ops::add_scaled(gpu, &mid, &enc, &self.mid_scale)?;
         drop((enc, enc_frames));
@@ -282,7 +282,7 @@ impl Stage1 {
             .mid
             .iter()
             .try_fold(mid.into_shape(&grid16)?, |x, b| b.forward(gpu, cache, &x, None))?;
-        ops::mem(gpu, "mid");
+        ops::probe(gpu, "mid");
         let mid_frames = mid.reshape(&[frames, h16, w16, d16])?;
         ops::conv(
             gpu,
@@ -301,7 +301,7 @@ impl Stage1 {
             .iter()
             .try_fold(f64, |x, b| b.forward(gpu, cache, &x, None))?;
 
-        ops::mem(gpu, "body2");
+        ops::probe(gpu, "body2");
         let dec = self.up.forward(gpu, &f64.into_shape(&[frames, h64, w64, d64])?)?;
         ops::add_scaled(gpu, &dec, &mid, &self.skip_scale)?;
         drop((mid, mid_frames));
@@ -318,9 +318,9 @@ impl Stage1 {
             })?;
         drop(patch);
 
-        ops::mem(gpu, "dec");
+        ops::probe(gpu, "dec");
         let aux = self.aux(gpu, &baton, (h16, w16))?;
-        ops::mem(gpu, "aux");
+        ops::probe(gpu, "aux");
         Ok(Outputs { baton, aux })
     }
 }

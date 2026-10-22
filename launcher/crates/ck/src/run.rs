@@ -11,7 +11,7 @@ use eyre::{OptionExt, Result, ensure};
 use crate::attn::Cache;
 use crate::frame::{self, Encoding, Geometry, Input, Look, Output};
 use crate::io::{Plane, Source};
-use crate::ops::{axpy, mem};
+use crate::ops::{axpy, probe};
 use crate::stage1::{Inputs, Stage1};
 use crate::stage2::{Baton, Stage2};
 use crate::vfm::Vfms;
@@ -246,7 +246,7 @@ impl Clip<'_> {
     fn window(&mut self, (t0, t1): (usize, usize), next: usize, (first, last): (bool, bool)) -> Result<()> {
         self.read(t1)?;
         self.features(t1)?;
-        mem(self.gpu, "features");
+        probe(self.gpu, "features");
         let (g, t, plane) = (self.g, t1 - t0, self.g.h * self.g.w);
         let x = self.gpu.zeros(&[t, 4, g.h, g.w], Dtype::F32)?;
         frame::prep(
@@ -279,7 +279,7 @@ impl Clip<'_> {
             quality: &quality,
             features: [&feats[0], &feats[1], &feats[2]],
         };
-        mem(self.gpu, "inputs");
+        probe(self.gpu, "inputs");
         let out = self.m.s1.forward(self.gpu, &self.m.cache, inputs)?;
         drop((feats, quality));
         let baton = out.baton.reshape(&[t, out.baton.numel() / t])?;
@@ -299,9 +299,9 @@ impl Clip<'_> {
             f.weight += weights[j];
             Ok(())
         })?;
-        mem(self.gpu, "blend");
+        probe(self.gpu, "blend");
         self.flush(next)?;
-        mem(self.gpu, "stage 2");
+        probe(self.gpu, "stage 2");
         Ok(())
     }
 
