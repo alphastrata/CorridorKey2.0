@@ -71,7 +71,7 @@ impl Drop for Buf {
 /// A contiguous device array: a shared allocation, a byte offset into it, a dtype and a shape.
 #[derive(Clone)]
 pub struct Tensor {
-    buf: Arc<Buf>,
+    _alloc: Arc<Buf>,
     base: u64,
     off: usize,
     pub dtype: Dtype,
@@ -249,28 +249,12 @@ impl Gpu {
         Ok(())
     }
 
-    /// Raw little-endian bytes of `t`.
-    ///
-    /// # Errors
-    /// When the copy fails.
-    pub fn download(&self, t: &Tensor) -> Result<Vec<u8>> {
-        let mut bytes = vec![0u8; t.bytes()];
-        self.stream
-            .memcpy_dtoh(&t.buf.slice.slice(t.off..t.off + t.bytes()), &mut bytes)?;
-        Ok(bytes)
-    }
-
     /// Uploads raw little-endian bytes as a tensor.
     ///
     /// # Errors
     /// When the size does not match or the copy fails.
     pub fn upload(&self, bytes: &[u8], shape: &[usize], dtype: Dtype) -> Result<Tensor> {
-        ensure!(
-            bytes.len() == shape.iter().product::<usize>() * dtype.size(),
-            "upload size {shape:?}"
-        );
-        let buf = self.stream.clone_htod(bytes)?;
-        Ok(wrap(self, buf, dtype, shape))
+        self.upload_parts(&[bytes], shape, dtype)
     }
 
     /// Uploads `f32` values converted to `dtype`.
@@ -314,7 +298,7 @@ fn wrap(gpu: &Gpu, buf: CudaSlice<u8>, dtype: Dtype, shape: &[usize]) -> Tensor 
     let (base, _) = buf.device_ptr(&gpu.stream);
     gpu.meter.add(buf.len());
     Tensor {
-        buf: Arc::new(Buf {
+        _alloc: Arc::new(Buf {
             slice: buf,
             meter: gpu.meter.clone(),
         }),

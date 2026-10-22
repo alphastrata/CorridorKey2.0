@@ -1,6 +1,7 @@
 //! One GPU: context, stream, our PTX modules for its architecture, cached cuBLASLt plans and tensors.
 
 mod gemm;
+mod staging;
 mod tensor;
 
 use std::cell::RefCell;
@@ -50,6 +51,7 @@ pub struct Gpu {
     functions: RefCell<HashMap<(String, String), CudaFunction>>,
     biases: RefCell<HashMap<(u64, Dtype), Tensor>>,
     lt: gemm::Lt,
+    staging: RefCell<staging::Staging>,
     pub meter: Arc<Meter>,
 }
 
@@ -83,6 +85,7 @@ impl Gpu {
             functions: RefCell::default(),
             biases: RefCell::default(),
             lt,
+            staging: RefCell::default(),
             meter: Arc::default(),
         })
     }
