@@ -71,6 +71,22 @@ def main() -> None:
     model = load_model(RuntimePaths.from_package(REPO, None)).cuda()
     clip = load(min((REPO / "kernels/bench/frames").glob(f"*/{a.tier}p")), a.frames)
     x, display = clip.x.cuda().float(), clip.display.cuda()
+    fm = model.foundations
+    named0 = [
+        (f"{tag}{i}", b)
+        for tag, blocks in (
+            ("cradio", fm.cradio.radio_model.model.blocks),
+            ("moge", fm.moge.encoder.backbone.blocks),
+            ("rvm", fm.rvm.encoder_layers),
+        )
+        for i, b in enumerate(blocks)
+    ]
+    feats = both(model, named0, lambda: tuple(vfm(model, display).values()))
+    save(
+        f"vfm_{a.tier}",
+        {"display": cpu(display[0])}
+        | {k: v for k, v in feats.items() if not k.endswith(".in")},
+    )
     with config(model, "stock"):
         f: Feats = vfm(model, display)
         baton = stage1(model, x, f)[0][:, :1].contiguous()
