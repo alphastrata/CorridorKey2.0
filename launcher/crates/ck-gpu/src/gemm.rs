@@ -13,7 +13,7 @@ use cudarc::cublaslt::sys::{
 use cudarc::driver::{CudaSlice, CudaStream, DevicePtr};
 use eyre::{Result, ensure};
 
-use crate::{Dtype, Gpu, Tensor};
+use crate::{Arg, Dtype, Gpu, Tensor};
 
 const WORKSPACE: usize = 32 << 20;
 
@@ -196,6 +196,9 @@ impl Gpu {
     ) -> Result<()> {
         let (out, inner) = (w.shape[0], w.shape[1]);
         let rows = x.numel() / inner;
+        if x.dtype == Dtype::Bf16 && w.dtype == Dtype::F16 {
+            return self.linear_f16(x, w, bias, y, (ld, off), accumulate);
+        }
         ensure!(
             x.numel() == rows * inner && y.numel() == rows * ld && off + out <= ld && x.dtype == w.dtype,
             "linear {:?} · {:?} → {:?} [{off}..+{out} of {ld}]",
@@ -221,6 +224,39 @@ impl Gpu {
         let at = y.ptr() + (off * y.dtype.size()) as u64;
         let bias = bias.map(|b| self.bias(b, y.dtype)).transpose()?;
         self.lt.run(gemm, x.ptr(), w.ptr(), bias, at)
+    }
+
+    /// [`Gpu::linear_into`] for GPUs without bf16 tensor cores: `x` goes to f16 (exact in range) for f16 tensor cores
+    /// with f32 accumulation, the same arithmetic, and a bf16 `y` comes back through f32 rounded to nearest.
+    fn linear_f16(
+        &self,
+        x: &Tensor,
+        w: &Tensor,
+        bias: Option<&Tensor>,
+        y: &Tensor,
+        (ld, off): (usize, usize),
+        accumulate: bool,
+    ) -> Result<()> {
+        let grid = |n: usize| (n.div_ceil(256) as u32, 1, 1);
+        let xh = self.empty(&x.shape, Dtype::F16)?;
+        self.launch(
+            "ck_ops",
+            "bf16_f16",
+            grid(x.numel()),
+            256,
+            0,
+            &[x.into(), (&xh).into(), x.numel().into()],
+        )?;
+        if y.dtype != Dtype::Bf16 {
+            return self.linear_into(&xh, w, bias, y, (ld, off), accumulate);
+        }
+        ensure!(!accumulate, "no bf16 accumulation on sm_{}", self.sm);
+        let (rows, n) = (x.numel() / w.shape[1], w.shape[0]);
+        let tmp = self.empty(&[rows, n], Dtype::F32)?;
+        self.linear_into(&xh, w, bias, &tmp, (n, 0), false)?;
+        let dims = [rows, n, ld, off].map(Arg::from);
+        let args = [[(&tmp).into(), y.into()].as_slice(), &dims].concat();
+        self.launch("ck_ops", "f32_bf16", grid(tmp.numel()), 256, 0, &args)
     }
 
     /// `b` in `dtype` (cuBLASLt wants the bias in the output's type), converted once and kept.

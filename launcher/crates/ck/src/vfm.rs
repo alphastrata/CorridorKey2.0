@@ -354,7 +354,7 @@ impl Vfms {
             gpu,
             weights,
             prefix: "",
-            half: Dtype::Bf16,
+            half: gpu.half(),
         };
         Ok(Self {
             radio: Radio::load(&ld)?,
