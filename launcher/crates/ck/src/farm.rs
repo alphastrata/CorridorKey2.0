@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::Scope;
 use std::time::Duration;
 
-use ck_gpu::{Dtype, Gpu};
+use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::{Result, bail, ensure, eyre};
 use flume::RecvTimeoutError;
 
@@ -35,13 +35,26 @@ pub struct Meta {
     pub done: flume::Sender<Done>,
 }
 
-/// One frame's stage 2: its blended baton (f32 NHWC bytes, to be scaled by `scale`) and raw pixels.
-pub struct Job {
+/// One frame's stage 2: its blended baton (f32 NHWC, to be scaled by `scale`) and raw pixels. The baton stays on
+/// the lead's GPU (`Tensor`) unless the job is queued for another (`Vec<u8>`).
+pub struct Job<B = Vec<u8>> {
     pub meta: Arc<Meta>,
     pub frame: usize,
-    pub baton: Vec<u8>,
+    pub baton: B,
     pub scale: f32,
     pub raw: Vec<u8>,
+}
+
+impl<B> Job<B> {
+    fn with<C>(self, baton: C) -> Job<C> {
+        Job {
+            meta: self.meta,
+            frame: self.frame,
+            baton,
+            scale: self.scale,
+            raw: self.raw,
+        }
+    }
 }
 
 impl Job {
@@ -108,25 +121,30 @@ thread_local! {
     static KEYED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
-fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job) -> Result<()> {
-    KEYED.set(KEYED.get() + 1);
+/// A queued job on this GPU.
+fn queued(gpu: &Gpu, m: &Models, cfg: &Config, job: Job) -> Result<()> {
     let g = job.meta.g;
     let acc = gpu.upload(&job.baton, &[1, g.h / 16, g.w / 16, 512], Dtype::F32)?;
+    stage2(gpu, m, cfg, &job.with(acc))
+}
+
+fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job<Tensor>) -> Result<()> {
+    KEYED.set(KEYED.get() + 1);
+    let g = job.meta.g;
+    let acc = &job.baton;
     let rgb = gpu.empty(&[1, 3, g.h, g.w], Dtype::F32)?;
     let raw = upload(gpu, &[&job.raw], &[1, 3 * g.hn * g.wn], job.meta.pix)?;
     frame::prep(gpu, &raw, &rgb, g, 3 * g.h * g.w, Encoding::Model, cfg.input())?;
-    let logits = m.s2.forward(gpu, &m.cache, &rgb, Baton::Nhwc(&acc, job.scale))?;
-    let images = cfg
+    let logits = m.s2.forward(gpu, &m.cache, &rgb, Baton::Nhwc(acc, job.scale))?;
+    let rendered = cfg
         .outputs
         .iter()
-        .map(|&o| {
-            let img = match cfg.exr {
-                Some(t) => frame::render_exr(gpu, &logits, g, o, cfg.look, t == Exr::Half)?,
-                None => frame::render(gpu, &logits, g, o, cfg.look)?,
-            };
-            gpu.download(&img)
+        .map(|&o| match cfg.exr {
+            Some(t) => frame::render_exr(gpu, &logits, g, o, cfg.look, t == Exr::Half),
+            None => frame::render(gpu, &logits, g, o, cfg.look),
         })
         .collect::<Result<Vec<_>>>()?;
+    let images = rendered.iter().map(|img| gpu.download(img)).collect::<Result<Vec<_>>>()?;
     job.meta
         .done
         .send(Done {
@@ -157,8 +175,8 @@ fn sink(rx: &flume::Receiver<Done>, writers: Vec<(Output, Writer)>, total: usize
 
 /// Queues `job` for the other workers, up to [`DEPTH`] jobs each and [`QUEUE_BYTES`] in all; past that the oldest
 /// queued job, or `job` itself, runs here, so a lone GPU keys each frame as it is blended.
-fn submit(gpu: &Gpu, m: &Models, sh: &Shared, job: Job) -> Result<()> {
-    let bytes = job.bytes();
+fn submit(gpu: &Gpu, m: &Models, sh: &Shared, job: Job<Tensor>) -> Result<()> {
+    let bytes = job.baton.bytes() + job.raw.len();
     let others = sh
         .alive
         .iter()
@@ -169,10 +187,11 @@ fn submit(gpu: &Gpu, m: &Models, sh: &Shared, job: Job) -> Result<()> {
         ensure!(!sh.abort.load(Ordering::Acquire), "aborted");
         if sh.jobs.1.len() < DEPTH * others && sh.queued.load(Ordering::Acquire) + bytes <= QUEUE_BYTES {
             sh.queued.fetch_add(bytes, Ordering::AcqRel);
-            return sh.jobs.0.send(job).map_err(|_| eyre!("job queue closed"));
+            let baton = gpu.download(&job.baton)?;
+            return sh.jobs.0.send(job.with(baton)).map_err(|_| eyre!("job queue closed"));
         }
         match sh.take(Duration::ZERO) {
-            Some(other) => stage2(gpu, m, sh.cfg, &other)?,
+            Some(other) => queued(gpu, m, sh.cfg, other)?,
             None => return stage2(gpu, m, sh.cfg, &job),
         }
     }
@@ -239,7 +258,7 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
             return Ok(());
         }
         if let Some(job) = sh.take(Duration::ZERO) {
-            stage2(&gpu, &m, sh.cfg, &job)?;
+            queued(&gpu, &m, sh.cfg, job)?;
             continue;
         }
         let next = if sh.may_lead(k) { sh.clips()?.pop_front() } else { None };
@@ -257,7 +276,7 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
             return Ok(());
         }
         if let Some(job) = sh.take(Duration::from_millis(5)) {
-            stage2(&gpu, &m, sh.cfg, &job)?;
+            queued(&gpu, &m, sh.cfg, job)?;
         }
     }
 }

@@ -254,15 +254,16 @@ impl<'a> Clip<'a> {
     }
 
     /// Frames before `limit`, fully blended, as stage-2 jobs.
-    fn flush(&mut self, limit: usize, submit: &mut impl FnMut(Job) -> Result<()>) -> Result<()> {
+    fn flush(&mut self, limit: usize, submit: &mut impl FnMut(Job<Tensor>) -> Result<()>) -> Result<()> {
         let ready: Vec<usize> = self.frames.range(..limit).map(|(k, _)| *k).collect();
+        let g = self.meta.g;
         ready.into_iter().try_for_each(|k| {
             let f = self.frames.remove(&k).ok_or_eyre("frame gone")?;
             let acc = f.acc.ok_or_eyre("frame never blended")?;
             submit(Job {
                 meta: self.meta.clone(),
                 frame: k,
-                baton: self.gpu.download(&acc)?,
+                baton: acc.into_shape(&[1, g.h / 16, g.w / 16, 512])?,
                 scale: 1.0 / f.weight.max(1e-6),
                 raw: f.raw,
             })
@@ -273,7 +274,7 @@ impl<'a> Clip<'a> {
     ///
     /// # Errors
     /// On decode or GPU failure, or when `submit` fails.
-    pub fn run(mut self, total: usize, mut submit: impl FnMut(Job) -> Result<()>) -> Result<()> {
+    pub fn run(mut self, total: usize, mut submit: impl FnMut(Job<Tensor>) -> Result<()>) -> Result<()> {
         let (chunk, stride) = (self.cfg.chunk, self.cfg.stride);
         let s = starts(total, chunk, stride);
         s.iter().enumerate().try_for_each(|(i, &t0)| {
