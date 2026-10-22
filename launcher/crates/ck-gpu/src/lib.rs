@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use cudarc::driver::sys::CUfunction_attribute::CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES;
+use cudarc::driver::sys::{self, CUfunction_attribute::CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES};
 use cudarc::driver::{CudaContext, CudaFunction, CudaModule, CudaStream, LaunchConfig, PushKernelArg};
 use cudarc::nvrtc::Ptx;
 use eyre::{Context, OptionExt, Result};
@@ -55,6 +55,23 @@ pub struct Gpu {
     pub meter: Arc<Meter>,
 }
 
+/// Freed memory stays in the device's pool across syncs rather than going back to the driver (an allocation that
+/// fails trims it).
+fn keep_pool(ctx: &CudaContext) -> Result<()> {
+    let mut pool = std::ptr::null_mut();
+    let keep = u64::MAX;
+    unsafe {
+        sys::cuDeviceGetDefaultMemPool(&raw mut pool, ctx.cu_device()).result()?;
+        sys::cuMemPoolSetAttribute(
+            pool,
+            sys::CUmemPool_attribute::CU_MEMPOOL_ATTR_RELEASE_THRESHOLD,
+            std::ptr::from_ref(&keep).cast_mut().cast(),
+        )
+        .result()?;
+    }
+    Ok(())
+}
+
 impl Gpu {
     /// Opens device `index` and loads every crate under `bin/sm_XX` for the highest `XX` it can run.
     ///
@@ -66,6 +83,7 @@ impl Gpu {
         let (major, minor) = ctx.compute_capability()?;
         let sm = (major * 10 + minor) as u32;
         let stream = ctx.new_stream()?;
+        keep_pool(&ctx)?;
         let modules = std::fs::read_dir(best(bin, sm)?)?
             .filter_map(Result::ok)
             .map(|e| e.path())
