@@ -356,7 +356,13 @@ pub fn resize(
     let args = [
         [x, mean, std, &out].map(Arg::from).as_slice(),
         &dims,
-        &[Arg::F(sy), Arg::F(sx), Arg::U(mode as u32)],
+        &[
+            Arg::F(sy),
+            Arg::F(sx),
+            Arg::U(mode as u32),
+            Arg::F(f32::MIN),
+            Arg::F(f32::MAX),
+        ],
     ]
     .concat();
     ops(gpu, "resize", out.numel(), &args)?;

@@ -8,6 +8,7 @@ use ptx::prelude::*;
 
 mod conv;
 mod elem;
+mod frame;
 mod heads;
 mod resize;
 mod vit;
