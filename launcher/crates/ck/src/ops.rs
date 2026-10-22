@@ -357,55 +357,62 @@ pub struct Mix {
     pub gamma: Tensor,
 }
 
-/// `x + γ · v · silu(g)` over `rms_norm(x)` with 7×7 depthwise `v`, `g`, f32 NHWC.
+/// Bytes of mixed frames [`mix_add`] holds before copying them back.
+const MIX_BYTES: usize = 256 << 20;
+
+/// `x += γ · v · silu(g)` over `rms_norm(x)` with 7×7 depthwise `v`, `g`, f32 NHWC, a few frames at a time.
 ///
 /// # Errors
 /// On a launch failure.
-pub fn mix_add(gpu: &Gpu, x: &Tensor, m: &Mix) -> Result<Tensor> {
+pub fn mix_add(gpu: &Gpu, x: &Tensor, m: &Mix) -> Result<()> {
     let [lead, h, w, c] = four(x)?;
-    let r = gpu.empty(&[lead * h * w], Dtype::F32)?;
-    let pixels = r.numel();
-    gpu.launch(
-        "ck_dw",
-        "rms_f32",
-        (pixels.div_ceil(8) as u32, 1, 1),
-        256,
-        0,
-        &[x.into(), (&r).into(), pixels.into(), c.into(), Arg::F(1e-6)],
-    )?;
-    let out = gpu.empty(&x.shape, Dtype::F32)?;
-    let reflect = usize::from(h > 3 && w > 3);
-    let args = [
-        x.into(),
-        (&r).into(),
-        (&m.norm).into(),
-        (&m.taps).into(),
-        (&m.bias).into(),
-        (&m.gamma).into(),
-        (&out).into(),
-        h.into(),
-        w.into(),
-        c.into(),
-        reflect.into(),
-        Arg::U(1),
-    ];
-    gpu.launch("ck_dw", "mix_f32", dw_grid(lead, h, w, c), 256, TILE, &args)?;
-    Ok(out)
+    let step = (MIX_BYTES / (h * w * c * 4)).clamp(1, lead);
+    (0..lead).step_by(step).try_for_each(|f| {
+        let x = x.rows(f, step.min(lead - f))?;
+        let n = x.shape[0];
+        let r = gpu.empty(&[n * h * w], Dtype::F32)?;
+        let pixels = r.numel();
+        gpu.launch(
+            "ck_dw",
+            "rms_f32",
+            (pixels.div_ceil(8) as u32, 1, 1),
+            256,
+            0,
+            &[(&x).into(), (&r).into(), pixels.into(), c.into(), Arg::F(1e-6)],
+        )?;
+        let out = gpu.empty(&x.shape, Dtype::F32)?;
+        let reflect = usize::from(h > 3 && w > 3);
+        let args = [
+            (&x).into(),
+            (&r).into(),
+            (&m.norm).into(),
+            (&m.taps).into(),
+            (&m.bias).into(),
+            (&m.gamma).into(),
+            (&out).into(),
+            h.into(),
+            w.into(),
+            c.into(),
+            reflect.into(),
+            Arg::U(1),
+        ];
+        gpu.launch("ck_dw", "mix_f32", dw_grid(n, h, w, c), 256, TILE, &args)?;
+        gpu.copy_into(&out, &x)
+    })
 }
 
-/// 7×7 depthwise conv of the bf16 NHWC qkv grid, reflect-padded.
+/// 7×7 depthwise conv of the bf16 NHWC qkv grid `y`, reflect-padded, into the same-shaped `out`.
 ///
 /// # Errors
 /// On a launch failure.
-pub fn dw_qkv(gpu: &Gpu, y: &Tensor, taps: &Tensor, bias: &Tensor) -> Result<Tensor> {
+pub fn dw_qkv(gpu: &Gpu, y: &Tensor, (taps, bias): (&Tensor, &Tensor), out: &Tensor) -> Result<()> {
     let [lead, h, w, c] = four(y)?;
-    let out = gpu.empty(&y.shape, Dtype::Bf16)?;
     let reflect = usize::from(h > 3 && w > 3);
     let args = [
         y.into(),
         taps.into(),
         bias.into(),
-        (&out).into(),
+        out.into(),
         h.into(),
         w.into(),
         c.into(),
@@ -418,8 +425,7 @@ pub fn dw_qkv(gpu: &Gpu, y: &Tensor, taps: &Tensor, bias: &Tensor) -> Result<Ten
         256,
         TILE + 49 * 32 * 4,
         &args,
-    )?;
-    Ok(out)
+    )
 }
 
 fn four(x: &Tensor) -> Result<[usize; 4]> {
