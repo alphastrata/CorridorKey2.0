@@ -24,7 +24,11 @@ def prefixed(prefix: str, sd: dict[str, torch.Tensor]) -> dict[str, torch.Tensor
 
 def main() -> None:
     f = load_model(RuntimePaths.from_package(REPO, None)).foundations
-    stats = {k: getattr(f, k) for k in ("cradio_mean", "cradio_std", "moge_mean", "moge_std", "rvm_mean", "rvm_std")}
+    stats = {
+        f"{m}_{s}": getattr(f, f"{m}_{s}")
+        for m in ("cradio", "moge", "rvm")
+        for s in ("mean", "std")
+    }
     out = (
         prefixed("cradio", f.cradio.radio_model.state_dict())
         | prefixed("moge", f.moge.encoder.state_dict())
