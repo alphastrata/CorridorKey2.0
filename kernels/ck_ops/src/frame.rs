@@ -1,8 +1,10 @@
 //! Frames in. `prep`: u16 RGB `[n, h0, w0, 3]` reflect-padded about `(top, left)` into f32 planes `[n, 3, h, w]`
 //! (`ld` floats per frame): `mode` 0 display sRGB (or the tone-limited adjusted linear), 1 the model's asinh-encoded
 //! linear. `prep_f32`: the same from f32 G, B, R planes `[n, 3, h0, w0]`, scene-linear if `linear`, else display
-//! clipped to `[0, 1]`. `hint`: u16 grey the same way, clipped to `[0, 1]`. `axpy`: `x += a · y`. `place`:
-//! `out[r, off + j] = x[r, j] · s`, `ld`-wide rows.
+//! clipped to `[0, 1]`. `hint`: f32 grey `[n, h0, w0]` the same way, clipped to `[0, 1]`. `planar`: u16
+//! `[n, h, w, c]` → f32 `[n, c, h, w] / 65535`, planes G, B, R when `c = 3`. `crop`: `[planes, h, w]` →
+//! `[planes, h0, w0]` from `(top, left)`. `axpy`: `x += a · y`. `place`: `out[r, off + j] = x[r, j] · s`, `ld`-wide
+//! rows.
 
 use crate::gid;
 use ptx::kernel;
@@ -163,7 +165,7 @@ pub fn prep_f32(
 
 #[kernel]
 pub fn hint(
-    raw: &[u16],
+    raw: &[f32],
     out: &mut [f32],
     n: u32,
     h0: u32,
@@ -178,8 +180,28 @@ pub fn hint(
     let Some([f, _, yx, sy, sx]) = texel(gid(), dims, 1) else {
         return;
     };
-    let v = f32::from(raw[(f * dims[1] + sy) * dims[2] + sx]) / 65535.0;
+    let v = raw[(f * dims[1] + sy) * dims[2] + sx];
     out.set(f * ld as usize + yx, v.clamp(0.0, 1.0));
+}
+
+#[kernel]
+pub fn planar(raw: &[u16], out: &mut [f32], n: u32, h: u32, w: u32, c: u32) {
+    let i = gid();
+    let [n, h, w, c] = [n, h, w, c].map(|v| v as usize);
+    if i < n * c * h * w {
+        let (yx, p, f) = (i % (h * w), i / (h * w) % c, i / (c * h * w));
+        out.set(i, f32::from(raw[(f * h * w + yx) * c + (p + 1) % c]) / 65535.0);
+    }
+}
+
+#[kernel]
+pub fn crop(x: &[f32], out: &mut [f32], planes: u32, h: u32, w: u32, h0: u32, w0: u32, top: u32, left: u32) {
+    let i = gid();
+    let [planes, h, w, h0, w0, top, left] = [planes, h, w, h0, w0, top, left].map(|v| v as usize);
+    if i < planes * h0 * w0 {
+        let (x0, y0, p) = (i % w0, i / w0 % h0, i / (h0 * w0));
+        out.set(i, x[(p * h + y0 + top) * w + x0 + left]);
+    }
 }
 
 #[kernel]

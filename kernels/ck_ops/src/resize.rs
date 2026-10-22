@@ -1,10 +1,13 @@
 //! `resize`: f32 planes `[planes, h, w]` → `[planes, oh, ow]`, as `F.interpolate` without antialias and
-//! `align_corners = False`: `mode` 0 area (adaptive average), 1 bilinear, 2 bicubic (`A = −0.75`), source
-//! coordinate `(o + ½) · scale − ½`. Then `(v − mean[ch]) / std[ch]` with `ch = plane % c`,
+//! `align_corners = False`: `mode` 0 area (adaptive average), 1 bilinear, 2 bicubic (`A = −0.75`), 3 Lanczos-4 as
+//! `cv2.INTER_LANCZOS4` (8 taps, clamped borders), source coordinate `(o + ½) · scale − ½`. Then `(v − mean[ch]) / std[ch]` with `ch = plane % c`,
 //! clamped to `[lo, hi]`.
+
+use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_4};
 
 use crate::gid;
 use ptx::kernel;
+use ptx::prelude::*;
 use ptx::num::f32::ptx_f2i_rm;
 use ptx::slice::GpuSlice;
 
@@ -14,6 +17,34 @@ fn cubic(t: f32) -> [f32; 4] {
     let near = |x: f32| ((A + 2.0) * x - (A + 3.0)) * x * x + 1.0;
     let far = |x: f32| ((A * x - 5.0 * A) * x + 8.0 * A) * x - 4.0 * A;
     [far(t + 1.0), near(t), near(1.0 - t), far(2.0 - t)]
+}
+
+/// cv2's `interpolateLanczos4`: `sinc(d) · sinc(d / 4)` at `d = t + 3 − i`, normalised, one sine and cosine.
+fn lanczos4(t: f32) -> [f32; 8] {
+    const S: f32 = FRAC_1_SQRT_2;
+    const CS: [[f32; 2]; 8] = [
+        [1.0, 0.0],
+        [-S, -S],
+        [0.0, 1.0],
+        [S, -S],
+        [-1.0, 0.0],
+        [S, S],
+        [0.0, -1.0],
+        [-S, S],
+    ];
+    let y0 = -(t + 3.0) * FRAC_PI_4;
+    let (s0, c0) = (y0.sin(), y0.cos());
+    let w = [0, 1, 2, 3, 4, 5, 6, 7].map(|i: usize| {
+        let d = t + 3.0 - i as f32;
+        if d.abs() < 1e-6 {
+            1e30
+        } else {
+            let y = d * FRAC_PI_4;
+            (CS[i][0] * s0 + CS[i][1] * c0) / (y * y)
+        }
+    });
+    let sum = w.iter().sum::<f32>();
+    w.map(|v| v / sum)
 }
 
 fn at(i: i32, n: usize) -> usize {
@@ -56,6 +87,18 @@ fn bicubic(x: GpuSlice<f32>, base: usize, (h, w): (usize, usize), (sy, sx): (f32
     })
 }
 
+fn lanczos(x: GpuSlice<f32>, base: usize, (h, w): (usize, usize), (sy, sx): (f32, f32)) -> f32 {
+    let (y0, x0) = (ptx_f2i_rm(sy), ptx_f2i_rm(sx));
+    let (wy, wx) = (lanczos4(sy - y0 as f32), lanczos4(sx - x0 as f32));
+    (0..8).fold(0.0f32, |acc, i| {
+        let y = at(y0 - 3 + i as i32, h);
+        let row = (0..8).fold(0.0f32, |r, j| {
+            r + wx[j] * x[base + y * w + at(x0 - 3 + j as i32, w)]
+        });
+        acc + wy[i] * row
+    })
+}
+
 #[kernel]
 pub fn resize(
     x: &[f32],
@@ -88,7 +131,8 @@ pub fn resize(
     let v = match mode {
         0 => area(x, base, (h, w), (oy, ox), (oh, ow)),
         1 => bilinear(x, base, (h, w), src),
-        _ => bicubic(x, base, (h, w), src),
+        2 => bicubic(x, base, (h, w), src),
+        _ => lanczos(x, base, (h, w), src),
     };
     out.set(i, ((v - mean[p % c]) / std[p % c]).clamp(lo, hi));
 }
