@@ -52,6 +52,8 @@ pub struct Config {
     pub hint_quality: f32,
     pub carry_quality: f32,
     pub quantum: usize,
+    /// Lanczos scale of the frames the model sees; outputs stay native.
+    pub scale: f64,
     pub frames: Option<usize>,
     pub dir_fps: f64,
     pub outputs: Vec<Output>,
@@ -159,7 +161,7 @@ impl Clip<'_> {
         upload(
             self.gpu,
             &parts.collect::<Result<Vec<_>>>()?,
-            &[range.len(), 3 * g.h0 * g.w0],
+            &[range.len(), 3 * g.hn * g.wn],
             self.pix,
         )
     }
@@ -202,7 +204,7 @@ impl Clip<'_> {
             let parts = (t0..t0 + t)
                 .map(|f| self.frames[&f].hint.as_deref().ok_or_eyre("hint frame missing"))
                 .collect::<Result<Vec<_>>>()?;
-            let raw = upload(self.gpu, &parts, &[t, g.h0, g.w0], Dtype::U16)?;
+            let raw = upload(self.gpu, &parts, &[t, g.hn, g.wn], Dtype::U16)?;
             frame::hint(self.gpu, &raw, &x.at(3 * plane, &[(4 * t - 3) * plane])?, g, 4 * plane)?;
             quality.fill(Some(self.cfg.hint_quality));
         }
@@ -214,7 +216,7 @@ impl Clip<'_> {
             Ok(())
         })?;
         if let (Some(first), 0) = (&self.first, t0) {
-            let raw = upload(self.gpu, &[first], &[1, g.h0, g.w0], Dtype::U16)?;
+            let raw = upload(self.gpu, &[first], &[1, g.hn, g.wn], Dtype::U16)?;
             frame::hint(self.gpu, &raw, &x.at(3 * plane, &[plane])?, g, 4 * plane)?;
             quality[0] = Some(self.cfg.hint_quality);
         }
@@ -385,7 +387,7 @@ pub fn run(gpu: &Gpu, m: &Models, input: &Path, out_dir: &Path, cfg: &Config, hi
     let src = Source::open(input, cfg.dir_fps)?;
     let total = cfg.frames.map_or(src.frames, |n| n.min(src.frames));
     ensure!(total > 0, "{}: no frames", input.display());
-    let g = Geometry::padded(src.h, src.w, cfg.quantum);
+    let g = Geometry::scaled(src.h, src.w, cfg.scale, cfg.quantum);
     if src.float() && !cfg.linear_input {
         println!("warning: float frames read as display-coded and clipped to [0, 1]; pass --linear for scene-linear");
     }

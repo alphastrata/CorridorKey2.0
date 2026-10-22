@@ -33,6 +33,9 @@ struct Args {
     /// PTX directory
     #[argh(option, default = "PathBuf::from(\"corridorkey/ptx/bin\")")]
     ptx: PathBuf,
+    /// scale of the frames the model sees, by Lanczos-4 (outputs stay native)
+    #[argh(option, default = "1.0")]
+    model_scale: f64,
     /// frames per stage-1 window
     #[argh(option, default = "80")]
     chunk: usize,
@@ -127,6 +130,7 @@ fn main() -> Result<()> {
         hint_quality: a.hint_quality,
         carry_quality: a.carry_quality,
         quantum: 128,
+        scale: a.model_scale,
         frames: a.frames,
         dir_fps: a.fps,
         outputs: outputs(&a.outputs)?,
