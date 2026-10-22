@@ -4,3 +4,15 @@ bench/footage/
 bench/frames/
 justfile
 bench/results/*.md
+
+# rust build sources and workspace config stay local; only the built ptx ships
+.cargo/
+Cargo.lock
+Cargo.toml
+cargo-ptx.toml
+rust-toolchain.toml
+typos.toml
+ck_arch/
+ck_attn/
+ck_dw/
+ck_glue/
