@@ -9,4 +9,4 @@ iy = "iy"
 synchronize  = "synchronize"
 
 [files]
-extend-exclude = ["target", "bench/footage", "bench/frames"]
+extend-exclude = ["target", "bench/footage", "bench/frames", "bench/results"]
