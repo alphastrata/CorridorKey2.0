@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use cudarc::driver::{CudaSlice, DevicePtr};
 use eyre::{Result, ensure};
@@ -25,10 +26,50 @@ impl Dtype {
     }
 }
 
+/// Live and peak bytes of every tensor allocation.
+#[derive(Default, Debug)]
+pub struct Meter {
+    live: AtomicUsize,
+    peak: AtomicUsize,
+}
+
+impl Meter {
+    #[must_use]
+    pub fn live(&self) -> usize {
+        self.live.load(Ordering::Relaxed)
+    }
+
+    #[must_use]
+    pub fn peak(&self) -> usize {
+        self.peak.load(Ordering::Relaxed)
+    }
+
+    /// Restarts the peak from what is live now.
+    pub fn reset(&self) {
+        self.peak.store(self.live(), Ordering::Relaxed);
+    }
+
+    fn add(&self, n: usize) {
+        let live = self.live.fetch_add(n, Ordering::Relaxed) + n;
+        self.peak.fetch_max(live, Ordering::Relaxed);
+    }
+}
+
+struct Buf {
+    slice: CudaSlice<u8>,
+    meter: Arc<Meter>,
+}
+
+impl Drop for Buf {
+    fn drop(&mut self) {
+        self.meter.live.fetch_sub(self.slice.len(), Ordering::Relaxed);
+    }
+}
+
 /// A contiguous device array: a shared allocation, a byte offset into it, a dtype and a shape.
 #[derive(Clone)]
 pub struct Tensor {
-    buf: Arc<CudaSlice<u8>>,
+    buf: Arc<Buf>,
     base: u64,
     off: usize,
     pub dtype: Dtype,
@@ -172,7 +213,7 @@ impl Gpu {
     pub fn download(&self, t: &Tensor) -> Result<Vec<u8>> {
         let mut bytes = vec![0u8; t.bytes()];
         self.stream
-            .memcpy_dtoh(&t.buf.slice(t.off..t.off + t.bytes()), &mut bytes)?;
+            .memcpy_dtoh(&t.buf.slice.slice(t.off..t.off + t.bytes()), &mut bytes)?;
         Ok(bytes)
     }
 
@@ -226,8 +267,12 @@ impl Gpu {
 
 fn wrap(gpu: &Gpu, buf: CudaSlice<u8>, dtype: Dtype, shape: &[usize]) -> Tensor {
     let (base, _) = buf.device_ptr(&gpu.stream);
+    gpu.meter.add(buf.len());
     Tensor {
-        buf: Arc::new(buf),
+        buf: Arc::new(Buf {
+            slice: buf,
+            meter: gpu.meter.clone(),
+        }),
         base,
         off: 0,
         dtype,
