@@ -22,9 +22,9 @@ struct Args {
     /// comma-separated outputs: alpha, fg, cutout, checker
     #[argh(option, default = "String::from(\"alpha,fg\")")]
     outputs: String,
-    /// CUDA device to use, repeatable (default: every device)
-    #[argh(option)]
-    device: Vec<usize>,
+    /// CUDA devices to use, e.g. `0` or `0,1` (default: every device)
+    #[argh(option, from_str_fn(devices))]
+    device: Vec<Vec<usize>>,
     /// model weights
     #[argh(option, default = "PathBuf::from(\"weights/corridorkey_v2.safetensors\")")]
     weights: PathBuf,
@@ -100,8 +100,8 @@ struct Args {
     /// encoder preset
     #[argh(option, default = "String::from(\"medium\")")]
     preset: String,
-    /// encoder threads per output (0: ffmpeg decides)
-    #[argh(option, default = "0")]
+    /// encoder threads per output (0: ffmpeg decides, which at 4K can take over 13 GB of RAM per encoder)
+    #[argh(option, default = "8")]
     threads: usize,
     /// encoder pixel format
     #[argh(option, default = "String::from(\"yuv444p10le\")")]
@@ -117,6 +117,12 @@ fn outputs(list: &str) -> Result<Vec<Output>> {
             "checker" => Ok(Output::Checker),
             other => bail!("unknown output {other:?}"),
         })
+        .collect()
+}
+
+fn devices(s: &str) -> Result<Vec<usize>, String> {
+    s.split(',')
+        .map(|d| d.trim().parse().map_err(|_| format!("--device wants indices like 0 or 0,1, got {s:?}")))
         .collect()
 }
 
@@ -152,7 +158,7 @@ fn main() -> Result<()> {
     let devices = if a.device.is_empty() {
         (0..Gpu::count()?).collect()
     } else {
-        a.device.clone()
+        a.device.concat()
     };
     let chunk = a.chunk.unwrap_or(80);
     ensure!((1..=chunk).contains(&a.stride), "want 0 < stride <= chunk");
