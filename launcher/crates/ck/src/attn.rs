@@ -204,7 +204,7 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
     gpu.launch(
         "ck_ops",
         "split",
-        ((q.numel() / d).div_ceil(256) as u32, 1, 1),
+        ((q.numel() / d).div_ceil(8) as u32, 1, 1),
         256,
         0,
         &split,
