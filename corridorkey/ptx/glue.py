@@ -121,9 +121,14 @@ def head(
     ]
 
     load("ck_glue", x.device.index).launch(
-        f"head{d}", (-(-rows // 256), 1, 1), (256, 1, 1), args
+        f"head{d}", (blocks_for(rows, d), 1, 1), (256, 1, 1), args
     )
     return out
+
+
+def blocks_for(rows: int, d: int) -> int:
+    """Blocks of eight warps, ``32 // (d / 8)`` rows to a warp."""
+    return -(-rows // (8 * (32 // (d // 8))))
 
 
 def _layout(x: torch.Tensor) -> tuple[int, int]:
