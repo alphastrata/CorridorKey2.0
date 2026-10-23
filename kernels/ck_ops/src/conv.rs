@@ -1,6 +1,3 @@
-//! Convolutions as GEMM. `im2col`: f32 `x` (NCHW, or NHWC with `nhwc`) → bf16 `cols [(n, oy, ox), (c, ky, kx)]`,
-//! zero padding `p`. `col2im`: transposed convolution's overlap-add of f32 `cols [(n, ty, tx), (c, ky, kx)]` into
-//! f32 NCHW `out` plus `bias [c]`. `shuffle`: NHWC pixel shuffle `[n, h, w, c·r²] → [n, h·r, w·r, c]`.
 
 use crate::{gid, rn};
 use ptx::kernel;

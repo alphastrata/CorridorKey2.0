@@ -1,4 +1,3 @@
-//! One GPU: context, stream, our PTX modules for its architecture, cached cuBLASLt plans and tensors.
 
 mod gemm;
 mod staging;
@@ -17,7 +16,6 @@ use eyre::{Context, OptionExt, Result};
 pub use gemm::{Epilogue, Gemm};
 pub use tensor::{Dtype, Meter, Tensor};
 
-/// One kernel argument as the PTX entries take them: a buffer (pointer, element count), a `u32` or an `f32`.
 #[derive(Clone, Copy)]
 pub enum Arg {
     Buf(u64, usize),
@@ -55,8 +53,6 @@ pub struct Gpu {
     pub meter: Arc<Meter>,
 }
 
-/// Freed memory stays in the device's pool across syncs rather than going back to the driver (an allocation that
-/// fails trims it).
 fn keep_pool(ctx: &CudaContext) -> Result<()> {
     let mut pool = std::ptr::null_mut();
     let keep = u64::MAX;
@@ -73,10 +69,6 @@ fn keep_pool(ctx: &CudaContext) -> Result<()> {
 }
 
 impl Gpu {
-    /// Opens device `index` and loads every crate under `bin/sm_XX` for the highest `XX` it can run.
-    ///
-    /// # Errors
-    /// When the context, a PTX module or cuBLASLt cannot be set up.
     pub fn open(index: usize, bin: &Path) -> Result<Self> {
         let ctx = CudaContext::new(index).wrap_err_with(|| format!("CUDA device {index}"))?;
         unsafe { ctx.disable_event_tracking() };
@@ -127,10 +119,6 @@ impl Gpu {
         Ok(f)
     }
 
-    /// Launches `module::name` on this GPU's stream.
-    ///
-    /// # Errors
-    /// When the function is missing or the launch fails.
     pub fn launch(
         &self,
         module: &str,
@@ -170,24 +158,15 @@ impl Gpu {
         Ok(())
     }
 
-    /// The half type GEMM weights take here: bf16 with bf16 tensor cores (`sm_80` on), else f16.
     #[must_use]
     pub fn half(&self) -> Dtype {
         if self.sm >= 80 { Dtype::Bf16 } else { Dtype::F16 }
     }
 
-    /// Visible CUDA devices.
-    ///
-    /// # Errors
-    /// When the driver cannot be initialised.
     pub fn count() -> Result<usize> {
         Ok(usize::try_from(CudaContext::device_count()?)?)
     }
 
-    /// Waits for all work queued on this GPU's stream.
-    ///
-    /// # Errors
-    /// On an asynchronous CUDA error.
     pub fn sync(&self) -> Result<()> {
         Ok(self.stream.synchronize()?)
     }

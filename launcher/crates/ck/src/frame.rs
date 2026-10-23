@@ -1,11 +1,9 @@
-//! Frames between pixels and the model: padding, colour encoding, rendering (`ck_ops` `prep`, `hint`, `render`).
 
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::Result;
 
 use crate::vit::{Resize, resize};
 
-/// A native `hn × wn` frame, Lanczos-scaled to `h0 × w0` and centred in the model's `h × w`, reflect-padded.
 #[derive(Clone, Copy, Debug)]
 pub struct Geometry {
     pub hn: usize,
@@ -17,13 +15,11 @@ pub struct Geometry {
 }
 
 impl Geometry {
-    /// Native size padded up to multiples of `quantum`.
     #[must_use]
     pub fn padded(h0: usize, w0: usize, quantum: usize) -> Self {
         Self::scaled(h0, w0, 1.0, quantum)
     }
 
-    /// Native size scaled by `scale` (rounded half to even, as Python), then padded to multiples of `quantum`.
     #[must_use]
     pub fn scaled(hn: usize, wn: usize, scale: f64, quantum: usize) -> Self {
         let by = |n: usize| ((n as f64 * scale).round_ties_even() as usize).max(1);
@@ -44,7 +40,6 @@ impl Geometry {
         (self.hn, self.wn) == (self.h0, self.w0)
     }
 
-    /// The native frame alone, unpadded: where renders happen.
     #[must_use]
     pub fn output(self) -> Self {
         Self::padded(self.hn, self.wn, 1)
@@ -63,7 +58,6 @@ impl Geometry {
     }
 }
 
-/// Scene-linear exposure, `gain · (pivot + contrast · (v − pivot))`.
 #[derive(Clone, Copy, Debug)]
 pub struct Adjust {
     pub gain: f32,
@@ -93,14 +87,12 @@ fn launch(gpu: &Gpu, name: &str, n: usize, args: &[Arg]) -> Result<()> {
     gpu.launch("ck_ops", name, (n.div_ceil(256) as u32, 1, 1), 256, 0, args)
 }
 
-/// How decoded frames read: exposure, and whether float frames are scene-linear (else display-coded).
 #[derive(Clone, Copy, Debug)]
 pub struct Input {
     pub adjust: Adjust,
     pub linear: bool,
 }
 
-/// u16 `[n, h, w, c]` → f32 `[n, c, h, w]` in `[0, 1]`, planes G, B, R when `c = 3`.
 fn planar(gpu: &Gpu, raw: &Tensor, (h, w): (usize, usize), c: usize) -> Result<Tensor> {
     let n = raw.numel() / (h * w * c);
     let out = gpu.empty(&[n, c, h, w], Dtype::F32)?;
@@ -109,10 +101,6 @@ fn planar(gpu: &Gpu, raw: &Tensor, (h, w): (usize, usize), c: usize) -> Result<T
     Ok(out)
 }
 
-/// f32 planes `[n, c, h, w]` Lanczos-4 resampled to `(oh, ow)`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn lanczos(gpu: &Gpu, x: &Tensor, (oh, ow): (usize, usize)) -> Result<Tensor> {
     let (h, w) = (x.shape[2], x.shape[3]);
     let unit = (gpu.zeros(&[1], Dtype::F32)?, gpu.upload_f32(&[1.0], &[1], Dtype::F32)?);
@@ -120,11 +108,6 @@ pub fn lanczos(gpu: &Gpu, x: &Tensor, (oh, ow): (usize, usize)) -> Result<Tensor
     resize(gpu, x, (oh, ow), step, Resize::Lanczos, (&unit.0, &unit.1))
 }
 
-/// u16 RGB `raw [n, hn, wn, 3]`, or f32 G, B, R planes `[n, 3, hn, wn]`, → f32 planes `[n, 3, h, w]` at `ld` floats
-/// per frame from `out`'s start, Lanczos-scaled first unless native.
-///
-/// # Errors
-/// On a launch failure.
 pub fn prep(gpu: &Gpu, raw: &Tensor, out: &Tensor, g: Geometry, ld: usize, enc: Encoding, input: Input) -> Result<()> {
     let float = raw.dtype == Dtype::F32;
     if !g.native() {
@@ -155,7 +138,6 @@ pub fn prep(gpu: &Gpu, raw: &Tensor, out: &Tensor, g: Geometry, ld: usize, enc: 
     launch(gpu, "prep", n * 3 * g.h * g.w, &args)
 }
 
-/// f32 G, B, R planes `[n, 3, h0, w0]` → `[n, 3, h, w]`, as [`prep`].
 fn prep_planes(
     gpu: &Gpu,
     raw: &Tensor,
@@ -176,11 +158,6 @@ fn prep_planes(
     launch(gpu, "prep_f32", n * 3 * g.h * g.w, &args)
 }
 
-/// u16 grey `raw [n, hn, wn]` → f32 `[n, h, w]` at `ld` floats per frame, Lanczos-scaled unless native, clipped to
-/// `[0, 1]`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn hint(gpu: &Gpu, raw: &Tensor, out: &Tensor, g: Geometry, ld: usize) -> Result<()> {
     let mut grey = planar(gpu, raw, (g.hn, g.wn), 1)?;
     if !g.native() {
@@ -210,14 +187,12 @@ impl Output {
         if self == Self::Cutout { 4 } else { 3 }
     }
 
-    /// Planes in an EXR render: alpha alone has one.
     #[must_use]
     pub fn planes(self) -> usize {
         if self == Self::Alpha { 1 } else { self.channels() }
     }
 }
 
-/// How [`render`] finishes the foreground.
 #[derive(Clone, Copy, Debug)]
 pub struct Look {
     pub despill: f32,
@@ -225,10 +200,6 @@ pub struct Look {
     pub adjust: Adjust,
 }
 
-/// Logits `[4, h, w]` as they render: unchanged when native, else cropped and Lanczos-scaled to the native size.
-///
-/// # Errors
-/// On a launch failure.
 pub fn native(gpu: &Gpu, logits: &Tensor, g: Geometry) -> Result<(Tensor, Geometry)> {
     if g.native() {
         return Ok((logits.clone(), g));
@@ -240,10 +211,6 @@ pub fn native(gpu: &Gpu, logits: &Tensor, g: Geometry) -> Result<(Tensor, Geomet
     Ok((lanczos(gpu, &cropped, (g.hn, g.wn))?, g.output()))
 }
 
-/// Logits `[4, h, w]` cropped to native as u16 BGR(A) `[h0, w0, 3 | 4]`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn render(gpu: &Gpu, logits: &Tensor, g: Geometry, out: Output, look: Look) -> Result<Tensor> {
     let (logits, g) = native(gpu, logits, g)?;
     let img = gpu.empty(&[g.h0, g.w0, out.channels()], Dtype::U16)?;
@@ -262,11 +229,6 @@ pub fn render(gpu: &Gpu, logits: &Tensor, g: Geometry, out: Output, look: Look) 
     Ok(img)
 }
 
-/// Logits `[4, h, w]` cropped to native as unclamped scene-linear f32 planes `[planes, h0, w0]` (alpha clamped), each
-/// value rounded to the nearest finite half if `half`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn render_exr(gpu: &Gpu, logits: &Tensor, g: Geometry, out: Output, look: Look, half: bool) -> Result<Tensor> {
     let (logits, g) = native(gpu, logits, g)?;
     let img = gpu.empty(&[out.planes(), g.h0, g.w0], Dtype::F32)?;

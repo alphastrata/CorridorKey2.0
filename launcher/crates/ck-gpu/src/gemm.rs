@@ -1,4 +1,3 @@
-//! `y = x · wᵀ (+ bias) (+ β · y)` on cuBLASLt, one cached plan (descriptors and algorithm) per shape.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -23,7 +22,6 @@ pub enum Epilogue {
     Bias,
 }
 
-/// A linear layer's GEMM: `rows × k` activations against `n × k` weights.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Gemm {
     pub rows: usize,
@@ -172,19 +170,10 @@ impl Lt {
 }
 
 impl Gpu {
-    /// `y = x · wᵀ + bias`, or `y += x · wᵀ + bias` with `accumulate`: `x [.., k]`, `w [n, k]`, `bias [n]` f32,
-    /// `y [.., n]`.
-    ///
-    /// # Errors
-    /// On mismatched shapes or a cuBLASLt failure.
     pub fn linear(&self, x: &Tensor, w: &Tensor, bias: Option<&Tensor>, y: &Tensor, accumulate: bool) -> Result<()> {
         self.linear_into(x, w, bias, y, (w.shape[0], 0), accumulate)
     }
 
-    /// [`Gpu::linear`] into columns `off..off + n` of `y`, rows `ld` wide.
-    ///
-    /// # Errors
-    /// On mismatched shapes or a cuBLASLt failure.
     pub fn linear_into(
         &self,
         x: &Tensor,
@@ -226,8 +215,6 @@ impl Gpu {
         self.lt.run(gemm, x.ptr(), w.ptr(), bias, at)
     }
 
-    /// [`Gpu::linear_into`] for GPUs without bf16 tensor cores: `x` goes to f16 (exact in range) for f16 tensor cores
-    /// with f32 accumulation, the same arithmetic, and a bf16 `y` comes back through f32 rounded to nearest.
     fn linear_f16(
         &self,
         x: &Tensor,
@@ -259,7 +246,6 @@ impl Gpu {
         self.launch("ck_ops", "f32_bf16", grid(tmp.numel()), 256, 0, &args)
     }
 
-    /// `b` in `dtype` (cuBLASLt wants the bias in the output's type), converted once and kept.
     fn bias(&self, b: &Tensor, dtype: Dtype) -> Result<u64> {
         if dtype == Dtype::F32 {
             return Ok(b.ptr());

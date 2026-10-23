@@ -1,7 +1,3 @@
-//! Many GPUs, many clips. One worker per GPU loads every model. A clip's stage 1 is serial, so one worker leads it
-//! (a GPU leads only once every faster one does), turning each finished frame into a stage-2 job on a shared queue.
-//! Every worker drains that queue first; a lead finding it full runs jobs itself, so no GPU waits on a slower one.
-//! Each clip's sink writes its frames in order.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
@@ -22,23 +18,17 @@ use crate::stage2::Baton;
 use crate::vram;
 use crate::write::{Exr, Writer};
 
-/// Frames past the sink's next one that stage 2 may start, so finished frames cannot outrun the encoders.
 const AHEAD: usize = 8;
-/// Host bytes of stage-2 jobs that may wait in the queue.
 const QUEUE_BYTES: usize = 3 << 30;
 
-/// What every stage-2 job of a clip shares.
 pub struct Meta {
     pub name: String,
     pub g: Geometry,
     pub pix: Dtype,
     pub done: flume::Sender<Done>,
-    /// Frames the sink has handed to the encoders.
     pub written: Arc<AtomicUsize>,
 }
 
-/// One frame's stage 2: its blended baton (f32 NHWC, to be scaled by `scale`) and raw pixels. The baton stays on
-/// the lead's GPU (`Tensor`) unless the job is queued for another (`Vec<u8>`).
 pub struct Job<B = Vec<u8>> {
     pub meta: Arc<Meta>,
     pub frame: usize,
@@ -65,13 +55,11 @@ impl Job {
     }
 }
 
-/// A rendered frame, one image per requested output.
 pub struct Done {
     frame: usize,
     images: Vec<Vec<u8>>,
 }
 
-/// Another thread failed first; its error is the one reported.
 #[derive(Debug)]
 struct Aborted;
 
@@ -83,7 +71,6 @@ impl std::fmt::Display for Aborted {
 
 impl std::error::Error for Aborted {}
 
-/// Model weights and PTX.
 pub struct Assets {
     pub weights: PathBuf,
     pub vfms: PathBuf,
@@ -110,12 +97,10 @@ impl Shared<'_> {
         self.clips.lock().map_err(|_| eyre!("clip queue poisoned"))
     }
 
-    /// Worker `k` may lead once every faster worker is leading or gone.
     fn may_lead(&self, k: usize) -> bool {
         (0..k).all(|j| self.leading[j].load(Ordering::Acquire) || !self.alive[j].load(Ordering::Acquire))
     }
 
-    /// A queued job, waiting up to `wait` for one.
     fn take(&self, wait: Duration) -> Option<Job> {
         let job = if wait.is_zero() {
             self.jobs.1.try_recv().ok()
@@ -135,7 +120,6 @@ thread_local! {
     static KEYED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
-/// A queued job on this GPU.
 fn queued(gpu: &Gpu, m: &Models, cfg: &Config, job: Job) -> Result<()> {
     let g = job.meta.g;
     let acc = gpu.upload(&job.baton, &[1, g.h / 16, g.w / 16, 512], Dtype::F32)?;
@@ -172,7 +156,6 @@ fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job<Tensor>) -> Result<()> 
         .map_err(|_| eyre!("{}: writer gone", job.meta.name))
 }
 
-/// Writes `total` frames in order as they arrive, then closes the encoders.
 fn sink(
     rx: &flume::Receiver<Done>,
     writers: Vec<(Output, Writer)>,
@@ -197,8 +180,6 @@ fn sink(
     writers.into_iter().try_for_each(|(_, w)| w.finish())
 }
 
-/// Queues `job` while some other worker is free to drain the queue and it holds under [`QUEUE_BYTES`]; otherwise the
-/// oldest queued job, or `job` itself, runs here, so a lone GPU keys each frame as it is blended.
 fn submit(gpu: &Gpu, m: &Models, sh: &Shared, job: Job<Tensor>) -> Result<()> {
     let bytes = job.baton.bytes() + job.raw.len();
     let free = sh
@@ -220,7 +201,6 @@ fn submit(gpu: &Gpu, m: &Models, sh: &Shared, job: Job<Tensor>) -> Result<()> {
     }
 }
 
-/// Keys `input` with stage 1 on `gpu`, its window from `free` GiB when automatic.
 fn lead<'s, 'e>(
     (gpu, m): (&Gpu, &Models),
     sh: &'e Shared<'e>,
@@ -308,10 +288,6 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
     }
 }
 
-/// Keys every input across `devices`, writing each clip's outputs into `out_dir`.
-///
-/// # Errors
-/// The first worker or writer failure.
 pub fn run(
     assets: &Assets,
     devices: &[usize],

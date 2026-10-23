@@ -1,13 +1,5 @@
 #![no_std]
 #![feature(abi_ptx)]
-//! Flash-attention forward on bf16 `[BH, N, D]` q/k/v → `out`, head size 64/80/96, any `N`, optionally
-//! region-masked: with `rid[window, token]`, a query sees only keys of its own region, and one outside every
-//! region (`rid < 0`) yields zeros (Swin's shifted
-//! windows; `window = bh / heads % windows`). 128 query rows per CTA, one m16 tile per warp, 64-key K/V tiles
-//! in a `STAGES` ring; rows padded to `D + 8` halves keep `ldmatrix` conflict-free. f32 accumulate; operands
-//! bf16 on `sm_120`, f16 on `sm_75` (see `ck_arch`). Masked, `span[window, tile] = (min, max)` region of
-//! each 64-token tile lets a CTA skip key tiles no query of its own can see, and drop the mask where its
-//! queries and the tile share one region.
 
 use ck_arch::{bf16x2, commit, mma16, operand, pack, stage16, wait};
 use ptx::kernel;
@@ -37,7 +29,6 @@ const fn tile(d: usize) -> u32 {
     BC as u32 * row(d)
 }
 
-/// Bytes of one ring slot: K tile, V tile, the tile's key regions.
 const fn slot_bytes(d: usize) -> u32 {
     2 * tile(d) + 4 * BC as u32
 }
@@ -68,7 +59,6 @@ fn quad_sum(v: f32) -> f32 {
     })
 }
 
-/// Stage key tile `kb` of the head at byte addresses `(k, v)` into `slot`, rows past `N` clamped.
 #[inline(always)]
 fn load<const D: usize, const MASK: bool>(
     (keys, values): (usize, usize),
@@ -104,8 +94,6 @@ fn load<const D: usize, const MASK: bool>(
     }
 }
 
-/// Online-softmax update; `s` becomes `P` (scale folded into `exp2`). A row with no visible key so far
-/// keeps `m = -∞` and `P = 0`. Returns the factor by which `O` must be rescaled.
 #[inline(always)]
 fn softmax(acc: &mut Acc, s: &mut [[f32; 4]; 8], scale: f32) -> [f32; 2] {
     let mut corr = [0.0f32; 2];
@@ -131,7 +119,6 @@ fn softmax(acc: &mut Acc, s: &mut [[f32; 4]; 8], scale: f32) -> [f32; 2] {
     corr
 }
 
-/// One 64-key step: `S = QKᵀ`, mask (`valid` keys, regions), online softmax, `O = O·corr + P·V`.
 #[inline(always)]
 fn step<const D: usize, const MASK: bool>(
     mut acc: Acc,
@@ -201,7 +188,6 @@ fn step<const D: usize, const MASK: bool>(
     acc
 }
 
-/// Region range `(min, max)` of tile `t` of `window`.
 fn span(spans: GpuSlice<u32>, tiles: usize, window: usize, t: usize) -> (i32, i32) {
     let at = 2 * (window * tiles + t);
     (spans[at] as i32, spans[at + 1] as i32)
@@ -312,13 +298,6 @@ fn attn<const D: usize, const MASK: bool>(
 
 macro_rules! entry {
     ($name:ident, $d:literal, $mask:literal) => {
-        /// `q`, `k`, `v`, `out` bf16 pairs `[BH, N, D / 2]`; `rid` u32 `[windows, N]`, `span` i32
-        /// `[windows, ⌈N / 64⌉, 2]` (masked forms); `mul` f32 `[3]`, exact powers of two scaling q, k, v
-        /// into f16 range on `sm_75` (ones elsewhere). Grid
-        /// `(⌈N / 128⌉, BH)`, block 256, dynamic shared `STAGES · ((2 · 64 · (D + 8) · 2) + 256)` bytes.
-        ///
-        /// # Safety
-        /// Launch only with that grid, block and shared size, on buffers of the stated shapes.
         #[kernel]
         pub fn $name(
             q: &[u32],

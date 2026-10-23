@@ -28,7 +28,6 @@ impl Dtype {
     }
 }
 
-/// Live and peak bytes of every tensor allocation.
 #[derive(Default, Debug)]
 pub struct Meter {
     live: AtomicUsize,
@@ -46,7 +45,6 @@ impl Meter {
         self.peak.load(Ordering::Relaxed)
     }
 
-    /// Restarts the peak from what is live now.
     pub fn reset(&self) {
         self.peak.store(self.live(), Ordering::Relaxed);
     }
@@ -68,7 +66,6 @@ impl Drop for Buf {
     }
 }
 
-/// A contiguous device array: a shared allocation, a byte offset into it, a dtype and a shape.
 #[derive(Clone)]
 pub struct Tensor {
     _alloc: Arc<Buf>,
@@ -94,10 +91,6 @@ impl Tensor {
         self.base + self.off as u64
     }
 
-    /// The same memory under another shape of equal size.
-    ///
-    /// # Errors
-    /// When the element counts differ.
     pub fn reshape(&self, shape: &[usize]) -> Result<Self> {
         ensure!(
             shape.iter().product::<usize>() == self.numel(),
@@ -110,10 +103,6 @@ impl Tensor {
         })
     }
 
-    /// [`Tensor::reshape`] by value, so the old binding cannot keep the memory alive.
-    ///
-    /// # Errors
-    /// When the element counts differ.
     pub fn into_shape(self, shape: &[usize]) -> Result<Self> {
         ensure!(
             shape.iter().product::<usize>() == self.numel(),
@@ -126,10 +115,6 @@ impl Tensor {
         })
     }
 
-    /// Rows `start..start + len` of the outermost dimension.
-    ///
-    /// # Errors
-    /// When the range runs past the end.
     pub fn rows(&self, start: usize, len: usize) -> Result<Self> {
         ensure!(start + len <= self.shape[0], "rows {start}+{len} of {:?}", self.shape);
         let row = self.numel() / self.shape[0] * self.dtype.size();
@@ -142,10 +127,6 @@ impl Tensor {
         })
     }
 
-    /// A view of `shape` starting `elems` elements in.
-    ///
-    /// # Errors
-    /// When the view runs past the end.
     pub fn at(&self, elems: usize, shape: &[usize]) -> Result<Self> {
         ensure!(
             elems + shape.iter().product::<usize>() <= self.numel(),
@@ -159,10 +140,6 @@ impl Tensor {
         })
     }
 
-    /// Reinterprets the bytes as `dtype` (sizes must divide).
-    ///
-    /// # Errors
-    /// When the innermost dimension does not divide.
     pub fn bitcast(&self, dtype: Dtype) -> Result<Self> {
         let mut shape = self.shape.clone();
         let last = shape.last_mut().ok_or_else(|| eyre::eyre!("scalar bitcast"))?;
@@ -182,7 +159,6 @@ impl Tensor {
 }
 
 impl Gpu {
-    /// `alloc`, and once more after the stream drains and the pool hands back what it holds spare.
     fn retry<T>(&self, alloc: impl Fn() -> Result<T, DriverError>) -> Result<T> {
         match alloc() {
             Err(DriverError(CUresult::CUDA_ERROR_OUT_OF_MEMORY)) => {
@@ -203,10 +179,6 @@ impl Gpu {
         format!("allocating {} MiB with {} MiB live", mib(n), mib(self.meter.live()))
     }
 
-    /// An uninitialised tensor.
-    ///
-    /// # Errors
-    /// When the allocation fails.
     pub fn empty(&self, shape: &[usize], dtype: Dtype) -> Result<Tensor> {
         let n = shape.iter().product::<usize>() * dtype.size();
         let buf = self
@@ -215,10 +187,6 @@ impl Gpu {
         Ok(wrap(self, buf, dtype, shape))
     }
 
-    /// A zero-filled tensor.
-    ///
-    /// # Errors
-    /// When the allocation fails.
     pub fn zeros(&self, shape: &[usize], dtype: Dtype) -> Result<Tensor> {
         let n = shape.iter().product::<usize>() * dtype.size();
         let buf = self
@@ -227,20 +195,12 @@ impl Gpu {
         Ok(wrap(self, buf, dtype, shape))
     }
 
-    /// A copy of `t` in fresh memory.
-    ///
-    /// # Errors
-    /// When the allocation or the copy fails.
     pub fn copy(&self, t: &Tensor) -> Result<Tensor> {
         let out = self.empty(&t.shape, t.dtype)?;
         unsafe { cudarc::driver::result::memcpy_dtod_async(out.ptr(), t.ptr(), t.bytes(), self.stream.cu_stream()) }?;
         Ok(out)
     }
 
-    /// Copies `src` into the same-sized view `dst`.
-    ///
-    /// # Errors
-    /// When the sizes differ or the copy fails.
     pub fn copy_into(&self, src: &Tensor, dst: &Tensor) -> Result<()> {
         ensure!(src.bytes() == dst.bytes(), "copy {:?} into {:?}", src.shape, dst.shape);
         unsafe {
@@ -249,18 +209,10 @@ impl Gpu {
         Ok(())
     }
 
-    /// Uploads raw little-endian bytes as a tensor.
-    ///
-    /// # Errors
-    /// When the size does not match or the copy fails.
     pub fn upload(&self, bytes: &[u8], shape: &[usize], dtype: Dtype) -> Result<Tensor> {
         self.upload_parts(&[bytes], shape, dtype)
     }
 
-    /// Uploads `f32` values converted to `dtype`.
-    ///
-    /// # Errors
-    /// When the copy fails or `dtype` is not a float type.
     pub fn upload_f32(&self, v: &[f32], shape: &[usize], dtype: Dtype) -> Result<Tensor> {
         let bytes: Vec<u8> = match dtype {
             Dtype::F32 => bytemuck::cast_slice(v).to_vec(),
@@ -273,10 +225,6 @@ impl Gpu {
         self.upload(&bytes, shape, dtype)
     }
 
-    /// Downloads a float tensor as `f32`.
-    ///
-    /// # Errors
-    /// When the copy fails or `t` is an integer tensor.
     pub fn download_f32(&self, t: &Tensor) -> Result<Vec<f32>> {
         let bytes = self.download(t)?;
         Ok(match t.dtype {

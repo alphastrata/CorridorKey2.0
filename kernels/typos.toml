@@ -5,7 +5,6 @@ locale = "en-gb"
 flavor = "flavor"
 setp = "setp"
 iy = "iy"
-# torch / CUDA API names
 synchronize  = "synchronize"
 
 [files]

@@ -1,4 +1,3 @@
-//! Typed launches of the PTX kernels (`ck_ops`, `ck_glue`, `ck_dw`).
 
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::{Result, ensure};
@@ -11,12 +10,10 @@ fn ops(gpu: &Gpu, name: &str, n: usize, args: &[Arg]) -> Result<()> {
     gpu.launch("ck_ops", name, grid(n), 256, 0, args)
 }
 
-/// A `bf16` tensor as `u32` pairs, as `ck_glue` and `ck_attn` take them.
 fn pairs(t: &Tensor) -> Arg {
     Arg::Buf(t.ptr(), t.numel() / 2)
 }
 
-/// Swin's shifted grid: `(hp, wp, sh, sw)` around an `h × w` image.
 #[derive(Clone, Copy)]
 pub struct Shift {
     pub hp: usize,
@@ -42,7 +39,6 @@ impl Shift {
     }
 }
 
-/// Convolution geometry: kernel, stride, padding.
 #[derive(Clone, Copy)]
 pub struct Conv {
     pub k: usize,
@@ -56,7 +52,6 @@ impl Conv {
         (n + 2 * self.p - self.k) / self.s + 1
     }
 
-    /// The transposed convolution's output size from `(th, tw)` taps.
     #[must_use]
     pub fn inverse(self, th: usize, tw: usize) -> (usize, usize) {
         (
@@ -66,10 +61,6 @@ impl Conv {
     }
 }
 
-/// `x` f32 `[n, c, h, w]` (or `[n, h, w, c]` with `nhwc`) → bf16 patches `[n · oh · ow, c · k · k]`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn im2col(gpu: &Gpu, x: &Tensor, nhwc: bool, conv: Conv) -> Result<Tensor> {
     let [n, a, b, c] = x.shape[..] else {
         eyre::bail!("im2col wants 4-d, got {:?}", x.shape)
@@ -87,10 +78,6 @@ pub fn im2col(gpu: &Gpu, x: &Tensor, nhwc: bool, conv: Conv) -> Result<Tensor> {
     Ok(cols)
 }
 
-/// Overlap-add of f32 `cols [n · th · tw, c · k · k]` → f32 `[n, c, oh, ow]` plus `bias`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn col2im(
     gpu: &Gpu,
     cols: &Tensor,
@@ -104,10 +91,6 @@ pub fn col2im(
     Ok(out)
 }
 
-/// [`col2im`] into `out [n, c, oh, ow]`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn col2im_into(gpu: &Gpu, cols: &Tensor, bias: &Tensor, conv: Conv, out: &Tensor) -> Result<()> {
     let [n, c, oh, ow] = out.shape[..] else {
         eyre::bail!("col2im wants [n, c, oh, ow]")
@@ -122,10 +105,6 @@ pub fn col2im_into(gpu: &Gpu, cols: &Tensor, bias: &Tensor, conv: Conv, out: &Te
     )
 }
 
-/// NHWC pixel shuffle `[n, h, w, c · r²]` → `[n, h · r, w · r, c]`, f32.
-///
-/// # Errors
-/// On a launch failure.
 pub fn shuffle(gpu: &Gpu, x: &Tensor, r: usize) -> Result<Tensor> {
     let [n, h, w, cr] = x.shape[..] else {
         eyre::bail!("shuffle wants 4-d")
@@ -149,10 +128,6 @@ pub fn shuffle(gpu: &Gpu, x: &Tensor, r: usize) -> Result<Tensor> {
     Ok(out)
 }
 
-/// f32 → bf16.
-///
-/// # Errors
-/// On a launch failure.
 pub fn to_half(gpu: &Gpu, x: &Tensor) -> Result<Tensor> {
     let out = gpu.empty(&x.shape, Dtype::Bf16)?;
     ops(gpu, "to_bf16", x.numel(), &[x.into(), (&out).into(), x.numel().into()])?;
@@ -166,10 +141,6 @@ pub enum Act {
     GeluTanh = 2,
 }
 
-/// `act(x)` of f32 `x` into `dtype`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn act(gpu: &Gpu, x: &Tensor, kind: Act, dtype: Dtype) -> Result<Tensor> {
     let out = gpu.empty(&x.shape, dtype)?;
     let name = match (x.dtype, dtype) {
@@ -186,10 +157,6 @@ pub fn act(gpu: &Gpu, x: &Tensor, kind: Act, dtype: Dtype) -> Result<Tensor> {
     Ok(out)
 }
 
-/// f32 `[n, c, h, w]` into channels `off..off + c` of the NHWC f32 grid `out [n, h, w, ld]`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn to_nhwc(gpu: &Gpu, x: &Tensor, out: &Tensor, (ld, off): (usize, usize)) -> Result<()> {
     let [n, c, h, w] = x.shape[..] else {
         eyre::bail!("to_nhwc wants 4-d")
@@ -210,10 +177,6 @@ pub fn to_nhwc(gpu: &Gpu, x: &Tensor, out: &Tensor, (ld, off): (usize, usize)) -
     )
 }
 
-/// `out[r, off + j] = x[r, j] · s` with `ld`-wide rows of `out`, f32.
-///
-/// # Errors
-/// On a launch failure.
 pub fn place(gpu: &Gpu, x: &Tensor, out: &Tensor, (ld, off): (usize, usize), s: f32) -> Result<()> {
     let c = *x.shape.last().unwrap_or(&1);
     let rows = x.numel() / c;
@@ -226,10 +189,6 @@ pub fn place(gpu: &Gpu, x: &Tensor, out: &Tensor, (ld, off): (usize, usize), s: 
     )
 }
 
-/// `x += a · y`, f32.
-///
-/// # Errors
-/// On a launch failure.
 pub fn axpy(gpu: &Gpu, x: &Tensor, y: &Tensor, a: f32) -> Result<()> {
     ensure!(x.numel() == y.numel(), "axpy sizes");
     ops(
@@ -240,10 +199,6 @@ pub fn axpy(gpu: &Gpu, x: &Tensor, y: &Tensor, a: f32) -> Result<()> {
     )
 }
 
-/// `x += scale[c] · y`, f32.
-///
-/// # Errors
-/// On a launch failure.
 pub fn add_scaled(gpu: &Gpu, x: &Tensor, y: &Tensor, scale: &Tensor) -> Result<()> {
     ensure!(x.numel() == y.numel(), "add_scaled sizes");
     ops(
@@ -254,17 +209,12 @@ pub fn add_scaled(gpu: &Gpu, x: &Tensor, y: &Tensor, scale: &Tensor) -> Result<(
     )
 }
 
-/// How [`add_gated`] gates: `silu(gate)` elementwise, or one gate row (`ld` apart) per frame of `per` pixels.
 #[derive(Clone, Copy)]
 pub enum Gate<'a> {
     Silu(&'a Tensor),
     Frame { gate: &'a Tensor, per: usize, ld: usize },
 }
 
-/// `x[r, off + j] += y[r, j] · gate`, f32; `x` rows `ld` wide.
-///
-/// # Errors
-/// On a launch failure.
 pub fn add_gated(gpu: &Gpu, x: &Tensor, y: &Tensor, gate: Gate, (ld, off): (usize, usize)) -> Result<()> {
     let c = *y.shape.last().unwrap_or(&1);
     let rows = y.numel() / c;
@@ -281,11 +231,6 @@ pub fn add_gated(gpu: &Gpu, x: &Tensor, y: &Tensor, gate: Gate, (ld, off): (usiz
     )
 }
 
-/// `rms(x) · w · (1 + scale) + shift` to bf16 with `AdaLN` rows `params [frames, ld]` (`shift`, `scale` offsets),
-/// `per` pixels a frame.
-///
-/// # Errors
-/// On a launch failure.
 pub fn norm_mod(
     gpu: &Gpu,
     x: &Tensor,
@@ -315,10 +260,6 @@ pub fn norm_mod(
     Ok(out)
 }
 
-/// `rms_norm(x) · w` of f32 NHWC `x [lead, h, w, c]` into the bf16 grid `[lead, hp, wp, c]` rolled by `-shift`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn norm(gpu: &Gpu, x: &Tensor, w: &Tensor, s: Shift) -> Result<Tensor> {
     let [lead, h, wd, c] = four(x)?;
     let out = gpu.empty(&[lead, s.hp, s.wp, c], Dtype::Bf16)?;
@@ -336,10 +277,6 @@ pub fn norm(gpu: &Gpu, x: &Tensor, w: &Tensor, s: Shift) -> Result<Tensor> {
     Ok(out)
 }
 
-/// `x += roll(a, shift)[.., :h, :w]` with bf16 `a` on the shifted grid, in place.
-///
-/// # Errors
-/// On a launch failure.
 pub fn unshift_add(gpu: &Gpu, x: &Tensor, a: &Tensor, s: Shift) -> Result<()> {
     let [lead, h, w, c] = four(x)?;
     let pixels = lead * h * w;
@@ -348,10 +285,6 @@ pub fn unshift_add(gpu: &Gpu, x: &Tensor, a: &Tensor, s: Shift) -> Result<()> {
     gpu.launch("ck_glue", "unshift_add", grid(pixels * c / 8), 256, 0, &args)
 }
 
-/// `silu(g) · u` of bf16 rows `[g | u]`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn swiglu(gpu: &Gpu, gu: &Tensor) -> Result<Tensor> {
     let width = *gu.shape.last().unwrap_or(&0);
     let rows = gu.numel() / width;
@@ -367,7 +300,6 @@ fn dw_grid(lead: usize, h: usize, w: usize, c: usize) -> (u32, u32, u32) {
     (w.div_ceil(16) as u32, h.div_ceil(8) as u32, (lead * c / 32) as u32)
 }
 
-/// `DepthwiseSwiGLU2D`'s weights.
 pub struct Mix {
     pub norm: Tensor,
     pub taps: Tensor,
@@ -375,13 +307,8 @@ pub struct Mix {
     pub gamma: Tensor,
 }
 
-/// Bytes of mixed frames [`mix_add`] holds before copying them back.
 const MIX_BYTES: usize = 256 << 20;
 
-/// `x += γ · v · silu(g)` over `rms_norm(x)` with 7×7 depthwise `v`, `g`, f32 NHWC, a few frames at a time.
-///
-/// # Errors
-/// On a launch failure.
 pub fn mix_add(gpu: &Gpu, x: &Tensor, m: &Mix) -> Result<()> {
     let [lead, h, w, c] = four(x)?;
     let step = (MIX_BYTES / (h * w * c * 4)).clamp(1, lead);
@@ -419,10 +346,6 @@ pub fn mix_add(gpu: &Gpu, x: &Tensor, m: &Mix) -> Result<()> {
     })
 }
 
-/// 7×7 depthwise conv of the bf16 NHWC qkv grid `y`, reflect-padded, into the same-shaped `out`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn dw_qkv(gpu: &Gpu, y: &Tensor, (taps, bias): (&Tensor, &Tensor), out: &Tensor) -> Result<()> {
     let [lead, h, w, c] = four(y)?;
     let reflect = usize::from(h > 3 && w > 3);
@@ -454,7 +377,6 @@ fn four(x: &Tensor) -> Result<[usize; 4]> {
     Ok([x.numel() / (h * w * c), h, w, c])
 }
 
-/// Where a GEMM writes: `out` rows `ld` wide from column `off`, overwritten or accumulated.
 #[derive(Clone, Copy)]
 pub struct Into<'a> {
     pub out: &'a Tensor,
@@ -465,11 +387,6 @@ pub struct Into<'a> {
 
 const COLS: usize = 1 << 26;
 
-/// Convolution of f32 `x` (NCHW, or NHWC with `nhwc`) by `w [o, c · k · k]` into NHWC rows of `into`, as im2col
-/// and GEMM over as many images at a time as keep the patches under 64 Mi elements.
-///
-/// # Errors
-/// On a launch or GEMM failure.
 pub fn conv(gpu: &Gpu, x: &Tensor, nhwc: bool, geo: Conv, (w, bias): (&Tensor, &Tensor), into: Into) -> Result<()> {
     let [n, a, b, c] = x.shape[..] else {
         eyre::bail!("conv wants 4-d, got {:?}", x.shape)
@@ -491,8 +408,6 @@ thread_local! {
     static LAST: std::cell::Cell<Option<std::time::Instant>> = const { std::cell::Cell::new(None) };
 }
 
-/// Diagnostics at a phase boundary: with `CK_MEM`, live and interval-peak tensor memory (then the peak restarts); with
-/// `CK_TIME`, milliseconds since the previous probe, the stream drained first.
 pub fn probe(gpu: &Gpu, what: &str) {
     if std::env::var_os("CK_MEM").is_some() {
         let gib = |b: usize| b as f64 / f64::from(1u32 << 30);

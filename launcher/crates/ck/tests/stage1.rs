@@ -1,4 +1,3 @@
-//! Stage 1 against Python's stock bf16 and fp32 reference on real footage (`launcher/parity/dump.py`).
 
 mod common;
 
@@ -20,7 +19,6 @@ fn report(name: &str, got: &[f32], fx: &Weights, key: &str) -> Result<((f64, f64
     Ok((ours, theirs))
 }
 
-/// NHWC `[.., h, w, c]` → NCHW `[.., c, h, w]` on the host.
 fn nchw(v: &[f32], (h, w, c): (usize, usize, usize)) -> Vec<f32> {
     let per = h * w * c;
     (0..v.len())

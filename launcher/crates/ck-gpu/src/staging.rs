@@ -1,4 +1,3 @@
-//! Host ↔ device copies through two pinned buffers: one fills (or drains) while the other copies.
 
 use cudarc::driver::result::{memcpy_dtoh_async, memcpy_htod_async};
 use cudarc::driver::{CudaEvent, PinnedHostSlice};
@@ -13,14 +12,12 @@ const GRAIN: usize = 1 << 20;
 #[derive(Default)]
 pub(crate) struct Staging(Vec<(PinnedHostSlice<u8>, Option<CudaEvent>)>);
 
-/// `(part, offset into it, length)` of each piece, in order.
 fn pieces(lens: impl Iterator<Item = usize>) -> impl Iterator<Item = (usize, usize, usize)> {
     lens.enumerate()
         .flat_map(|(p, len)| (0..len).step_by(PIECE).map(move |o| (p, o, PIECE.min(len - o))))
 }
 
 impl Gpu {
-    /// Slot `i % 2`, idle, and its host bytes.
     fn slot<'a>(&self, staging: &'a mut Staging, i: usize) -> Result<&'a mut (PinnedHostSlice<u8>, Option<CudaEvent>)> {
         while staging.0.len() < 2 {
             staging.0.push((unsafe { self.ctx.alloc_pinned_with_flags::<u8>(PIECE, 0) }?, None));
@@ -32,10 +29,6 @@ impl Gpu {
         Ok(slot)
     }
 
-    /// Uploads `parts` back to back as one tensor.
-    ///
-    /// # Errors
-    /// When the size does not match or a copy fails.
     pub fn upload_parts(&self, parts: &[&[u8]], shape: &[usize], dtype: Dtype) -> Result<Tensor> {
         let len: usize = parts.iter().map(|p| p.len()).sum();
         ensure!(len == shape.iter().product::<usize>() * dtype.size(), "upload size {shape:?}");
@@ -58,10 +51,6 @@ impl Gpu {
         Ok(out)
     }
 
-    /// Raw little-endian bytes of `t`.
-    ///
-    /// # Errors
-    /// When a copy fails.
     pub fn download(&self, t: &Tensor) -> Result<Vec<u8>> {
         let mut bytes = vec![0u8; t.bytes()];
         let mut staging = self.staging.borrow_mut();

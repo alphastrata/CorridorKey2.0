@@ -1,4 +1,3 @@
-//! `RoPE` tables `[N, D / 2]` (cos, sin) for a `t × h × w` token block, as `corridorkey.rope` builds them (eval).
 
 fn periods(dim: usize, base: f32) -> Vec<f32> {
     (0..dim / 2).map(|i| base.powf(i as f32 * 2.0 / dim as f32)).collect()
@@ -20,7 +19,6 @@ fn axis(n: usize, dim: usize, base: f32, stride: f32) -> Vec<Vec<f32>> {
         .collect()
 }
 
-/// Angles per token: 2-D splits `D / 2` pairs evenly over (h, w); 3-D over (t, h, w) with the remainder to h, w.
 #[must_use]
 pub fn angles(head: usize, (t, h, w): (usize, usize, usize), spatial: bool) -> Vec<f32> {
     let pairs = head / 2;
@@ -54,7 +52,6 @@ pub fn angles(head: usize, (t, h, w): (usize, usize, usize), spatial: bool) -> V
         .collect()
 }
 
-/// (cos, sin) of [`angles`].
 #[must_use]
 pub fn tables(head: usize, block: (usize, usize, usize), spatial: bool) -> (Vec<f32>, Vec<f32>) {
     let a = angles(head, block, spatial);

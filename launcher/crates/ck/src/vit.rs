@@ -1,5 +1,3 @@
-//! Plain pre-norm vision transformers over f32 token rows `[b, n, c]`: `LayerNorm`, global attention (heads padded
-//! to the next `ck_attn` size), exact-GELU MLP; residuals accumulated in f32 by the GEMMs.
 
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::{OptionExt, Result};
@@ -22,8 +20,6 @@ pub struct Norm {
 }
 
 impl Norm {
-    /// # Errors
-    /// When a weight is missing.
     pub fn load(ld: &Loader, name: &str, eps: f32) -> Result<Self> {
         Ok(Self {
             w: ld.f32(&format!("{name}.weight"))?,
@@ -32,10 +28,6 @@ impl Norm {
         })
     }
 
-    /// `LayerNorm` of f32 rows into `dtype`.
-    ///
-    /// # Errors
-    /// On a launch failure.
     pub fn apply(&self, gpu: &Gpu, x: &Tensor, dtype: Dtype) -> Result<Tensor> {
         let c = self.w.numel();
         let rows = x.numel() / c;
@@ -59,17 +51,12 @@ impl Norm {
     }
 }
 
-/// A GEMM operand and its f32 bias.
 pub struct Linear {
     pub w: Tensor,
     pub b: Tensor,
 }
 
 impl Linear {
-    /// Weights `names` stacked along `out`, each `.weight`/`.bias`, rows scaled by `gamma` (`LayerScale`) if given.
-    ///
-    /// # Errors
-    /// When a weight is missing.
     pub fn load(ld: &Loader, names: &[&str], gamma: Option<&str>) -> Result<Self> {
         let gamma = gamma.map(|g| ld.get(g).map(|(_, g)| g)).transpose()?;
         let weights: Vec<String> = names.iter().map(|n| format!("{n}.weight")).collect();
@@ -92,10 +79,6 @@ impl Linear {
         })
     }
 
-    /// `y (+)= x · Wᵀ + b` over all rows.
-    ///
-    /// # Errors
-    /// On a GEMM failure.
     pub fn run(&self, gpu: &Gpu, x: &Tensor, y: &Tensor, accumulate: bool) -> Result<()> {
         gpu.linear(x, &self.w, Some(&self.b), y, accumulate)
     }
@@ -105,10 +88,6 @@ impl Linear {
     }
 }
 
-/// Global attention of bf16 `qkv [b · n, 3, heads, d]` → bf16 `[b · n, heads · d]`.
-///
-/// # Errors
-/// On a launch failure or an unsupported head size.
 pub fn attention(
     gpu: &Gpu,
     qkv: &Tensor,
@@ -160,7 +139,6 @@ pub fn attention(
     Ok(out)
 }
 
-/// Pre-norm attention, `x += out(attn(norm(x)))`, or cross-attention to bf16 `kv` rows.
 pub struct Attn {
     pub norm: Norm,
     pub qkv: Linear,
@@ -169,8 +147,6 @@ pub struct Attn {
 }
 
 impl Attn {
-    /// # Errors
-    /// On a launch or GEMM failure.
     pub fn forward(
         &self,
         gpu: &Gpu,
@@ -198,7 +174,6 @@ impl Attn {
     }
 }
 
-/// Pre-norm exact-GELU MLP, `x += fc2(gelu(fc1(norm(x))))`.
 pub struct Mlp {
     pub norm: Norm,
     pub fc1: Linear,
@@ -206,8 +181,6 @@ pub struct Mlp {
 }
 
 impl Mlp {
-    /// # Errors
-    /// On a launch or GEMM failure.
     pub fn forward(&self, gpu: &Gpu, x: &Tensor) -> Result<()> {
         let h = self.norm.apply(gpu, x, Dtype::Bf16)?;
         let f = gpu.empty(&[h.shape[0], self.fc1.out()], Dtype::F32)?;
@@ -222,10 +195,6 @@ pub struct Block {
 }
 
 impl Block {
-    /// A timm block (`norm1`, `attn.qkv`, `attn.proj`, `norm2`, `mlp.fc1`, `mlp.fc2`, optional `ls1`/`ls2`).
-    ///
-    /// # Errors
-    /// When a weight is missing.
     pub fn timm(ld: &Loader, p: &str, heads: usize, eps: f32) -> Result<Self> {
         let ls = |i: u8| {
             let name = format!("{p}.ls{i}.gamma");
@@ -246,18 +215,12 @@ impl Block {
         })
     }
 
-    /// # Errors
-    /// On a launch or GEMM failure.
     pub fn forward(&self, gpu: &Gpu, x: &Tensor, bn: (usize, usize), ones: &Tensor) -> Result<()> {
         self.attn.forward(gpu, x, bn, None, ones)?;
         self.mlp.forward(gpu, x)
     }
 }
 
-/// RVM's attention (`query`, `key`, `value`, `out`) under `norm`.
-///
-/// # Errors
-/// When a weight is missing.
 pub fn rvm_attn(ld: &Loader, norm: &str, p: &str, heads: usize) -> Result<Attn> {
     let qkv = ["query", "key", "value"].map(|s| format!("{p}.{s}"));
     Ok(Attn {
@@ -268,10 +231,6 @@ pub fn rvm_attn(ld: &Loader, norm: &str, p: &str, heads: usize) -> Result<Attn> 
     })
 }
 
-/// RVM's MLP (`dense_in`, `dense_out`) under `norm`.
-///
-/// # Errors
-/// When a weight is missing.
 pub fn rvm_mlp(ld: &Loader, norm: &str, p: &str) -> Result<Mlp> {
     Ok(Mlp {
         norm: Norm::load(ld, norm, 1e-5)?,
@@ -280,10 +239,6 @@ pub fn rvm_mlp(ld: &Loader, norm: &str, p: &str) -> Result<Mlp> {
     })
 }
 
-/// `out[b, i] = (prefix[i] or patches[b, i − p]) + pos[i]`, f32 `[b, p + hw, c]`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn embed(gpu: &Gpu, patches: &Tensor, prefix: &Tensor, pos: &Tensor, b: usize) -> Result<Tensor> {
     let [p, c] = prefix.shape[..] else {
         eyre::bail!("prefix wants [p, c]")
@@ -300,10 +255,6 @@ pub fn embed(gpu: &Gpu, patches: &Tensor, prefix: &Tensor, pos: &Tensor, b: usiz
     Ok(out)
 }
 
-/// Tokens `[b, skip + h · w, c]` → NCHW `(x − mean) / max(std, 1e−6)`, rounded through f16 if `half`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn standardise(
     gpu: &Gpu,
     x: &Tensor,
@@ -331,11 +282,6 @@ pub enum Resize {
     Lanczos = 3,
 }
 
-/// f32 `[n, c, h, w]` → `[n, c, oh, ow]` at source step `scale = (sy, sx)`, then `(v − mean[ch]) / std[ch]`
-/// (`mean`, `std` one per channel, or one for all).
-///
-/// # Errors
-/// On a launch failure.
 pub fn resize(
     gpu: &Gpu,
     x: &Tensor,
@@ -365,10 +311,6 @@ pub fn resize(
     Ok(out)
 }
 
-/// RVM's gate: `sigmoid(r) · LN(s) · w` (no bias) of `gates [rows, 2c] = [u | r]`, bf16.
-///
-/// # Errors
-/// On a launch failure.
 pub fn gru_kv(gpu: &Gpu, gates: &Tensor, s: &Tensor, w: &Tensor) -> Result<Tensor> {
     let c = w.numel();
     let rows = s.numel() / c;
@@ -382,10 +324,6 @@ pub fn gru_kv(gpu: &Gpu, gates: &Tensor, s: &Tensor, w: &Tensor) -> Result<Tenso
     Ok(out)
 }
 
-/// `out = (1 − σ(u)) · s + σ(u) · h`.
-///
-/// # Errors
-/// On a launch failure.
 pub fn gru_mix(gpu: &Gpu, gates: &Tensor, h: &Tensor, s: &Tensor, out: &Tensor) -> Result<()> {
     let c = *s.shape.last().unwrap_or(&1);
     let rows = s.numel() / c;

@@ -1,6 +1,3 @@
-//! Frames out: logits `[4, h, w]` cropped to `h0 × w0`. `render`: u16 BGR(A), `kind` 0 alpha, 1 foreground,
-//! 2 cutout, 3 over a checker. `render_exr`: the same unclamped in scene-linear light as f32 planes (alpha; G, B, R;
-//! or G, B, R, A), rounded to the nearest finite half when `half`.
 
 use crate::frame::{Adjust, DENOM, KNEE, to_linear, to_srgb};
 use crate::gid;

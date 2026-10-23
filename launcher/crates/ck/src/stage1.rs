@@ -1,4 +1,3 @@
-//! Stage 1: RGB + hint and the foundation features over a window of frames → the /16 baton and the /2 aux output.
 
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::Result;
@@ -13,14 +12,11 @@ const DOWN: Conv = Conv { k: 8, s: 4, p: 2 };
 const SMOOTH: Conv = Conv { k: 3, s: 1, p: 1 };
 const AUX: Conv = Conv { k: 16, s: 8, p: 4 };
 
-/// Bytes of encoder transients (about 18 bytes a channel a token) one pass may hold; more frames go in turns.
 const ENC_BYTES: usize = 1 << 30;
-/// Bytes of aux columns one pass may hold.
 const AUX_BYTES: usize = 512 << 20;
 
 type Pair = (Tensor, Tensor);
 
-/// `Upsample4ICNR`: 1×1 projection, pixel shuffle by 4, plus a residual 3×3 smoothing.
 struct Up {
     proj: Pair,
     smooth: Pair,
@@ -51,7 +47,6 @@ impl Up {
     }
 }
 
-/// `FusionLinSwiglu`: a linear shortcut plus a `SwiGLU` over the RMS-normed input.
 struct Fuse {
     short: Pair,
     norm: Tensor,
@@ -74,8 +69,6 @@ impl Fuse {
     }
 }
 
-/// One window's inputs: `x [b · t, 4, H, W]` (RGB, hint; freed once patchified), `quality [b · t]`, and NCHW f32
-/// foundation features at /64, concatenated in this order.
 pub struct Inputs<'a> {
     pub b: usize,
     pub t: usize,
@@ -84,7 +77,6 @@ pub struct Inputs<'a> {
     pub features: [&'a Tensor; 3],
 }
 
-/// The baton f32 NHWC `[b, t, H / 16, W / 16, 512]` and aux logits f32 `[b · t, 4, H / 2, W / 2]`.
 pub struct Outputs {
     pub baton: Tensor,
     pub aux: Tensor,
@@ -108,8 +100,6 @@ pub struct Stage1 {
 }
 
 impl Stage1 {
-    /// # Errors
-    /// When a weight is missing.
     pub fn load(ld: &Loader) -> Result<Self> {
         let pair = |n: &str| -> Result<Pair> { Ok((ld.mat(&format!("{n}.weight"))?, ld.f32(&format!("{n}.bias"))?)) };
         let count = |p: &str| (0..64).take_while(|i| ld.has(&format!("{p}.{i}.norm1.weight"))).count();
@@ -166,12 +156,10 @@ impl Stage1 {
         })
     }
 
-    /// The blocks in order: encoder, body, mid detour, decoder.
     pub fn blocks(&self) -> impl Iterator<Item = &Block> {
         self.enc.iter().chain(&self.body).chain(&self.mid).chain(&self.dec)
     }
 
-    /// The stem patches `[frames, h16, w16, d16]` and the encoder's output over them, a few frames at a time.
     fn encode(&self, gpu: &Gpu, cache: &Cache, x: Tensor, quality: &Tensor) -> Result<(Tensor, Tensor)> {
         let [frames, _, hh, ww] = x.shape[..] else {
             eyre::bail!("x wants [b · t, 4, H, W]")
@@ -208,7 +196,6 @@ impl Stage1 {
         Ok((patch, enc))
     }
 
-    /// Aux logits `[frames, 4, h2, w2]` from the baton, a few frames at a time.
     fn aux(&self, gpu: &Gpu, baton: &Tensor, (h16, w16): (usize, usize)) -> Result<Tensor> {
         let d16 = *baton.shape.last().unwrap_or(&0);
         let frames = baton.numel() / (h16 * w16 * d16);
@@ -226,8 +213,6 @@ impl Stage1 {
         Ok(aux)
     }
 
-    /// # Errors
-    /// On a launch or GEMM failure.
     pub fn forward(&self, gpu: &Gpu, cache: &Cache, i: Inputs) -> Result<Outputs> {
         let Inputs {
             b,

@@ -1,8 +1,5 @@
 #![no_std]
 #![feature(abi_ptx)]
-//! The launcher's glue: convolutions as GEMM (`im2col`/`col2im`), pixel shuffle, attention head split/merge
-//! with qk-norm and `RoPE`, gated residual adds and pointwise maps. f32 arithmetic, bf16 as `u16`; one thread per
-//! output element, block 256, grid `⌈elements / 256⌉` unless stated.
 
 use ptx::prelude::*;
 
@@ -35,7 +32,6 @@ pub(crate) fn sigmoid(x: f32) -> f32 {
     (1.0 + (-x).exp()).rcp()
 }
 
-/// Abramowitz–Stegun 7.1.26 (|error| < 1.5e-7).
 pub(crate) fn erf(x: f32) -> f32 {
     let a = x.abs();
     let t = (1.0 + 0.327_591_1 * a).rcp();

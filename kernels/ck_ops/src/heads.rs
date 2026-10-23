@@ -1,10 +1,3 @@
-//! Attention heads ↔ token grids. The grid is `[b, t, gh, gw]` tokens, windowed as if zero-padded to `ph × pw`;
-//! windows of `wh × ww` (all `t`) are numbered `(b, wy, wx)` and their tokens `(t, iy, ix)`: Swin windows, `CSwin`
-//! strips (`gh × 1`, `1 × gw`) or the whole grid. Padding tokens split to zeros and merge nowhere.
-//! `split`: bf16 `qkv [tokens, 3, heads, D]` → bf16 `q`, `k`, `v [windows, hc, N, D]` for heads `head0..head0 + hc`,
-//! `mode` bit 0 RMS-norming q and k by `qw`/`kw [D]`, bit 1 rotating them by f32 `cos`/`sin [N, D / 2]`; one warp
-//! per (window, head, token), eight to a block of 256. `merge`: `out[token, head · D + d] = o · sigmoid(gate[token,
-//! head])`, bf16.
 
 use crate::{bf, gid, rn, sigmoid};
 use ptx::kernel;
@@ -28,7 +21,6 @@ impl Windows {
         self.t * self.wh * self.ww
     }
 
-    /// Grid token of window `win`'s token `tok`, unless padding.
     fn grid(self, win: usize, tok: usize) -> Option<usize> {
         let (nh, nw) = (self.ph / self.wh, self.pw / self.ww);
         let (b, wy, wx) = (win / (nh * nw), win / nw % nh, win % nw);
@@ -41,7 +33,6 @@ impl Windows {
         (y < self.gh && x < self.gw).then_some(((b * self.t + tt) * self.gh + y) * self.gw + x)
     }
 
-    /// Window and token of grid token `g`.
     fn local(self, g: usize) -> (usize, usize) {
         let (nh, nw) = (self.ph / self.wh, self.pw / self.ww);
         let (x, y, tt, b) = (
@@ -55,7 +46,6 @@ impl Windows {
     }
 }
 
-/// A lane's `RoPE` pairs of a `d`-wide head: `lane` and `lane + 32`, where they exist.
 fn pairs(lane: usize, d: usize) -> impl Iterator<Item = usize> {
     [lane, lane + 32].into_iter().filter(move |&j| j < d / 2)
 }
@@ -66,8 +56,6 @@ fn warp_sum(v: f32) -> f32 {
     })
 }
 
-/// One head row `src[from..from + d]` by a warp: RMS-normed by `norm` (every lane joins the sum), rotated by
-/// `rope`, written at `dst[to..]`.
 fn head(
     src: GpuSlice<u16>,
     from: usize,

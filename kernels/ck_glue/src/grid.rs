@@ -1,7 +1,3 @@
-//! Swin's shifted windows around attention, on NHWC grids `[lead, h, w, c]`. `norm_bf16`: `rms_norm(x) · w`
-//! of f32 pixels into the bf16 grid `[lead, hp, wp, c]` rolled by `(-sh, -sw)` and zero-padded past `h`/`w`,
-//! one warp per output pixel. `unshift_add`: `x + roll(a, (sh, sw))[.., :h, :w]` with bf16 `a` on the padded
-//! grid, eight channels per thread. Without a shift (`hp = h`, `sh = 0`, ...), plain norm and add.
 
 use crate::{f32x8, high, low, pack};
 use ptx::kernel;
@@ -32,14 +28,12 @@ impl Grid {
         }
     }
 
-    /// Input pixel behind padded pixel `p`, if not padding.
     fn source(self, p: usize) -> Option<usize> {
         let (lead, y, x) = (p / (self.hp * self.wp), p / self.wp % self.hp, p % self.wp);
         let (sy, sx) = ((y + self.sh) % self.hp, (x + self.sw) % self.wp);
         (sy < self.h && sx < self.w).then_some((lead * self.h + sy) * self.w + sx)
     }
 
-    /// Padded pixel that lands on input pixel `p` once rolled back.
     fn back(self, p: usize) -> usize {
         let (lead, y, x) = (p / (self.h * self.w), p / self.w % self.h, p % self.w);
         let (sy, sx) = (
