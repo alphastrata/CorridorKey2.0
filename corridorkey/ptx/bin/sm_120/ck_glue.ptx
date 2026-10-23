@@ -10,23 +10,36 @@
 .extern .shared .align 16 .b8 __dshmem[];
                                         // End of file scope inline assembly
 	// .globl	head64                  // -- Begin function head64
-.func _RNvNtCs1N37rtuYfti_4core9panicking5panic
+.func _RNvNtCscc5udagl66P_4core9panicking5panic
 (
-	.param .b64 _RNvNtCs1N37rtuYfti_4core9panicking5panic_param_0,
-	.param .b64 _RNvNtCs1N37rtuYfti_4core9panicking5panic_param_1,
-	.param .b64 _RNvNtCs1N37rtuYfti_4core9panicking5panic_param_2
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_0,
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_1,
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_2
 )
 .noreturn;
-.func _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero
+.func _RNvNtCscc5udagl66P_4core9panicking9panic_fmt
 (
-	.param .b64 _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero_param_0
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_0,
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_1,
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_2
 )
 .noreturn;
-.func _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero
+.func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero
 (
-	.param .b64 _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero_param_0
+	.param .b64 _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero_param_0
 )
 .noreturn;
+.func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero
+(
+	.param .b64 _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero_param_0
+)
+.noreturn;
+.global .align 1 .b8 anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0[38] = {97, 115, 115, 101, 114, 116, 105, 111, 110, 32, 102, 97, 105, 108, 101, 100, 58, 32, 105, 32, 60, 32, 115, 101, 108, 102, 46, 105, 110, 110, 101, 114, 46, 108, 101, 110, 40, 41};
+.global .align 1 .b8 anon_$_620938567a7fd8e8c4d811dc65df1daa_$_1[73] = {47, 104, 111, 109, 101, 47, 106, 101, 114, 47, 46, 99, 97, 114, 103, 111, 47, 103, 105, 116, 47, 99, 104, 101, 99, 107, 111, 117, 116, 115, 47, 112, 116, 120, 45, 49, 100, 97, 101, 98, 50, 98, 56, 102, 98, 51, 55, 48, 102, 97, 55, 47, 53, 102, 51, 56, 101, 53, 54, 47, 115, 114, 99, 47, 115, 108, 105, 99, 101, 46, 114, 115};
+.global .align 8 .u64 anon_$_620938567a7fd8e8c4d811dc65df1daa_$_2[3] = {generic(anon_$_620938567a7fd8e8c4d811dc65df1daa_$_1), 72, 38654705720};
+.global .align 1 .b8 anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3[101] = {97, 115, 115, 101, 114, 116, 105, 111, 110, 32, 102, 97, 105, 108, 101, 100, 58, 32, 105, 32, 60, 32, 115, 101, 108, 102, 46, 105, 110, 110, 101, 114, 46, 108, 101, 110, 40, 41, 32, 38, 38, 10, 32, 32, 32, 32, 40, 115, 101, 108, 102, 46, 105, 110, 110, 101, 114, 46, 108, 101, 110, 40, 41, 32, 45, 32, 105, 41, 32, 42, 32, 99, 111, 114, 101, 58, 58, 109, 101, 109, 58, 58, 115, 105, 122, 101, 95, 111, 102, 58, 58, 60, 84, 62, 40, 41, 32, 62, 61, 32, 87};
+.global .align 8 .u64 anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4[3] = {generic(anon_$_620938567a7fd8e8c4d811dc65df1daa_$_1), 72, 38654705805};
+.global .align 8 .u64 anon_$_620938567a7fd8e8c4d811dc65df1daa_$_5[3] = {generic(anon_$_620938567a7fd8e8c4d811dc65df1daa_$_1), 72, 38654705794};
                                         // @head64
 .visible .entry head64(
 	.param .u64 .ptr .align 1 head64_param_0,
@@ -51,7 +64,7 @@
 {
 	.reg .pred 	%p<21>;
 	.reg .b32 	%r<132>;
-	.reg .b64 	%rd<52>;
+	.reg .b64 	%rd<80>;
 
 // %bb.0:
 	// begin inline asm
@@ -86,12 +99,12 @@
 	@%p3 bra 	$L__BB0_8;
 // %bb.3:
 	ld.param.b32 	%r20, [head64_param_14];
-	mov.b64 	%rd49, 0;
+	mov.b64 	%rd77, 0;
 	mov.b32 	%r131, 0f00000000;
-	mov.b64 	%rd48, 1;
+	mov.b64 	%rd76, 1;
 $L__BB0_4:                              // =>This Inner Loop Header: Depth=1
-	mov.b64 	%rd3, %rd48;
-	shl.b64 	%rd27, %rd49, 2;
+	mov.b64 	%rd3, %rd76;
+	shl.b64 	%rd27, %rd77, 2;
 	add.s64 	%rd4, %rd27, %rd2;
 	setp.le.u64 	%p4, %rd17, %rd4;
 	@%p4 bra 	$L__BB0_28;
@@ -138,9 +151,9 @@ $L__BB0_4:                              // =>This Inner Loop Header: Depth=1
 	// begin inline asm
 	fma.rn.f32 %r131, %r47, %r47, %r45;
 	// end inline asm
-	add.s64 	%rd48, %rd3, 1;
+	add.s64 	%rd76, %rd3, 1;
 	setp.lt.u64 	%p6, %rd3, 8;
-	mov.b64 	%rd49, %rd3;
+	mov.b64 	%rd77, %rd3;
 	@%p6 bra 	$L__BB0_4;
 // %bb.7:
 	mul.rn.f32 	%r49, %r131, 0f3C800000;
@@ -166,29 +179,29 @@ $L__BB0_8:
 	rem.u32 	%r50, %r1, %r17;
 	mul.wide.u32 	%rd5, %r50, 32;
 	and.b32 	%r4, %r21, 2;
-	shl.b64 	%rd32, %rd1, 7;
-	add.s64 	%rd7, %rd23, %rd32;
-	mov.b64 	%rd51, 0;
-	mov.b64 	%rd50, 1;
+	shl.b64 	%rd36, %rd1, 7;
+	add.s64 	%rd7, %rd23, %rd36;
+	mov.b64 	%rd79, 0;
+	mov.b64 	%rd78, 1;
 	mov.b64 	%rd10, 4;
 	setp.eq.b32 	%p14, %r4, 0;
 	mov.b64 	%rd8, %rd18;
 $L__BB0_10:                             // =>This Inner Loop Header: Depth=1
-	mov.b64 	%rd11, %rd50;
-	shl.b64 	%rd12, %rd51, 2;
+	mov.b64 	%rd11, %rd78;
+	shl.b64 	%rd12, %rd79, 2;
 	add.s64 	%rd13, %rd12, %rd2;
 	setp.le.u64 	%p8, %rd17, %rd13;
 	@%p8 bra 	$L__BB0_30;
 // %bb.11:                              //   in Loop: Header=BB0_10 Depth=1
-	sub.s64 	%rd33, %rd17, %rd13;
-	and.b64 	%rd34, %rd33, 4611686018427387900;
-	setp.ne.b64 	%p9, %rd34, 0;
+	sub.s64 	%rd37, %rd17, %rd13;
+	and.b64 	%rd38, %rd37, 4611686018427387900;
+	setp.ne.b64 	%p9, %rd38, 0;
 	@!%p9 bra 	$L__BB0_30;
 // %bb.12:                              //   in Loop: Header=BB0_10 Depth=1
-	shl.b64 	%rd36, %rd13, 2;
-	add.s64 	%rd35, %rd36, %rd16;
+	shl.b64 	%rd40, %rd13, 2;
+	add.s64 	%rd39, %rd40, %rd16;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r51, %r52, %r53, %r54}, [%rd35];
+	ld.global.nc.v4.u32 {%r51, %r52, %r53, %r54}, [%rd39];
 	// end inline asm
 	shl.b32 	%r12, %r51, 16;
 	and.b32 	%r11, %r51, -65536;
@@ -200,12 +213,12 @@ $L__BB0_10:                             // =>This Inner Loop Header: Depth=1
 	and.b32 	%r5, %r54, -65536;
 	@%p3 bra 	$L__BB0_18;
 // %bb.13:                              //   in Loop: Header=BB0_10 Depth=1
-	add.s64 	%rd37, %rd10, -4;
-	setp.ge.u64 	%p10, %rd37, %rd18;
+	add.s64 	%rd41, %rd10, -4;
+	setp.ge.u64 	%p10, %rd41, %rd18;
 	@%p10 bra 	$L__BB0_31;
 // %bb.14:                              //   in Loop: Header=BB0_10 Depth=1
-	and.b64 	%rd38, %rd8, 4611686018427387900;
-	setp.ne.b64 	%p11, %rd38, 0;
+	and.b64 	%rd42, %rd8, 4611686018427387900;
+	setp.ne.b64 	%p11, %rd42, 0;
 	@!%p11 bra 	$L__BB0_31;
 // %bb.15:                              //   in Loop: Header=BB0_10 Depth=1
 	// begin inline asm
@@ -214,14 +227,14 @@ $L__BB0_10:                             // =>This Inner Loop Header: Depth=1
 	setp.ge.u64 	%p12, %rd10, %rd18;
 	@%p12 bra 	$L__BB0_32;
 // %bb.16:                              //   in Loop: Header=BB0_10 Depth=1
-	add.s64 	%rd39, %rd8, -4;
-	and.b64 	%rd40, %rd39, 4611686018427387900;
-	setp.ne.b64 	%p13, %rd40, 0;
+	add.s64 	%rd43, %rd8, -4;
+	and.b64 	%rd44, %rd43, 4611686018427387900;
+	setp.ne.b64 	%p13, %rd44, 0;
 	@!%p13 bra 	$L__BB0_32;
 // %bb.17:                              //   in Loop: Header=BB0_10 Depth=1
-	add.s64 	%rd41, %rd9, 16;
+	add.s64 	%rd45, %rd9, 16;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r59, %r60, %r61, %r62}, [%rd41];
+	ld.global.nc.v4.u32 {%r59, %r60, %r61, %r62}, [%rd45];
 	// end inline asm
 	mul.rn.f32 	%r63, %r3, %r55;
 	mul.rn.f32 	%r12, %r63, %r12;
@@ -246,27 +259,27 @@ $L__BB0_18:                             //   in Loop: Header=BB0_10 Depth=1
 	setp.le.u64 	%p15, %rd20, %rd14;
 	@%p15 bra 	$L__BB0_33;
 // %bb.20:                              //   in Loop: Header=BB0_10 Depth=1
-	sub.s64 	%rd42, %rd20, %rd14;
-	and.b64 	%rd43, %rd42, 4611686018427387900;
-	setp.ne.b64 	%p16, %rd43, 0;
+	sub.s64 	%rd54, %rd20, %rd14;
+	and.b64 	%rd55, %rd54, 4611686018427387900;
+	setp.ne.b64 	%p16, %rd55, 0;
 	@!%p16 bra 	$L__BB0_33;
 // %bb.21:                              //   in Loop: Header=BB0_10 Depth=1
 	shl.b64 	%rd15, %rd14, 2;
-	add.s64 	%rd44, %rd15, %rd19;
+	add.s64 	%rd56, %rd15, %rd19;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r71, %r72, %r73, %r74}, [%rd44];
+	ld.global.nc.v4.u32 {%r71, %r72, %r73, %r74}, [%rd56];
 	// end inline asm
 	setp.le.u64 	%p17, %rd22, %rd14;
 	@%p17 bra 	$L__BB0_34;
 // %bb.22:                              //   in Loop: Header=BB0_10 Depth=1
-	sub.s64 	%rd45, %rd22, %rd14;
-	and.b64 	%rd46, %rd45, 4611686018427387900;
-	setp.ne.b64 	%p18, %rd46, 0;
+	sub.s64 	%rd57, %rd22, %rd14;
+	and.b64 	%rd58, %rd57, 4611686018427387900;
+	setp.ne.b64 	%p18, %rd58, 0;
 	@!%p18 bra 	$L__BB0_34;
 // %bb.23:                              //   in Loop: Header=BB0_10 Depth=1
-	add.s64 	%rd47, %rd15, %rd21;
+	add.s64 	%rd59, %rd15, %rd21;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r75, %r76, %r77, %r78}, [%rd47];
+	ld.global.nc.v4.u32 {%r75, %r76, %r77, %r78}, [%rd59];
 	// end inline asm
 	mul.rn.f32 	%r79, %r12, %r71;
 	mul.rn.f32 	%r80, %r11, %r75;
@@ -339,14 +352,14 @@ $L__BB0_24:                             //   in Loop: Header=BB0_10 Depth=1
 	// begin inline asm
 	st.global.v4.u32 [%rd7], {%r95, %r96, %r97, %r98};
 	// end inline asm
-	add.s64 	%rd50, %rd11, 1;
+	add.s64 	%rd78, %rd11, 1;
 	add.s64 	%rd10, %rd10, 8;
 	add.s64 	%rd9, %rd9, 32;
 	add.s64 	%rd8, %rd8, -8;
 	add.s64 	%rd7, %rd7, 16;
 	add.s64 	%rd6, %rd6, 4;
 	setp.ne.b64 	%p20, %rd10, 68;
-	mov.b64 	%rd51, %rd11;
+	mov.b64 	%rd79, %rd11;
 	@%p20 bra 	$L__BB0_10;
 $L__BB0_26:                             // %.loopexit
 	ret;
@@ -355,66 +368,108 @@ $L__BB0_30:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd72, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd73, %rd72;
+	st.param.b64 	[param2], %rd73;
+	mov.b64 	%rd74, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd75, %rd74;
+	st.param.b64 	[param0], %rd75;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 6
 $L__BB0_28:
 	{ // callseq 0, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd32, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd33, %rd32;
+	st.param.b64 	[param2], %rd33;
+	mov.b64 	%rd34, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd35, %rd34;
+	st.param.b64 	[param0], %rd35;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 0
 $L__BB0_31:
 	{ // callseq 2, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd50, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd51, %rd50;
+	st.param.b64 	[param2], %rd51;
+	mov.b64 	%rd52, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd53, %rd52;
+	st.param.b64 	[param0], %rd53;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 2
 $L__BB0_33:
 	{ // callseq 4, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd64, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd65, %rd64;
+	st.param.b64 	[param2], %rd65;
+	mov.b64 	%rd66, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd67, %rd66;
+	st.param.b64 	[param0], %rd67;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 4
 $L__BB0_32:
 	{ // callseq 1, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd46, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd47, %rd46;
+	st.param.b64 	[param2], %rd47;
+	mov.b64 	%rd48, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd49, %rd48;
+	st.param.b64 	[param0], %rd49;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 1
 $L__BB0_35:
 	{ // callseq 5, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd68, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_2;
+	cvta.global.u64 	%rd69, %rd68;
+	st.param.b64 	[param2], %rd69;
+	mov.b64 	%rd70, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd71, %rd70;
+	st.param.b64 	[param0], %rd71;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 5
 $L__BB0_34:
 	{ // callseq 3, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd60, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd61, %rd60;
+	st.param.b64 	[param2], %rd61;
+	mov.b64 	%rd62, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd63, %rd62;
+	st.param.b64 	[param0], %rd63;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 3
 $L__BB0_27:
 	{ // callseq 8, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 8
 $L__BB0_29:
 	{ // callseq 7, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 7
                                         // -- End function
 }
@@ -442,7 +497,7 @@ $L__BB0_29:
 {
 	.reg .pred 	%p<21>;
 	.reg .b32 	%r<132>;
-	.reg .b64 	%rd<51>;
+	.reg .b64 	%rd<79>;
 
 // %bb.0:
 	// begin inline asm
@@ -477,12 +532,12 @@ $L__BB0_29:
 	@%p3 bra 	$L__BB1_8;
 // %bb.3:
 	ld.param.b32 	%r20, [head80_param_14];
-	mov.b64 	%rd48, 0;
+	mov.b64 	%rd76, 0;
 	mov.b32 	%r131, 0f00000000;
-	mov.b64 	%rd47, 1;
+	mov.b64 	%rd75, 1;
 $L__BB1_4:                              // =>This Inner Loop Header: Depth=1
-	mov.b64 	%rd3, %rd47;
-	shl.b64 	%rd27, %rd48, 2;
+	mov.b64 	%rd3, %rd75;
+	shl.b64 	%rd27, %rd76, 2;
 	add.s64 	%rd4, %rd27, %rd2;
 	setp.le.u64 	%p4, %rd17, %rd4;
 	@%p4 bra 	$L__BB1_28;
@@ -529,9 +584,9 @@ $L__BB1_4:                              // =>This Inner Loop Header: Depth=1
 	// begin inline asm
 	fma.rn.f32 %r131, %r47, %r47, %r45;
 	// end inline asm
-	add.s64 	%rd47, %rd3, 1;
+	add.s64 	%rd75, %rd3, 1;
 	setp.lt.u64 	%p6, %rd3, 10;
-	mov.b64 	%rd48, %rd3;
+	mov.b64 	%rd76, %rd3;
 	@%p6 bra 	$L__BB1_4;
 // %bb.7:
 	div.rn.f32 	%r49, %r131, 0f42A00000;
@@ -558,27 +613,27 @@ $L__BB1_8:
 	mul.wide.u32 	%rd5, %r50, 40;
 	and.b32 	%r4, %r21, 2;
 	mad.lo.s64 	%rd7, %rd1, 160, %rd23;
-	mov.b64 	%rd50, 0;
-	mov.b64 	%rd49, 1;
+	mov.b64 	%rd78, 0;
+	mov.b64 	%rd77, 1;
 	mov.b64 	%rd10, 4;
 	setp.eq.b32 	%p14, %r4, 0;
 	mov.b64 	%rd8, %rd18;
 $L__BB1_10:                             // =>This Inner Loop Header: Depth=1
-	mov.b64 	%rd11, %rd49;
-	shl.b64 	%rd12, %rd50, 2;
+	mov.b64 	%rd11, %rd77;
+	shl.b64 	%rd12, %rd78, 2;
 	add.s64 	%rd13, %rd12, %rd2;
 	setp.le.u64 	%p8, %rd17, %rd13;
 	@%p8 bra 	$L__BB1_30;
 // %bb.11:                              //   in Loop: Header=BB1_10 Depth=1
-	sub.s64 	%rd32, %rd17, %rd13;
-	and.b64 	%rd33, %rd32, 4611686018427387900;
-	setp.ne.b64 	%p9, %rd33, 0;
+	sub.s64 	%rd36, %rd17, %rd13;
+	and.b64 	%rd37, %rd36, 4611686018427387900;
+	setp.ne.b64 	%p9, %rd37, 0;
 	@!%p9 bra 	$L__BB1_30;
 // %bb.12:                              //   in Loop: Header=BB1_10 Depth=1
-	shl.b64 	%rd35, %rd13, 2;
-	add.s64 	%rd34, %rd35, %rd16;
+	shl.b64 	%rd39, %rd13, 2;
+	add.s64 	%rd38, %rd39, %rd16;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r51, %r52, %r53, %r54}, [%rd34];
+	ld.global.nc.v4.u32 {%r51, %r52, %r53, %r54}, [%rd38];
 	// end inline asm
 	shl.b32 	%r12, %r51, 16;
 	and.b32 	%r11, %r51, -65536;
@@ -590,12 +645,12 @@ $L__BB1_10:                             // =>This Inner Loop Header: Depth=1
 	and.b32 	%r5, %r54, -65536;
 	@%p3 bra 	$L__BB1_18;
 // %bb.13:                              //   in Loop: Header=BB1_10 Depth=1
-	add.s64 	%rd36, %rd10, -4;
-	setp.ge.u64 	%p10, %rd36, %rd18;
+	add.s64 	%rd40, %rd10, -4;
+	setp.ge.u64 	%p10, %rd40, %rd18;
 	@%p10 bra 	$L__BB1_31;
 // %bb.14:                              //   in Loop: Header=BB1_10 Depth=1
-	and.b64 	%rd37, %rd8, 4611686018427387900;
-	setp.ne.b64 	%p11, %rd37, 0;
+	and.b64 	%rd41, %rd8, 4611686018427387900;
+	setp.ne.b64 	%p11, %rd41, 0;
 	@!%p11 bra 	$L__BB1_31;
 // %bb.15:                              //   in Loop: Header=BB1_10 Depth=1
 	// begin inline asm
@@ -604,14 +659,14 @@ $L__BB1_10:                             // =>This Inner Loop Header: Depth=1
 	setp.ge.u64 	%p12, %rd10, %rd18;
 	@%p12 bra 	$L__BB1_32;
 // %bb.16:                              //   in Loop: Header=BB1_10 Depth=1
-	add.s64 	%rd38, %rd8, -4;
-	and.b64 	%rd39, %rd38, 4611686018427387900;
-	setp.ne.b64 	%p13, %rd39, 0;
+	add.s64 	%rd42, %rd8, -4;
+	and.b64 	%rd43, %rd42, 4611686018427387900;
+	setp.ne.b64 	%p13, %rd43, 0;
 	@!%p13 bra 	$L__BB1_32;
 // %bb.17:                              //   in Loop: Header=BB1_10 Depth=1
-	add.s64 	%rd40, %rd9, 16;
+	add.s64 	%rd44, %rd9, 16;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r59, %r60, %r61, %r62}, [%rd40];
+	ld.global.nc.v4.u32 {%r59, %r60, %r61, %r62}, [%rd44];
 	// end inline asm
 	mul.rn.f32 	%r63, %r3, %r55;
 	mul.rn.f32 	%r12, %r63, %r12;
@@ -636,27 +691,27 @@ $L__BB1_18:                             //   in Loop: Header=BB1_10 Depth=1
 	setp.le.u64 	%p15, %rd20, %rd14;
 	@%p15 bra 	$L__BB1_33;
 // %bb.20:                              //   in Loop: Header=BB1_10 Depth=1
-	sub.s64 	%rd41, %rd20, %rd14;
-	and.b64 	%rd42, %rd41, 4611686018427387900;
-	setp.ne.b64 	%p16, %rd42, 0;
+	sub.s64 	%rd53, %rd20, %rd14;
+	and.b64 	%rd54, %rd53, 4611686018427387900;
+	setp.ne.b64 	%p16, %rd54, 0;
 	@!%p16 bra 	$L__BB1_33;
 // %bb.21:                              //   in Loop: Header=BB1_10 Depth=1
 	shl.b64 	%rd15, %rd14, 2;
-	add.s64 	%rd43, %rd15, %rd19;
+	add.s64 	%rd55, %rd15, %rd19;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r71, %r72, %r73, %r74}, [%rd43];
+	ld.global.nc.v4.u32 {%r71, %r72, %r73, %r74}, [%rd55];
 	// end inline asm
 	setp.le.u64 	%p17, %rd22, %rd14;
 	@%p17 bra 	$L__BB1_34;
 // %bb.22:                              //   in Loop: Header=BB1_10 Depth=1
-	sub.s64 	%rd44, %rd22, %rd14;
-	and.b64 	%rd45, %rd44, 4611686018427387900;
-	setp.ne.b64 	%p18, %rd45, 0;
+	sub.s64 	%rd56, %rd22, %rd14;
+	and.b64 	%rd57, %rd56, 4611686018427387900;
+	setp.ne.b64 	%p18, %rd57, 0;
 	@!%p18 bra 	$L__BB1_34;
 // %bb.23:                              //   in Loop: Header=BB1_10 Depth=1
-	add.s64 	%rd46, %rd15, %rd21;
+	add.s64 	%rd58, %rd15, %rd21;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r75, %r76, %r77, %r78}, [%rd46];
+	ld.global.nc.v4.u32 {%r75, %r76, %r77, %r78}, [%rd58];
 	// end inline asm
 	mul.rn.f32 	%r79, %r12, %r71;
 	mul.rn.f32 	%r80, %r11, %r75;
@@ -729,14 +784,14 @@ $L__BB1_24:                             //   in Loop: Header=BB1_10 Depth=1
 	// begin inline asm
 	st.global.v4.u32 [%rd7], {%r95, %r96, %r97, %r98};
 	// end inline asm
-	add.s64 	%rd49, %rd11, 1;
+	add.s64 	%rd77, %rd11, 1;
 	add.s64 	%rd10, %rd10, 8;
 	add.s64 	%rd9, %rd9, 32;
 	add.s64 	%rd8, %rd8, -8;
 	add.s64 	%rd7, %rd7, 16;
 	add.s64 	%rd6, %rd6, 4;
 	setp.ne.b64 	%p20, %rd10, 84;
-	mov.b64 	%rd50, %rd11;
+	mov.b64 	%rd78, %rd11;
 	@%p20 bra 	$L__BB1_10;
 $L__BB1_26:                             // %.loopexit
 	ret;
@@ -745,66 +800,108 @@ $L__BB1_30:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd71, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd72, %rd71;
+	st.param.b64 	[param2], %rd72;
+	mov.b64 	%rd73, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd74, %rd73;
+	st.param.b64 	[param0], %rd74;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 15
 $L__BB1_28:
 	{ // callseq 9, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd32, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd33, %rd32;
+	st.param.b64 	[param2], %rd33;
+	mov.b64 	%rd34, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd35, %rd34;
+	st.param.b64 	[param0], %rd35;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 9
 $L__BB1_31:
 	{ // callseq 11, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd49, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd50, %rd49;
+	st.param.b64 	[param2], %rd50;
+	mov.b64 	%rd51, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd52, %rd51;
+	st.param.b64 	[param0], %rd52;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 11
 $L__BB1_33:
 	{ // callseq 13, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd63, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd64, %rd63;
+	st.param.b64 	[param2], %rd64;
+	mov.b64 	%rd65, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd66, %rd65;
+	st.param.b64 	[param0], %rd66;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 13
 $L__BB1_32:
 	{ // callseq 10, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd45, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd46, %rd45;
+	st.param.b64 	[param2], %rd46;
+	mov.b64 	%rd47, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd48, %rd47;
+	st.param.b64 	[param0], %rd48;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 10
 $L__BB1_35:
 	{ // callseq 14, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd67, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_2;
+	cvta.global.u64 	%rd68, %rd67;
+	st.param.b64 	[param2], %rd68;
+	mov.b64 	%rd69, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd70, %rd69;
+	st.param.b64 	[param0], %rd70;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 14
 $L__BB1_34:
 	{ // callseq 12, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd59, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd60, %rd59;
+	st.param.b64 	[param2], %rd60;
+	mov.b64 	%rd61, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd62, %rd61;
+	st.param.b64 	[param0], %rd62;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 12
 $L__BB1_27:
 	{ // callseq 17, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 17
 $L__BB1_29:
 	{ // callseq 16, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 16
                                         // -- End function
 }
@@ -832,7 +929,7 @@ $L__BB1_29:
 {
 	.reg .pred 	%p<21>;
 	.reg .b32 	%r<132>;
-	.reg .b64 	%rd<51>;
+	.reg .b64 	%rd<79>;
 
 // %bb.0:
 	// begin inline asm
@@ -867,12 +964,12 @@ $L__BB1_29:
 	@%p3 bra 	$L__BB2_8;
 // %bb.3:
 	ld.param.b32 	%r20, [head96_param_14];
-	mov.b64 	%rd48, 0;
+	mov.b64 	%rd76, 0;
 	mov.b32 	%r131, 0f00000000;
-	mov.b64 	%rd47, 1;
+	mov.b64 	%rd75, 1;
 $L__BB2_4:                              // =>This Inner Loop Header: Depth=1
-	mov.b64 	%rd3, %rd47;
-	shl.b64 	%rd27, %rd48, 2;
+	mov.b64 	%rd3, %rd75;
+	shl.b64 	%rd27, %rd76, 2;
 	add.s64 	%rd4, %rd27, %rd2;
 	setp.le.u64 	%p4, %rd17, %rd4;
 	@%p4 bra 	$L__BB2_28;
@@ -919,9 +1016,9 @@ $L__BB2_4:                              // =>This Inner Loop Header: Depth=1
 	// begin inline asm
 	fma.rn.f32 %r131, %r47, %r47, %r45;
 	// end inline asm
-	add.s64 	%rd47, %rd3, 1;
+	add.s64 	%rd75, %rd3, 1;
 	setp.lt.u64 	%p6, %rd3, 12;
-	mov.b64 	%rd48, %rd3;
+	mov.b64 	%rd76, %rd3;
 	@%p6 bra 	$L__BB2_4;
 // %bb.7:
 	div.rn.f32 	%r49, %r131, 0f42C00000;
@@ -948,27 +1045,27 @@ $L__BB2_8:
 	mul.wide.u32 	%rd5, %r50, 48;
 	and.b32 	%r4, %r21, 2;
 	mad.lo.s64 	%rd7, %rd1, 192, %rd23;
-	mov.b64 	%rd50, 0;
-	mov.b64 	%rd49, 1;
+	mov.b64 	%rd78, 0;
+	mov.b64 	%rd77, 1;
 	mov.b64 	%rd10, 4;
 	setp.eq.b32 	%p14, %r4, 0;
 	mov.b64 	%rd8, %rd18;
 $L__BB2_10:                             // =>This Inner Loop Header: Depth=1
-	mov.b64 	%rd11, %rd49;
-	shl.b64 	%rd12, %rd50, 2;
+	mov.b64 	%rd11, %rd77;
+	shl.b64 	%rd12, %rd78, 2;
 	add.s64 	%rd13, %rd12, %rd2;
 	setp.le.u64 	%p8, %rd17, %rd13;
 	@%p8 bra 	$L__BB2_30;
 // %bb.11:                              //   in Loop: Header=BB2_10 Depth=1
-	sub.s64 	%rd32, %rd17, %rd13;
-	and.b64 	%rd33, %rd32, 4611686018427387900;
-	setp.ne.b64 	%p9, %rd33, 0;
+	sub.s64 	%rd36, %rd17, %rd13;
+	and.b64 	%rd37, %rd36, 4611686018427387900;
+	setp.ne.b64 	%p9, %rd37, 0;
 	@!%p9 bra 	$L__BB2_30;
 // %bb.12:                              //   in Loop: Header=BB2_10 Depth=1
-	shl.b64 	%rd35, %rd13, 2;
-	add.s64 	%rd34, %rd35, %rd16;
+	shl.b64 	%rd39, %rd13, 2;
+	add.s64 	%rd38, %rd39, %rd16;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r51, %r52, %r53, %r54}, [%rd34];
+	ld.global.nc.v4.u32 {%r51, %r52, %r53, %r54}, [%rd38];
 	// end inline asm
 	shl.b32 	%r12, %r51, 16;
 	and.b32 	%r11, %r51, -65536;
@@ -980,12 +1077,12 @@ $L__BB2_10:                             // =>This Inner Loop Header: Depth=1
 	and.b32 	%r5, %r54, -65536;
 	@%p3 bra 	$L__BB2_18;
 // %bb.13:                              //   in Loop: Header=BB2_10 Depth=1
-	add.s64 	%rd36, %rd10, -4;
-	setp.ge.u64 	%p10, %rd36, %rd18;
+	add.s64 	%rd40, %rd10, -4;
+	setp.ge.u64 	%p10, %rd40, %rd18;
 	@%p10 bra 	$L__BB2_31;
 // %bb.14:                              //   in Loop: Header=BB2_10 Depth=1
-	and.b64 	%rd37, %rd8, 4611686018427387900;
-	setp.ne.b64 	%p11, %rd37, 0;
+	and.b64 	%rd41, %rd8, 4611686018427387900;
+	setp.ne.b64 	%p11, %rd41, 0;
 	@!%p11 bra 	$L__BB2_31;
 // %bb.15:                              //   in Loop: Header=BB2_10 Depth=1
 	// begin inline asm
@@ -994,14 +1091,14 @@ $L__BB2_10:                             // =>This Inner Loop Header: Depth=1
 	setp.ge.u64 	%p12, %rd10, %rd18;
 	@%p12 bra 	$L__BB2_32;
 // %bb.16:                              //   in Loop: Header=BB2_10 Depth=1
-	add.s64 	%rd38, %rd8, -4;
-	and.b64 	%rd39, %rd38, 4611686018427387900;
-	setp.ne.b64 	%p13, %rd39, 0;
+	add.s64 	%rd42, %rd8, -4;
+	and.b64 	%rd43, %rd42, 4611686018427387900;
+	setp.ne.b64 	%p13, %rd43, 0;
 	@!%p13 bra 	$L__BB2_32;
 // %bb.17:                              //   in Loop: Header=BB2_10 Depth=1
-	add.s64 	%rd40, %rd9, 16;
+	add.s64 	%rd44, %rd9, 16;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r59, %r60, %r61, %r62}, [%rd40];
+	ld.global.nc.v4.u32 {%r59, %r60, %r61, %r62}, [%rd44];
 	// end inline asm
 	mul.rn.f32 	%r63, %r3, %r55;
 	mul.rn.f32 	%r12, %r63, %r12;
@@ -1026,27 +1123,27 @@ $L__BB2_18:                             //   in Loop: Header=BB2_10 Depth=1
 	setp.le.u64 	%p15, %rd20, %rd14;
 	@%p15 bra 	$L__BB2_33;
 // %bb.20:                              //   in Loop: Header=BB2_10 Depth=1
-	sub.s64 	%rd41, %rd20, %rd14;
-	and.b64 	%rd42, %rd41, 4611686018427387900;
-	setp.ne.b64 	%p16, %rd42, 0;
+	sub.s64 	%rd53, %rd20, %rd14;
+	and.b64 	%rd54, %rd53, 4611686018427387900;
+	setp.ne.b64 	%p16, %rd54, 0;
 	@!%p16 bra 	$L__BB2_33;
 // %bb.21:                              //   in Loop: Header=BB2_10 Depth=1
 	shl.b64 	%rd15, %rd14, 2;
-	add.s64 	%rd43, %rd15, %rd19;
+	add.s64 	%rd55, %rd15, %rd19;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r71, %r72, %r73, %r74}, [%rd43];
+	ld.global.nc.v4.u32 {%r71, %r72, %r73, %r74}, [%rd55];
 	// end inline asm
 	setp.le.u64 	%p17, %rd22, %rd14;
 	@%p17 bra 	$L__BB2_34;
 // %bb.22:                              //   in Loop: Header=BB2_10 Depth=1
-	sub.s64 	%rd44, %rd22, %rd14;
-	and.b64 	%rd45, %rd44, 4611686018427387900;
-	setp.ne.b64 	%p18, %rd45, 0;
+	sub.s64 	%rd56, %rd22, %rd14;
+	and.b64 	%rd57, %rd56, 4611686018427387900;
+	setp.ne.b64 	%p18, %rd57, 0;
 	@!%p18 bra 	$L__BB2_34;
 // %bb.23:                              //   in Loop: Header=BB2_10 Depth=1
-	add.s64 	%rd46, %rd15, %rd21;
+	add.s64 	%rd58, %rd15, %rd21;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r75, %r76, %r77, %r78}, [%rd46];
+	ld.global.nc.v4.u32 {%r75, %r76, %r77, %r78}, [%rd58];
 	// end inline asm
 	mul.rn.f32 	%r79, %r12, %r71;
 	mul.rn.f32 	%r80, %r11, %r75;
@@ -1119,14 +1216,14 @@ $L__BB2_24:                             //   in Loop: Header=BB2_10 Depth=1
 	// begin inline asm
 	st.global.v4.u32 [%rd7], {%r95, %r96, %r97, %r98};
 	// end inline asm
-	add.s64 	%rd49, %rd11, 1;
+	add.s64 	%rd77, %rd11, 1;
 	add.s64 	%rd10, %rd10, 8;
 	add.s64 	%rd9, %rd9, 32;
 	add.s64 	%rd8, %rd8, -8;
 	add.s64 	%rd7, %rd7, 16;
 	add.s64 	%rd6, %rd6, 4;
 	setp.ne.b64 	%p20, %rd10, 100;
-	mov.b64 	%rd50, %rd11;
+	mov.b64 	%rd78, %rd11;
 	@%p20 bra 	$L__BB2_10;
 $L__BB2_26:                             // %.loopexit
 	ret;
@@ -1135,66 +1232,108 @@ $L__BB2_30:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd71, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd72, %rd71;
+	st.param.b64 	[param2], %rd72;
+	mov.b64 	%rd73, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd74, %rd73;
+	st.param.b64 	[param0], %rd74;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 24
 $L__BB2_28:
 	{ // callseq 18, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd32, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd33, %rd32;
+	st.param.b64 	[param2], %rd33;
+	mov.b64 	%rd34, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd35, %rd34;
+	st.param.b64 	[param0], %rd35;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 18
 $L__BB2_31:
 	{ // callseq 20, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd49, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd50, %rd49;
+	st.param.b64 	[param2], %rd50;
+	mov.b64 	%rd51, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd52, %rd51;
+	st.param.b64 	[param0], %rd52;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 20
 $L__BB2_33:
 	{ // callseq 22, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd63, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd64, %rd63;
+	st.param.b64 	[param2], %rd64;
+	mov.b64 	%rd65, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd66, %rd65;
+	st.param.b64 	[param0], %rd66;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 22
 $L__BB2_32:
 	{ // callseq 19, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd45, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd46, %rd45;
+	st.param.b64 	[param2], %rd46;
+	mov.b64 	%rd47, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd48, %rd47;
+	st.param.b64 	[param0], %rd48;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 19
 $L__BB2_35:
 	{ // callseq 23, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd67, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_2;
+	cvta.global.u64 	%rd68, %rd67;
+	st.param.b64 	[param2], %rd68;
+	mov.b64 	%rd69, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd70, %rd69;
+	st.param.b64 	[param0], %rd70;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 23
 $L__BB2_34:
 	{ // callseq 21, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd59, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd60, %rd59;
+	st.param.b64 	[param2], %rd60;
+	mov.b64 	%rd61, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd62, %rd61;
+	st.param.b64 	[param0], %rd62;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 21
 $L__BB2_27:
 	{ // callseq 26, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 26
 $L__BB2_29:
 	{ // callseq 25, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 25
                                         // -- End function
 }
@@ -1221,7 +1360,7 @@ $L__BB2_29:
 {
 	.reg .pred 	%p<34>;
 	.reg .b32 	%r<131>;
-	.reg .b64 	%rd<100>;
+	.reg .b64 	%rd<132>;
 
 // %bb.0:
 	// begin inline asm
@@ -1277,13 +1416,13 @@ $L__BB3_4:                              // %.split
 	setp.ne.b64 	%p6, %rd41, 0;
 	@!%p6 bra 	$L__BB3_7;
 // %bb.8:
-	rem.u64 	%rd94, %rd11, %rd5;
+	rem.u64 	%rd126, %rd11, %rd5;
 	bra.uni 	$L__BB3_9;
 $L__BB3_7:
 	cvt.u32.u64 	%r22, %rd5;
 	cvt.u32.u64 	%r23, %rd11;
 	rem.u32 	%r24, %r23, %r22;
-	cvt.u64.u32 	%rd94, %r24;
+	cvt.u64.u32 	%rd126, %r24;
 $L__BB3_9:                              // %.split19
 	ld.param.b32 	%r3, [norm_bf16_param_7];
 	and.b32 	%r18, %r17, 31;
@@ -1298,33 +1437,33 @@ $L__BB3_9:                              // %.split19
 	setp.ne.b64 	%p7, %rd43, 0;
 	@!%p7 bra 	$L__BB3_10;
 // %bb.11:
-	rem.u64 	%rd95, %rd12, %rd6;
+	rem.u64 	%rd127, %rd12, %rd6;
 	bra.uni 	$L__BB3_12;
 $L__BB3_10:
 	cvt.u32.u64 	%r27, %rd6;
 	cvt.u32.u64 	%r28, %rd12;
 	rem.u32 	%r29, %r28, %r27;
-	cvt.u64.u32 	%rd95, %r29;
+	cvt.u64.u32 	%rd127, %r29;
 $L__BB3_12:                             // %.split19.split
 	ld.param.b64 	%rd39, [norm_bf16_param_5];
 	ld.param.b64 	%rd38, [norm_bf16_param_4];
 	cvt.u64.u32 	%rd2, %r3;
 	cvt.u64.u32 	%rd23, %r18;
-	setp.ge.u64 	%p8, %rd94, %rd3;
-	setp.ge.u64 	%p9, %rd95, %rd4;
+	setp.ge.u64 	%p8, %rd126, %rd3;
+	setp.ge.u64 	%p9, %rd127, %rd4;
 	or.pred 	%p10, %p8, %p9;
 	@%p10 bra 	$L__BB3_29;
 // %bb.13:
 	ld.param.b64 	%rd35, [norm_bf16_param_1];
 	ld.param.b64 	%rd34, [norm_bf16_param_0];
-	mad.lo.s64 	%rd66, %rd10, %rd3, %rd94;
-	mad.lo.s64 	%rd67, %rd66, %rd4, %rd95;
-	mul.lo.s64 	%rd13, %rd67, %rd2;
-	shr.u64 	%rd68, %rd2, 3;
-	max.u64 	%rd69, %rd68, %rd23;
-	sub.s64 	%rd70, %rd69, %rd23;
-	add.s64 	%rd71, %rd70, 31;
-	shr.u64 	%rd14, %rd71, 5;
+	mad.lo.s64 	%rd70, %rd10, %rd3, %rd126;
+	mad.lo.s64 	%rd71, %rd70, %rd4, %rd127;
+	mul.lo.s64 	%rd13, %rd71, %rd2;
+	shr.u64 	%rd72, %rd2, 3;
+	max.u64 	%rd73, %rd72, %rd23;
+	sub.s64 	%rd74, %rd73, %rd23;
+	add.s64 	%rd75, %rd74, 31;
+	shr.u64 	%rd14, %rd75, 5;
 	setp.eq.b64 	%p21, %rd14, 0;
 	mov.b32 	%r2, 0f00000000;
 	@%p21 bra 	$L__BB3_19;
@@ -1333,30 +1472,30 @@ $L__BB3_12:                             // %.split19.split
 	mov.b32 	%r2, 0f00000000;
 	mov.b64 	%rd16, %rd23;
 $L__BB3_15:                             // =>This Inner Loop Header: Depth=1
-	shl.b64 	%rd72, %rd16, 3;
-	add.s64 	%rd17, %rd72, %rd13;
+	shl.b64 	%rd76, %rd16, 3;
+	add.s64 	%rd17, %rd76, %rd13;
 	setp.le.u64 	%p22, %rd35, %rd17;
 	@%p22 bra 	$L__BB3_45;
 // %bb.16:                              //   in Loop: Header=BB3_15 Depth=1
-	sub.s64 	%rd73, %rd35, %rd17;
-	and.b64 	%rd74, %rd73, 4611686018427387896;
-	setp.ne.b64 	%p23, %rd74, 0;
+	sub.s64 	%rd77, %rd35, %rd17;
+	and.b64 	%rd78, %rd77, 4611686018427387896;
+	setp.ne.b64 	%p23, %rd78, 0;
 	@!%p23 bra 	$L__BB3_45;
 // %bb.17:                              //   in Loop: Header=BB3_15 Depth=1
-	shl.b64 	%rd76, %rd17, 2;
-	add.s64 	%rd75, %rd76, %rd34;
+	shl.b64 	%rd80, %rd17, 2;
+	add.s64 	%rd79, %rd80, %rd34;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r33, %r34, %r35, %r36}, [%rd75];
+	ld.global.nc.v4.u32 {%r33, %r34, %r35, %r36}, [%rd79];
 	// end inline asm
-	add.s64 	%rd77, %rd17, 4;
-	setp.lt.u64 	%p24, %rd77, %rd35;
+	add.s64 	%rd81, %rd17, 4;
+	setp.lt.u64 	%p24, %rd81, %rd35;
 	@!%p24 bra 	$L__BB3_46;
 // %bb.18:                              //   in Loop: Header=BB3_15 Depth=1
 	add.s64 	%rd15, %rd15, -4;
 	add.s64 	%rd16, %rd16, 32;
-	add.s64 	%rd78, %rd75, 16;
+	add.s64 	%rd86, %rd79, 16;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r42, %r44, %r46, %r47}, [%rd78];
+	ld.global.nc.v4.u32 {%r42, %r44, %r46, %r47}, [%rd86];
 	// end inline asm
 	// begin inline asm
 	fma.rn.f32 %r37, %r33, %r33, %r2;
@@ -1406,57 +1545,57 @@ $L__BB3_19:                             // %.loopexit28
 // %bb.20:
 	ld.param.b64 	%rd37, [norm_bf16_param_3];
 	ld.param.b64 	%rd36, [norm_bf16_param_2];
-	mul.lo.s64 	%rd79, %rd1, %rd2;
-	shr.u64 	%rd18, %rd79, 1;
+	mul.lo.s64 	%rd91, %rd1, %rd2;
+	shr.u64 	%rd18, %rd91, 1;
 	shl.b64 	%rd22, %rd14, 10;
-	shl.b64 	%rd80, %rd23, 5;
-	add.s64 	%rd21, %rd36, %rd80;
+	shl.b64 	%rd92, %rd23, 5;
+	add.s64 	%rd21, %rd36, %rd92;
 	shl.b64 	%rd19, %rd23, 3;
 	sub.s64 	%rd20, %rd37, %rd19;
 $L__BB3_21:                             // =>This Inner Loop Header: Depth=1
-	shl.b64 	%rd81, %rd23, 3;
-	add.s64 	%rd24, %rd81, %rd13;
+	shl.b64 	%rd93, %rd23, 3;
+	add.s64 	%rd24, %rd93, %rd13;
 	setp.le.u64 	%p26, %rd35, %rd24;
 	@%p26 bra 	$L__BB3_47;
 // %bb.22:                              //   in Loop: Header=BB3_21 Depth=1
-	sub.s64 	%rd82, %rd35, %rd24;
-	and.b64 	%rd83, %rd82, 4611686018427387896;
-	setp.ne.b64 	%p27, %rd83, 0;
+	sub.s64 	%rd94, %rd35, %rd24;
+	and.b64 	%rd95, %rd94, 4611686018427387896;
+	setp.ne.b64 	%p27, %rd95, 0;
 	@!%p27 bra 	$L__BB3_47;
 // %bb.23:                              //   in Loop: Header=BB3_21 Depth=1
-	shl.b64 	%rd85, %rd24, 2;
-	add.s64 	%rd84, %rd85, %rd34;
+	shl.b64 	%rd97, %rd24, 2;
+	add.s64 	%rd96, %rd97, %rd34;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r62, %r63, %r64, %r65}, [%rd84];
+	ld.global.nc.v4.u32 {%r62, %r63, %r64, %r65}, [%rd96];
 	// end inline asm
-	add.s64 	%rd86, %rd24, 4;
-	setp.lt.u64 	%p28, %rd86, %rd35;
+	add.s64 	%rd98, %rd24, 4;
+	setp.lt.u64 	%p28, %rd98, %rd35;
 	@!%p28 bra 	$L__BB3_48;
 // %bb.24:                              //   in Loop: Header=BB3_21 Depth=1
-	add.s64 	%rd87, %rd84, 16;
+	add.s64 	%rd103, %rd96, 16;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r66, %r67, %r68, %r69}, [%rd87];
+	ld.global.nc.v4.u32 {%r66, %r67, %r68, %r69}, [%rd103];
 	// end inline asm
 	setp.ge.u64 	%p29, %rd19, %rd37;
 	@%p29 bra 	$L__BB3_49;
 // %bb.25:                              //   in Loop: Header=BB3_21 Depth=1
-	and.b64 	%rd88, %rd20, 4611686018427387896;
-	setp.ne.b64 	%p30, %rd88, 0;
+	and.b64 	%rd104, %rd20, 4611686018427387896;
+	setp.ne.b64 	%p30, %rd104, 0;
 	@!%p30 bra 	$L__BB3_49;
 // %bb.26:                              //   in Loop: Header=BB3_21 Depth=1
 	// begin inline asm
 	ld.global.nc.v4.u32 {%r70, %r71, %r72, %r73}, [%rd21];
 	// end inline asm
-	add.s64 	%rd89, %rd19, 4;
-	setp.lt.u64 	%p31, %rd89, %rd37;
+	add.s64 	%rd105, %rd19, 4;
+	setp.lt.u64 	%p31, %rd105, %rd37;
 	@!%p31 bra 	$L__BB3_50;
 // %bb.27:                              //   in Loop: Header=BB3_21 Depth=1
-	add.s64 	%rd90, %rd21, 16;
+	add.s64 	%rd110, %rd21, 16;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r74, %r75, %r76, %r77}, [%rd90];
+	ld.global.nc.v4.u32 {%r74, %r75, %r76, %r77}, [%rd110];
 	// end inline asm
-	shr.u64 	%rd91, %rd19, 1;
-	add.s64 	%rd25, %rd91, %rd18;
+	shr.u64 	%rd111, %rd19, 1;
+	add.s64 	%rd25, %rd111, %rd18;
 	setp.lt.u64 	%p32, %rd25, %rd39;
 	@!%p32 bra 	$L__BB3_51;
 // %bb.28:                              //   in Loop: Header=BB3_21 Depth=1
@@ -1512,10 +1651,10 @@ $L__BB3_21:                             // =>This Inner Loop Header: Depth=1
 	add.s32 	%r128, %r127, 32767;
 	shr.u32 	%r129, %r128, 16;
 	or.b32 	%r78, %r123, %r129;
-	shl.b64 	%rd93, %rd25, 2;
-	add.s64 	%rd92, %rd93, %rd38;
+	shl.b64 	%rd117, %rd25, 2;
+	add.s64 	%rd116, %rd117, %rd38;
 	// begin inline asm
-	st.global.v4.u32 [%rd92], {%r78, %r79, %r80, %r81};
+	st.global.v4.u32 [%rd116], {%r78, %r79, %r80, %r81};
 	// end inline asm
 	add.s64 	%rd23, %rd23, 32;
 	add.s64 	%rd22, %rd22, -1024;
@@ -1536,14 +1675,14 @@ $L__BB3_29:
 // %bb.30:
 	mul.lo.s64 	%rd47, %rd1, %rd2;
 	shr.u64 	%rd28, %rd47, 1;
-	and.b64 	%rd98, %rd27, 3;
+	and.b64 	%rd130, %rd27, 3;
 	setp.lt.u64 	%p12, %rd26, 97;
 	@%p12 bra 	$L__BB3_38;
 // %bb.31:
-	and.b64 	%rd96, %rd27, 33554428;
-	shl.b64 	%rd97, %rd23, 2;
+	and.b64 	%rd128, %rd27, 33554428;
+	shl.b64 	%rd129, %rd23, 2;
 $L__BB3_32:                             // =>This Inner Loop Header: Depth=1
-	and.b64 	%rd48, %rd97, 9223372036854775804;
+	and.b64 	%rd48, %rd129, 9223372036854775804;
 	add.s64 	%rd29, %rd48, %rd28;
 	setp.lt.u64 	%p13, %rd29, %rd39;
 	@!%p13 bra 	$L__BB3_52;
@@ -1554,7 +1693,7 @@ $L__BB3_32:                             // =>This Inner Loop Header: Depth=1
 	// begin inline asm
 	st.global.v4.u32 [%rd49], {%r30, %r30, %r30, %r30};
 	// end inline asm
-	add.s64 	%rd51, %rd97, 128;
+	add.s64 	%rd51, %rd129, 128;
 	and.b64 	%rd52, %rd51, 9223372036854775804;
 	add.s64 	%rd30, %rd52, %rd28;
 	setp.ge.u64 	%p14, %rd30, %rd39;
@@ -1565,7 +1704,7 @@ $L__BB3_32:                             // =>This Inner Loop Header: Depth=1
 	// begin inline asm
 	st.global.v4.u32 [%rd53], {%r30, %r30, %r30, %r30};
 	// end inline asm
-	add.s64 	%rd55, %rd97, 256;
+	add.s64 	%rd55, %rd129, 256;
 	and.b64 	%rd56, %rd55, 9223372036854775804;
 	add.s64 	%rd31, %rd56, %rd28;
 	setp.ge.u64 	%p15, %rd31, %rd39;
@@ -1577,7 +1716,7 @@ $L__BB3_32:                             // =>This Inner Loop Header: Depth=1
 	// begin inline asm
 	st.global.v4.u32 [%rd57], {%r31, %r31, %r31, %r31};
 	// end inline asm
-	add.s64 	%rd59, %rd97, 384;
+	add.s64 	%rd59, %rd129, 384;
 	and.b64 	%rd60, %rd59, 9223372036854775804;
 	add.s64 	%rd32, %rd60, %rd28;
 	setp.ge.u64 	%p16, %rd32, %rd39;
@@ -1589,31 +1728,31 @@ $L__BB3_32:                             // =>This Inner Loop Header: Depth=1
 	st.global.v4.u32 [%rd61], {%r31, %r31, %r31, %r31};
 	// end inline asm
 	add.s64 	%rd23, %rd23, 128;
-	add.s64 	%rd97, %rd97, 512;
-	add.s64 	%rd96, %rd96, -4;
-	setp.ne.b64 	%p17, %rd96, 0;
+	add.s64 	%rd129, %rd129, 512;
+	add.s64 	%rd128, %rd128, -4;
+	setp.ne.b64 	%p17, %rd128, 0;
 	@%p17 bra 	$L__BB3_32;
 // %bb.37:
-	setp.eq.b64 	%p18, %rd98, 0;
+	setp.eq.b64 	%p18, %rd130, 0;
 	@%p18 bra 	$L__BB3_41;
 $L__BB3_38:
-	shl.b64 	%rd99, %rd23, 2;
+	shl.b64 	%rd131, %rd23, 2;
 $L__BB3_39:                             // =>This Inner Loop Header: Depth=1
 	.pragma "nounroll";
-	and.b64 	%rd63, %rd99, 9223372036854775804;
+	and.b64 	%rd63, %rd131, 9223372036854775804;
 	add.s64 	%rd33, %rd63, %rd28;
 	setp.ge.u64 	%p19, %rd33, %rd39;
 	@%p19 bra 	$L__BB3_52;
 // %bb.40:                              //   in Loop: Header=BB3_39 Depth=1
-	shl.b64 	%rd65, %rd33, 2;
-	add.s64 	%rd64, %rd65, %rd38;
+	shl.b64 	%rd69, %rd33, 2;
+	add.s64 	%rd68, %rd69, %rd38;
 	mov.b32 	%r32, 0;
 	// begin inline asm
-	st.global.v4.u32 [%rd64], {%r32, %r32, %r32, %r32};
+	st.global.v4.u32 [%rd68], {%r32, %r32, %r32, %r32};
 	// end inline asm
-	add.s64 	%rd99, %rd99, 128;
-	add.s64 	%rd98, %rd98, -1;
-	setp.ne.b64 	%p20, %rd98, 0;
+	add.s64 	%rd131, %rd131, 128;
+	add.s64 	%rd130, %rd130, -1;
+	setp.ne.b64 	%p20, %rd130, 0;
 	@%p20 bra 	$L__BB3_39;
 $L__BB3_41:                             // %.loopexit
 	ret;
@@ -1622,79 +1761,127 @@ $L__BB3_52:                             // %.loopexit29
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd64, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_2;
+	cvta.global.u64 	%rd65, %rd64;
+	st.param.b64 	[param2], %rd65;
+	mov.b64 	%rd66, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd67, %rd66;
+	st.param.b64 	[param0], %rd67;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 27
 $L__BB3_45:
 	{ // callseq 29, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd87, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd88, %rd87;
+	st.param.b64 	[param2], %rd88;
+	mov.b64 	%rd89, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd90, %rd89;
+	st.param.b64 	[param0], %rd90;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 29
 $L__BB3_47:
 	{ // callseq 34, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd122, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd123, %rd122;
+	st.param.b64 	[param2], %rd123;
+	mov.b64 	%rd124, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd125, %rd124;
+	st.param.b64 	[param0], %rd125;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 34
 $L__BB3_49:
 	{ // callseq 33, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd118, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd119, %rd118;
+	st.param.b64 	[param2], %rd119;
+	mov.b64 	%rd120, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd121, %rd120;
+	st.param.b64 	[param0], %rd121;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 33
 $L__BB3_46:
 	{ // callseq 28, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd82, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_5;
+	cvta.global.u64 	%rd83, %rd82;
+	st.param.b64 	[param2], %rd83;
+	mov.b64 	%rd84, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd85, %rd84;
+	st.param.b64 	[param0], %rd85;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 28
 $L__BB3_48:
 	{ // callseq 30, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd99, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_5;
+	cvta.global.u64 	%rd100, %rd99;
+	st.param.b64 	[param2], %rd100;
+	mov.b64 	%rd101, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd102, %rd101;
+	st.param.b64 	[param0], %rd102;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 30
 $L__BB3_50:
 	{ // callseq 31, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd106, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_5;
+	cvta.global.u64 	%rd107, %rd106;
+	st.param.b64 	[param2], %rd107;
+	mov.b64 	%rd108, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd109, %rd108;
+	st.param.b64 	[param0], %rd109;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 31
 $L__BB3_51:
 	{ // callseq 32, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd112, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_2;
+	cvta.global.u64 	%rd113, %rd112;
+	st.param.b64 	[param2], %rd113;
+	mov.b64 	%rd114, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd115, %rd114;
+	st.param.b64 	[param0], %rd115;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 32
 $L__BB3_42:
 	{ // callseq 37, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 37
 $L__BB3_43:
 	{ // callseq 36, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 36
 $L__BB3_44:
 	{ // callseq 35, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 35
                                         // -- End function
 }
@@ -1712,7 +1899,7 @@ $L__BB3_44:
 {
 	.reg .pred 	%p<8>;
 	.reg .b32 	%r<117>;
-	.reg .b64 	%rd<28>;
+	.reg .b64 	%rd<40>;
 
 // %bb.0:
 	// begin inline asm
@@ -1779,8 +1966,8 @@ $L__BB3_44:
 	@!%p7 bra 	$L__BB4_11;
 // %bb.7:
 	ld.param.b64 	%rd11, [swiglu_bf16_param_2];
-	shl.b64 	%rd27, %rd8, 2;
-	add.s64 	%rd26, %rd27, %rd11;
+	shl.b64 	%rd31, %rd8, 2;
+	add.s64 	%rd30, %rd31, %rd11;
 	shl.b32 	%r37, %r9, 16;
 	mul.rn.f32 	%r38, %r37, 0fBFB8AA3B;
 	ex2.approx.ftz.f32 	%r39, %r38;
@@ -1898,7 +2085,7 @@ $L__BB3_44:
 	and.b32 	%r116, %r115, -65536;
 	or.b32 	%r36, %r116, %r112;
 	// begin inline asm
-	st.global.v4.u32 [%rd26], {%r33, %r34, %r35, %r36};
+	st.global.v4.u32 [%rd30], {%r33, %r34, %r35, %r36};
 	// end inline asm
 $L__BB4_8:
 	ret;
@@ -1907,29 +2094,47 @@ $L__BB4_9:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd36, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd37, %rd36;
+	st.param.b64 	[param2], %rd37;
+	mov.b64 	%rd38, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd39, %rd38;
+	st.param.b64 	[param0], %rd39;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 40
 $L__BB4_10:
 	{ // callseq 39, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd32, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd33, %rd32;
+	st.param.b64 	[param2], %rd33;
+	mov.b64 	%rd34, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd35, %rd34;
+	st.param.b64 	[param0], %rd35;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 39
 $L__BB4_11:
 	{ // callseq 38, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd26, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_2;
+	cvta.global.u64 	%rd27, %rd26;
+	st.param.b64 	[param2], %rd27;
+	mov.b64 	%rd28, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd29, %rd28;
+	st.param.b64 	[param0], %rd29;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 38
 $L__BB4_12:
 	{ // callseq 41, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 41
                                         // -- End function
 }
@@ -1955,7 +2160,7 @@ $L__BB4_12:
 {
 	.reg .pred 	%p<18>;
 	.reg .b32 	%r<56>;
-	.reg .b64 	%rd<50>;
+	.reg .b64 	%rd<70>;
 
 // %bb.0:
 	// begin inline asm
@@ -2076,28 +2281,28 @@ $L__BB5_15:                             // %.split.split.split
 	cvt.u64.u32 	%rd4, %r14;
 	mad.lo.s64 	%rd36, %rd14, %rd6, %rd13;
 	mad.lo.s64 	%rd16, %rd36, %rd7, %rd15;
-	add.s64 	%rd40, %rd39, 16;
+	add.s64 	%rd44, %rd39, 16;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r32, %r33, %r34, %r35}, [%rd40];
+	ld.global.nc.v4.u32 {%r32, %r33, %r34, %r35}, [%rd44];
 	// end inline asm
-	mul.lo.s64 	%rd41, %rd16, %rd1;
-	shr.u64 	%rd42, %rd41, 1;
-	shl.b64 	%rd43, %rd4, 2;
-	add.s64 	%rd20, %rd42, %rd43;
+	mul.lo.s64 	%rd45, %rd16, %rd1;
+	shr.u64 	%rd46, %rd45, 1;
+	shl.b64 	%rd47, %rd4, 2;
+	add.s64 	%rd20, %rd46, %rd47;
 	setp.le.u64 	%p14, %rd24, %rd20;
 	@%p14 bra 	$L__BB5_31;
 // %bb.19:
-	sub.s64 	%rd44, %rd24, %rd20;
-	and.b64 	%rd45, %rd44, 4611686018427387900;
-	setp.ne.b64 	%p15, %rd45, 0;
+	sub.s64 	%rd48, %rd24, %rd20;
+	and.b64 	%rd49, %rd48, 4611686018427387900;
+	setp.ne.b64 	%p15, %rd49, 0;
 	@!%p15 bra 	$L__BB5_31;
 // %bb.20:
 	ld.param.b64 	%rd26, [unshift_add_param_5];
 	ld.param.b64 	%rd23, [unshift_add_param_2];
-	shl.b64 	%rd47, %rd20, 2;
-	add.s64 	%rd46, %rd47, %rd23;
+	shl.b64 	%rd51, %rd20, 2;
+	add.s64 	%rd50, %rd51, %rd23;
 	// begin inline asm
-	ld.global.nc.v4.u32 {%r36, %r37, %r38, %r39}, [%rd46];
+	ld.global.nc.v4.u32 {%r36, %r37, %r38, %r39}, [%rd50];
 	// end inline asm
 	setp.lt.u64 	%p16, %rd17, %rd26;
 	@!%p16 bra 	$L__BB5_32;
@@ -2111,9 +2316,9 @@ $L__BB5_15:                             // %.split.split.split
 	add.rn.f32 	%r45, %r29, %r50;
 	shl.b32 	%r51, %r36, 16;
 	add.rn.f32 	%r44, %r28, %r51;
-	add.s64 	%rd48, %rd18, %rd25;
+	add.s64 	%rd56, %rd18, %rd25;
 	// begin inline asm
-	st.global.v4.f32 [%rd48], {%r44, %r45, %r46, %r47};
+	st.global.v4.f32 [%rd56], {%r44, %r45, %r46, %r47};
 	// end inline asm
 	setp.lt.u64 	%p17, %rd19, %rd26;
 	@!%p17 bra 	$L__BB5_33;
@@ -2126,9 +2331,9 @@ $L__BB5_15:                             // %.split.split.split
 	add.rn.f32 	%r54, %r34, %r42;
 	and.b32 	%r43, %r39, -65536;
 	add.rn.f32 	%r55, %r35, %r43;
-	add.s64 	%rd49, %rd48, 16;
+	add.s64 	%rd61, %rd56, 16;
 	// begin inline asm
-	st.global.v4.f32 [%rd49], {%r52, %r53, %r54, %r55};
+	st.global.v4.f32 [%rd61], {%r52, %r53, %r54, %r55};
 	// end inline asm
 $L__BB5_23:
 	ret;
@@ -2137,80 +2342,129 @@ $L__BB5_29:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd66, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd67, %rd66;
+	st.param.b64 	[param2], %rd67;
+	mov.b64 	%rd68, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd69, %rd68;
+	st.param.b64 	[param0], %rd69;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 46
 $L__BB5_31:
 	{ // callseq 45, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd62, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_4;
+	cvta.global.u64 	%rd63, %rd62;
+	st.param.b64 	[param2], %rd63;
+	mov.b64 	%rd64, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_3;
+	cvta.global.u64 	%rd65, %rd64;
+	st.param.b64 	[param0], %rd65;
 	st.param.b64 	[param1], 101;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 45
 $L__BB5_30:
 	{ // callseq 42, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd40, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_5;
+	cvta.global.u64 	%rd41, %rd40;
+	st.param.b64 	[param2], %rd41;
+	mov.b64 	%rd42, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd43, %rd42;
+	st.param.b64 	[param0], %rd43;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 42
 $L__BB5_32:
 	{ // callseq 43, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd52, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_2;
+	cvta.global.u64 	%rd53, %rd52;
+	st.param.b64 	[param2], %rd53;
+	mov.b64 	%rd54, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd55, %rd54;
+	st.param.b64 	[param0], %rd55;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 43
 $L__BB5_33:
 	{ // callseq 44, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
+	mov.b64 	%rd57, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_2;
+	cvta.global.u64 	%rd58, %rd57;
+	st.param.b64 	[param2], %rd58;
+	mov.b64 	%rd59, anon_$_620938567a7fd8e8c4d811dc65df1daa_$_0;
+	cvta.global.u64 	%rd60, %rd59;
+	st.param.b64 	[param0], %rd60;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 44
 $L__BB5_34:
 	{ // callseq 52, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 52
 $L__BB5_24:
 	{ // callseq 51, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 51
 $L__BB5_25:
 	{ // callseq 50, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 50
 $L__BB5_26:
 	{ // callseq 49, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 49
 $L__BB5_27:
 	{ // callseq 48, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 48
 $L__BB5_28:
 	{ // callseq 47, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 47
                                         // -- End function
 }
-.func _RNvNtCs1N37rtuYfti_4core9panicking9panic_fmt(
-	.param .b64 _RNvNtCs1N37rtuYfti_4core9panicking9panic_fmt_param_0,
-	.param .b64 _RNvNtCs1N37rtuYfti_4core9panicking9panic_fmt_param_1,
-	.param .b64 _RNvNtCs1N37rtuYfti_4core9panicking9panic_fmt_param_2
+.func _RNvNtCscc5udagl66P_4core9panicking5panic(
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_0,
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_1,
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_2
 )
-.noreturn                               // -- Begin function _RNvNtCs1N37rtuYfti_4core9panicking9panic_fmt
-                                        // @_RNvNtCs1N37rtuYfti_4core9panicking9panic_fmt
+.noreturn                               // -- Begin function _RNvNtCscc5udagl66P_4core9panicking5panic
+                                        // @_RNvNtCscc5udagl66P_4core9panicking5panic
+{
+
+
+// %bb.0:
+	{ // callseq 53, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	} // callseq 53
+                                        // -- End function
+}
+.func _RNvNtCscc5udagl66P_4core9panicking9panic_fmt(
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_0,
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_1,
+	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_2
+)
+.noreturn                               // -- Begin function _RNvNtCscc5udagl66P_4core9panicking9panic_fmt
+                                        // @_RNvNtCscc5udagl66P_4core9panicking9panic_fmt
 {
 
 
@@ -2220,30 +2474,11 @@ $L__BB5_28:
 	// end inline asm
                                         // -- End function
 }
-.func _RNvNtCs1N37rtuYfti_4core9panicking5panic(
-	.param .b64 _RNvNtCs1N37rtuYfti_4core9panicking5panic_param_0,
-	.param .b64 _RNvNtCs1N37rtuYfti_4core9panicking5panic_param_1,
-	.param .b64 _RNvNtCs1N37rtuYfti_4core9panicking5panic_param_2
+.func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero(
+	.param .b64 _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero_param_0
 )
-.noreturn                               // -- Begin function _RNvNtCs1N37rtuYfti_4core9panicking5panic
-                                        // @_RNvNtCs1N37rtuYfti_4core9panicking5panic
-{
-
-
-// %bb.0:
-	{ // callseq 53, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 53
-                                        // -- End function
-}
-.func _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero(
-	.param .b64 _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero_param_0
-)
-.noreturn                               // -- Begin function _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero
-                                        // @_RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_div_by_zero
+.noreturn                               // -- Begin function _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero
+                                        // @_RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero
 {
 
 
@@ -2252,15 +2487,15 @@ $L__BB5_28:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 54
                                         // -- End function
 }
-.func _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero(
-	.param .b64 _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero_param_0
+.func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero(
+	.param .b64 _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero_param_0
 )
-.noreturn                               // -- Begin function _RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero
-                                        // @_RNvNtNtCs1N37rtuYfti_4core9panicking11panic_const23panic_const_rem_by_zero
+.noreturn                               // -- Begin function _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero
+                                        // @_RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero
 {
 
 
@@ -2269,7 +2504,7 @@ $L__BB5_28:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCs1N37rtuYfti_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 55
                                         // -- End function
 }
