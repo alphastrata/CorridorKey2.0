@@ -29,9 +29,7 @@ sys.path.insert(0, str(REPO))
 import breakdown
 import render
 import sol
-
 from components import component_rows
-
 from harness import (
     Clip,
     Err,
@@ -40,8 +38,8 @@ from harness import (
     config,
     e2e,
     frame2,
+    keep_fp32,
     load,
-
     oom,
     per_frame,
     reference,
@@ -180,7 +178,8 @@ def main() -> None:
     torch.cuda.set_device(a.device)
     dev = torch.cuda.current_device()
 
-    model = load_model(RuntimePaths.from_package(REPO, None)).cuda()
+    model = load_model(RuntimePaths.from_package(REPO, None), bf16_weights=False).cuda()
+    keep_fp32(model)
     p = sol.peaks()
 
     rows: list[Row] = []
