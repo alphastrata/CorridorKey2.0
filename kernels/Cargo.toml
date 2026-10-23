@@ -7,7 +7,7 @@ edition = "2024"
 version = "0.1.0"
 
 [workspace.dependencies]
-ptx        = {path = "/home/jer/code/rust/PETRA/ptx"}
+ptx        = {git = "https://codeberg.org/P-E-T-R-A/ptx.git", branch = "develop"}
 
 [workspace.lints.clippy]
 pedantic          = {level = "warn", priority = -1}
