@@ -144,7 +144,7 @@ def silu_mul(gu: torch.Tensor) -> torch.Tensor:
     out = gu.new_empty(*gu.shape[:-1], h)
     rows = gu.numel() // (2 * h)
 
-    args: list[Arg] = [gu.view(torch.int32), out.view(torch.int32), rows, h]
+    args: list[Arg] = [gu.view(torch.int32), out.view(torch.int32), rows, h, h]
     load("ck_glue", gu.device.index).launch(
         "swiglu_bf16", (-(-rows * h // 8 // 256), 1, 1), (256, 1, 1), args
     )

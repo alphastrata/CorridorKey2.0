@@ -66,6 +66,8 @@ fn fill<T: Send>(src: &[u8], dtype: St, dst: &mut [T], to: impl Fn(usize, f32) -
     Ok(())
 }
 
+pub const TAIL: usize = 8;
+
 #[derive(Clone, Copy)]
 pub struct Loader<'a> {
     pub gpu: &'a Gpu,
@@ -95,6 +97,25 @@ impl Loader<'_> {
 
     pub fn mat(&self, n: &str) -> Result<Tensor> {
         self.rows(&[n])
+    }
+
+    pub fn biased(&self, w: &str, b: &str) -> Result<Tensor> {
+        let ((shape, w), (_, b)) = (self.get(w)?, self.get(b)?);
+        let inner = shape[1..].iter().product::<usize>();
+        let round: fn(f32) -> f32 = if self.half == Dtype::F16 {
+            |v| f16::from_f32(v).to_f32()
+        } else {
+            |v| bf16::from_f32(v).to_f32()
+        };
+        let v: Vec<f32> = w
+            .chunks(inner)
+            .zip(&b)
+            .flat_map(|(row, &bias)| {
+                let hi = round(bias);
+                row.iter().copied().chain([hi, bias - hi]).chain([0.0; TAIL - 2])
+            })
+            .collect();
+        self.gpu.upload_f32(&v, &[shape[0], inner + TAIL], self.half)
     }
 
     pub fn rows(&self, names: &[&str]) -> Result<Tensor> {

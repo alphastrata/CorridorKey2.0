@@ -4,7 +4,7 @@ use eyre::Result;
 
 use crate::attn::{Cache, Group, Layout, Qk, attend};
 use crate::ops::{self, Act, Gate, Mix, Shift};
-use crate::weights::Loader;
+use crate::weights::{Loader, TAIL};
 
 const DW_BYTES: usize = 256 << 20;
 
@@ -40,14 +40,12 @@ pub struct Block {
     q_norm: Tensor,
     k_norm: Tensor,
     gate_w: Tensor,
-    proj_w: Tensor,
-    proj_b: Tensor,
+    proj: Tensor,
     mix: Option<Mix>,
     norm2: Tensor,
     gu_w: Tensor,
     gu_b: Tensor,
-    down_w: Tensor,
-    down_b: Tensor,
+    down: Tensor,
     adaln: Option<AdaLn>,
 }
 
@@ -98,14 +96,12 @@ impl Block {
             q_norm: ld.f32("attn.q_norm.weight")?,
             k_norm: ld.f32("attn.k_norm.weight")?,
             gate_w: ld.mat("attn.attn_gate.proj.weight")?,
-            proj_w: ld.mat("attn.proj.weight")?,
-            proj_b: ld.f32("attn.proj.bias")?,
+            proj: ld.biased("attn.proj.weight", "attn.proj.bias")?,
             mix,
             norm2: ld.f32("norm2.weight")?,
             gu_w: ld.rows(&["mlp.w_gate.weight", "mlp.w_up.weight"])?,
             gu_b: ld.cat(&["mlp.w_gate.bias", "mlp.w_up.bias"])?,
-            down_w: ld.mat("mlp.w_down.weight")?,
-            down_b: ld.f32("mlp.w_down.bias")?,
+            down: ld.biased("mlp.w_down.weight", "mlp.w_down.bias")?,
             adaln,
         })
     }
@@ -214,7 +210,7 @@ impl Block {
         let gate = gpu.empty(&[b * t * gh * gw, heads], Dtype::F32)?;
         gpu.linear(&xn, &self.gate_w, None, &gate, false)?;
         drop(xn);
-        let ao = gpu.empty(&[b * t, gh, gw, c], Dtype::Bf16)?;
+        let ao = gpu.empty(&[b * t, gh, gw, c + TAIL], Dtype::Bf16)?;
         let qk = Qk {
             q_norm: &self.q_norm,
             k_norm: &self.k_norm,
@@ -229,7 +225,7 @@ impl Block {
         match &params {
             Some(p) => {
                 let pa = gpu.empty(&[b * t * h * w, c], Dtype::F32)?;
-                gpu.linear(&ao, &self.proj_w, Some(&self.proj_b), &pa, false)?;
+                gpu.linear(&ao, &self.proj, None, &pa, false)?;
                 ops::add_gated(
                     gpu,
                     &frames,
@@ -244,10 +240,10 @@ impl Block {
             }
             None if shifted => {
                 let pa = gpu.empty(&[b * t, gh, gw, c], Dtype::Bf16)?;
-                gpu.linear(&ao, &self.proj_w, Some(&self.proj_b), &pa, false)?;
+                gpu.linear(&ao, &self.proj, None, &pa, false)?;
                 ops::unshift_add(gpu, &frames, &pa, shift)?;
             }
-            None => gpu.linear(&ao, &self.proj_w, Some(&self.proj_b), &frames, true)?,
+            None => gpu.linear(&ao, &self.proj, None, &frames, true)?,
         }
 
         drop(ao);
@@ -281,7 +277,7 @@ impl Block {
         match &params {
             Some(p) => {
                 let m = gpu.empty(&[n * per, c], Dtype::F32)?;
-                gpu.linear(&mid, &self.down_w, Some(&self.down_b), &m, false)?;
+                gpu.linear(&mid, &self.down, None, &m, false)?;
                 ops::add_gated(
                     gpu,
                     frames,
@@ -294,7 +290,7 @@ impl Block {
                     (c, 0),
                 )
             }
-            None => gpu.linear(&mid, &self.down_w, Some(&self.down_b), frames, true),
+            None => gpu.linear(&mid, &self.down, None, frames, true),
         }
     }
 }
