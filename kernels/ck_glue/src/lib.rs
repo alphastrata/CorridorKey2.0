@@ -8,7 +8,6 @@ use ptx::slice::GpuSlice;
 
 mod grid;
 mod head;
-mod window;
 
 pub(crate) fn low(p: u32) -> f32 {
     f32::from_bits(p << 16)

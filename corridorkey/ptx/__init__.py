@@ -132,13 +132,13 @@ def load(crate: str, device: int) -> Module:
 def enable(model: torch.nn.Module, on: bool = True) -> int:
     """Route ``model``'s depthwise branches and ``corridorkey.blocks``' attention through ck, or back to
     stock; returns how many modules were patched."""
-    from . import attn, block, dw, glue, half, swin
+    from . import attn, block, dw, glue, grid, half
 
     if not on:
         dw.unpatch(model)
         glue.unpatch(model)
         block.unpatch(model)
-        swin.unpatch(model)
+        grid.unpatch(model)
         half.unpatch(model)
         attn.unpatch()
         return 0
@@ -146,7 +146,7 @@ def enable(model: torch.nn.Module, on: bool = True) -> int:
         dw.patch(model)
         + glue.patch(model)
         + block.patch(model)
-        + swin.patch(model)
+        + grid.patch(model)
         + half.patch(model)
         + int(attn.patch())
     )
