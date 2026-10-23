@@ -243,7 +243,13 @@ _BF16_WEIGHT_MODULES = (
 )
 
 
-def load_model(paths: RuntimePaths, device: str = "cuda") -> CorridorKeyV3:
+def bf16_storage(module: nn.Module) -> bool:
+    """Whether ``load_model`` stores ``module``'s weights in bf16. Depthwise convs stay f32: ck's kernels use their
+    exact weights (autocast rounds them for torch anyway)."""
+    return isinstance(module, _BF16_WEIGHT_MODULES) and getattr(module, "groups", 1) == 1
+
+
+def load_model(paths: RuntimePaths, device: str = "cuda", bf16_weights: bool = True) -> CorridorKeyV3:
     paths.validate()
     prepare_runtime_environment(paths)
     ckpt = load_runtime_checkpoint(paths.weights)
@@ -271,8 +277,7 @@ def load_model(paths: RuntimePaths, device: str = "cuda") -> CorridorKeyV3:
     model.eval()
     model.requires_grad_(False)
     for module in model.modules():
-        # Depthwise convs stay f32: ck's kernels use their exact weights (autocast rounds them for torch anyway).
-        if isinstance(module, _BF16_WEIGHT_MODULES) and getattr(module, "groups", 1) == 1:
+        if bf16_weights and bf16_storage(module):
             for p in module.parameters(recurse=False):
                 p.data = p.data.to(torch.bfloat16)
     if patched := ptx.enable(model):
