@@ -589,7 +589,7 @@ class Stage1(nn.Module):
                 for blk in blocks:
                     cond = hq if getattr(blk, "adaln", None) is not None else None
                     x = self._ckpt_block(blk, x, t_stride, adaln_cond=cond)
-                outs.append(x.permute(0, 1, 4, 2, 3).contiguous())
+                outs.append(x.permute(0, 1, 4, 2, 3))
             return torch.cat(outs, dim=1)
 
         # (B, T, C, H, W) → (B, T, H, W, C)
@@ -610,14 +610,14 @@ class Stage1(nn.Module):
                 x = x + skip * scale
             cond = hint_quality if getattr(blk, "adaln", None) is not None else None
             x = self._ckpt_block(blk, x, t_stride, adaln_cond=cond)
-        return x.permute(0, 1, 4, 2, 3).contiguous()
+        return x.permute(0, 1, 4, 2, 3)
 
     def _full_run(self, blocks, x_5d: torch.Tensor, t_stride: float) -> torch.Tensor:
         """Run full-spatiotemporal blocks on (B, T, C, H, W)."""
         x = x_5d.permute(0, 1, 3, 4, 2).contiguous()
         for blk in blocks:
             x = self._ckpt_block(blk, x, t_stride)
-        return x.permute(0, 1, 4, 2, 3).contiguous()
+        return x.permute(0, 1, 4, 2, 3)
 
     def _full_run_nthwc(
         self,
@@ -846,7 +846,7 @@ class Stage1(nn.Module):
             f_64, recurrent_states_out = self._run_body64_range(
                 0, split, f_64, t_stride, recurrent_states_out)
 
-        f_64_chw = f_64.permute(0, 1, 4, 2, 3).contiguous()
+        f_64_chw = f_64.permute(0, 1, 4, 2, 3)
         f_64_mid_flat = f_64_chw.reshape(BT, self.d_64, H // 64, W // 64)
         del f_64_chw
         f_16_mid_up = self.mid_up(f_64_mid_flat).reshape(
@@ -861,7 +861,7 @@ class Stage1(nn.Module):
         f_64_delta = self.mid_down(f_16_mid_flat).reshape(
             B, T, self.d_64, H // 64, W // 64)
         del f_16_mid_flat
-        f_64 = f_64 + f_64_delta.permute(0, 1, 3, 4, 2).contiguous()
+        f_64 = f_64 + f_64_delta.permute(0, 1, 3, 4, 2)
         del f_64_delta
 
         if recurrent_states_out is None:
@@ -870,7 +870,7 @@ class Stage1(nn.Module):
             f_64, recurrent_states_out = self._run_body64_range(
                 split, len(self.body_64), f_64, t_stride,
                 recurrent_states_out)
-        f_64_chw = f_64.permute(0, 1, 4, 2, 3).contiguous()
+        f_64_chw = f_64.permute(0, 1, 4, 2, 3)
         del f_64
 
         bottleneck_out = None
