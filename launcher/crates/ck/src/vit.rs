@@ -1,9 +1,8 @@
-
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::{OptionExt, Result};
 
-use crate::ops::{Act, act};
-use crate::weights::Loader;
+use crate::ops::{Act, act_tail};
+use crate::weights::{Loader, TAIL};
 
 fn ops(gpu: &Gpu, name: &str, n: usize, args: &[Arg]) -> Result<()> {
     gpu.launch("ck_ops", name, (n.div_ceil(256) as u32, 1, 1), 256, 0, args)
@@ -53,10 +52,25 @@ impl Norm {
 
 pub struct Linear {
     pub w: Tensor,
-    pub b: Tensor,
+    pub b: Option<Tensor>,
 }
 
 impl Linear {
+    pub fn tailed(ld: &Loader, name: &str, gamma: Option<&str>) -> Result<Self> {
+        let (shape, mut w) = ld.get(&format!("{name}.weight"))?;
+        let (_, mut b) = ld.get(&format!("{name}.bias"))?;
+        if let Some(g) = gamma {
+            let (_, g) = ld.get(g)?;
+            let inner = w.len() / g.len();
+            w.iter_mut().enumerate().for_each(|(i, v)| *v *= g[i / inner]);
+            b.iter_mut().zip(&g).for_each(|(v, s)| *v *= s);
+        }
+        Ok(Self {
+            w: ld.tail(&shape, &w, &b)?,
+            b: None,
+        })
+    }
+
     pub fn load(ld: &Loader, names: &[&str], gamma: Option<&str>) -> Result<Self> {
         let gamma = gamma.map(|g| ld.get(g).map(|(_, g)| g)).transpose()?;
         let weights: Vec<String> = names.iter().map(|n| format!("{n}.weight")).collect();
@@ -75,12 +89,12 @@ impl Linear {
         };
         Ok(Self {
             w,
-            b: ld.gpu.upload_f32(&b, &[b.len()], Dtype::F32)?,
+            b: Some(ld.gpu.upload_f32(&b, &[b.len()], Dtype::F32)?),
         })
     }
 
     pub fn run(&self, gpu: &Gpu, x: &Tensor, y: &Tensor, accumulate: bool) -> Result<()> {
-        gpu.linear(x, &self.w, Some(&self.b), y, accumulate)
+        gpu.linear(x, &self.w, self.b.as_ref(), y, accumulate)
     }
 
     fn out(&self) -> usize {
@@ -128,12 +142,17 @@ pub fn attention(
         shared,
         &args,
     )?;
-    let out = gpu.empty(&[b * n, heads * d], Dtype::Bf16)?;
+    let out = gpu.empty(&[b * n, heads * d + TAIL], Dtype::Bf16)?;
     ops(
         gpu,
         "unheads",
-        out.numel(),
-        &[[&o, &out].map(Arg::from).as_slice(), &dims].concat(),
+        b * n * heads * d,
+        &[
+            [&o, &out].map(Arg::from).as_slice(),
+            &dims,
+            &[(heads * d + TAIL).into()],
+        ]
+        .concat(),
     )?;
     Ok(out)
 }
@@ -164,7 +183,7 @@ impl Attn {
                 .into_iter()
                 .try_for_each(|(src, off, len)| {
                     let w = self.qkv.w.rows(off, len)?;
-                    let bias = self.qkv.b.rows(off, len)?;
+                    let bias = self.qkv.b.as_ref().ok_or_eyre("qkv bias")?.rows(off, len)?;
                     gpu.linear_into(src, &w, Some(&bias), &qkv, (wide, off), false)
                 })?,
         }
@@ -184,7 +203,7 @@ impl Mlp {
         let h = self.norm.apply(gpu, x, Dtype::Bf16)?;
         let f = gpu.empty(&[h.shape[0], self.fc1.out()], Dtype::F32)?;
         self.fc1.run(gpu, &h, &f, false)?;
-        self.fc2.run(gpu, &act(gpu, &f, Act::Gelu, Dtype::Bf16)?, x, true)
+        self.fc2.run(gpu, &act_tail(gpu, &f, Act::Gelu)?, x, true)
     }
 }
 
@@ -203,13 +222,13 @@ impl Block {
             attn: Attn {
                 norm: Norm::load(ld, &format!("{p}.norm1"), eps)?,
                 qkv: Linear::load(ld, &[&format!("{p}.attn.qkv")], None)?,
-                out: Linear::load(ld, &[&format!("{p}.attn.proj")], ls(1).as_deref())?,
+                out: Linear::tailed(ld, &format!("{p}.attn.proj"), ls(1).as_deref())?,
                 heads,
             },
             mlp: Mlp {
                 norm: Norm::load(ld, &format!("{p}.norm2"), eps)?,
                 fc1: Linear::load(ld, &[&format!("{p}.mlp.fc1")], None)?,
-                fc2: Linear::load(ld, &[&format!("{p}.mlp.fc2")], ls(2).as_deref())?,
+                fc2: Linear::tailed(ld, &format!("{p}.mlp.fc2"), ls(2).as_deref())?,
             },
         })
     }
@@ -225,7 +244,7 @@ pub fn rvm_attn(ld: &Loader, norm: &str, p: &str, heads: usize) -> Result<Attn> 
     Ok(Attn {
         norm: Norm::load(ld, norm, 1e-5)?,
         qkv: Linear::load(ld, &qkv.each_ref().map(String::as_str), None)?,
-        out: Linear::load(ld, &[&format!("{p}.out")], None)?,
+        out: Linear::tailed(ld, &format!("{p}.out"), None)?,
         heads,
     })
 }
@@ -234,7 +253,7 @@ pub fn rvm_mlp(ld: &Loader, norm: &str, p: &str) -> Result<Mlp> {
     Ok(Mlp {
         norm: Norm::load(ld, norm, 1e-5)?,
         fc1: Linear::load(ld, &[&format!("{p}.dense_in")], None)?,
-        fc2: Linear::load(ld, &[&format!("{p}.dense_out")], None)?,
+        fc2: Linear::tailed(ld, &format!("{p}.dense_out"), None)?,
     })
 }
 

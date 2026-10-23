@@ -1,4 +1,3 @@
-
 use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -146,7 +145,10 @@ fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job<Tensor>) -> Result<()> 
             None => frame::render(gpu, &logits, g, o, cfg.look),
         })
         .collect::<Result<Vec<_>>>()?;
-    let images = rendered.iter().map(|img| gpu.download(img)).collect::<Result<Vec<_>>>()?;
+    let images = rendered
+        .iter()
+        .map(|img| gpu.download(img))
+        .collect::<Result<Vec<_>>>()?;
     job.meta
         .done
         .send(Done {
@@ -333,10 +335,11 @@ pub fn run(
             .map(|h| h.join().map_err(|_| eyre!("worker panicked"))?)
             .collect()
     });
-    let errors: Vec<eyre::Report> = workers.into_iter().chain(results.drain()).filter_map(Result::err).collect();
-    let knock_on = |e: &eyre::Report| e.chain().any(<dyn std::error::Error>::is::<Aborted>);
-    errors
+    let errors: Vec<eyre::Report> = workers
         .into_iter()
-        .min_by_key(knock_on)
-        .map_or(Ok(()), Err)
+        .chain(results.drain())
+        .filter_map(Result::err)
+        .collect();
+    let knock_on = |e: &eyre::Report| e.chain().any(<dyn std::error::Error>::is::<Aborted>);
+    errors.into_iter().min_by_key(knock_on).map_or(Ok(()), Err)
 }

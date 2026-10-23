@@ -1,10 +1,9 @@
-
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_4};
 
 use crate::gid;
 use ptx::kernel;
-use ptx::prelude::*;
 use ptx::num::f32::ptx_f2i_rm;
+use ptx::prelude::*;
 use ptx::slice::GpuSlice;
 
 const A: f32 = -0.75;

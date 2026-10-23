@@ -1,4 +1,3 @@
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -136,13 +135,7 @@ impl Cache {
         Ok(pair)
     }
 
-    fn mask(
-        &self,
-        gpu: &Gpu,
-        l: Layout,
-        shift: (usize, usize),
-        real: (usize, usize),
-    ) -> Result<Option<Rc<Mask>>> {
+    fn mask(&self, gpu: &Gpu, l: Layout, shift: (usize, usize), real: (usize, usize)) -> Result<Option<Rc<Mask>>> {
         let key = (l, shift.0, shift.1, real.0, real.1);
         if let Some(hit) = self.masks.borrow().get(&key) {
             return Ok(hit.clone());
@@ -271,7 +264,12 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
 
     let tokens = l.b * l.t * l.gh * l.gw;
     let ld = *out.shape.last().unwrap_or(&0);
-    let merge = [[&o, gate, out, order].map(Arg::from).as_slice(), &[tokens.into(), ld.into()], &geo].concat();
+    let merge = [
+        [&o, gate, out, order].map(Arg::from).as_slice(),
+        &[tokens.into(), ld.into()],
+        &geo,
+    ]
+    .concat();
     gpu.launch(
         "ck_ops",
         "merge",

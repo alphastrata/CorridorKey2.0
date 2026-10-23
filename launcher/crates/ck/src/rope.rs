@@ -1,4 +1,3 @@
-
 fn periods(dim: usize, base: f32) -> Vec<f32> {
     (0..dim / 2).map(|i| base.powf(i as f32 * 2.0 / dim as f32)).collect()
 }

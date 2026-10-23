@@ -1,9 +1,9 @@
-
 use crate::{bf, gelu, gelu_tanh, gid, rn, silu};
 use ptx::kernel;
 use ptx::mem::{ld_global_nc_v4_f32, st_global_v4_f32};
 use ptx::num::f16::cvt_rn_f16_f32;
 use ptx::prelude::*;
+use ptx::slice::GpuSliceMut;
 use ptx::warp_ops::shfl_bfly_sync_b32;
 
 fn act(x: f32, kind: u32) -> f32 {
@@ -23,11 +23,19 @@ pub fn act_f32(x: &[f32], out: &mut [f32], n: u32, kind: u32) {
 }
 
 #[kernel]
-pub fn act_bf16(x: &[f32], out: &mut [u16], n: u32, kind: u32) {
+pub fn act_bf16(x: &[f32], out: &mut [u16], n: u32, kind: u32, c: u32, ld: u32) {
     let i = gid();
     if i < n as usize {
-        out.set(i, rn(act(x[i], kind)));
+        let (r, j, c) = (i / c as usize, i % c as usize, c as usize);
+        out.set(r * ld as usize + j, rn(act(x[i], kind)));
+        if j == 0 && ld as usize > c {
+            tail(&mut out, r * ld as usize + c);
+        }
     }
+}
+
+pub(crate) fn tail(out: &mut GpuSliceMut<u16>, at: usize) {
+    (0..8).for_each(|k| out.set(at + k, if k < 2 { 0x3f80 } else { 0 }));
 }
 
 #[kernel]
@@ -91,7 +99,12 @@ pub fn add_bias(y: &mut [f32], b: &[f32], rows: u32, n: u32, ld: u32, off: u32) 
     }
     let (r, j) = (i / quads, 4 * (i % quads));
     let at = r * ld as usize + off as usize + j;
-    let (v, w) = unsafe { (ld_global_nc_v4_f32(y.addr_at(at)), ld_global_nc_v4_f32(b.addr_at(j))) };
+    let (v, w) = unsafe {
+        (
+            ld_global_nc_v4_f32(y.addr_at(at)),
+            ld_global_nc_v4_f32(b.addr_at(j)),
+        )
+    };
     unsafe { st_global_v4_f32(y.addr_at(at), v.0 + w.0, v.1 + w.1, v.2 + w.2, v.3 + w.3) };
 }
 

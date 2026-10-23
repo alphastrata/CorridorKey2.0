@@ -1,4 +1,3 @@
-
 use crate::frame::{Adjust, DENOM, KNEE, to_linear, to_srgb};
 use crate::gid;
 use ptx::kernel;
@@ -29,7 +28,11 @@ fn linear(at: impl Fn(usize) -> f32, adj: Adjust) -> [f32; 3] {
 }
 
 fn checker(x: usize, y: usize) -> f32 {
-    to_linear(if (y / 64 + x / 64) % 2 == 0 { 0.75 } else { 0.5 })
+    to_linear(if (y / 64 + x / 64) % 2 == 0 {
+        0.75
+    } else {
+        0.5
+    })
 }
 
 fn unorm(v: f32) -> u16 {
@@ -148,7 +151,10 @@ pub fn render_exr(
         store(0, a);
         return;
     }
-    [rgb[1], rgb[2], rgb[0]].into_iter().enumerate().for_each(|(p, v)| store(p, v));
+    [rgb[1], rgb[2], rgb[0]]
+        .into_iter()
+        .enumerate()
+        .for_each(|(p, v)| store(p, v));
     if kind == 2 {
         store(3, a);
     }

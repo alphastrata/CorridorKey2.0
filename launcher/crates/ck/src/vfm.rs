@@ -1,4 +1,3 @@
-
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::Result;
 
