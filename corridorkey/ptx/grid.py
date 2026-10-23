@@ -91,8 +91,35 @@ def _geo(grid: Grid, g: Group, m: Attn) -> list[Arg]:
     return geo
 
 
+def _sorted(rid: torch.Tensor, pattern: int) -> tuple[torch.Tensor, torch.Tensor]:
+    """Region ids with each window's tokens sorted by region (padding last), and the split/merge
+    ``order``: forward then inverse permutation over the first ``pattern`` windows."""
+    if (hit := getattr(rid, "_ck_sorted", None)) is not None:
+        return hit
+    r = rid[:pattern].long()
+    perm = torch.sort(torch.where(r < 0, r.max() + 1, r), dim=1, stable=True).indices
+    order = torch.cat([perm.flatten(), perm.argsort(dim=1).flatten()]).int()
+    hit = (torch.gather(r, 1, perm).int().contiguous(), order)
+    setattr(rid, "_ck_sorted", hit)
+    return hit
+
+
+def _mask(
+    grid: Grid, g: Group, n: int, device: torch.device
+) -> tuple[torch.Tensor, torch.Tensor] | None:
+    if g.regions is not None:
+        windows, _, groups = g.regions
+        rid = attn._group_rid(windows, groups, n, device)
+    else:
+        rid = _pad_rid(*grid[1:], g.window, device)
+    if rid is None:
+        return None
+    hp, wp = _padded(grid, g.window)
+    return _sorted(rid, hp // g.window[0] * wp // g.window[1])
+
+
 def _split(
-    m: Attn, qkv: torch.Tensor, grid: Grid, g: Group
+    m: Attn, qkv: torch.Tensor, grid: Grid, g: Group, order: torch.Tensor
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     hp, wp = _padded(grid, g.window)
     windows = grid[0] * hp // g.window[0] * wp // g.window[1]
@@ -111,7 +138,7 @@ def _split(
         q,
         k,
         v,
-        one,
+        order,
         windows,
         *_geo(grid, g, m),
         float(m.q_norm.eps) if norm else 0.0,
@@ -120,17 +147,6 @@ def _split(
     blocks_ = -(-rows // (8 * (32 // (d // 8))))
     load("ck_ops", qkv.device.index).launch("split", (blocks_, 1, 1), (256, 1, 1), args)
     return q, k, v
-
-
-def _attend(
-    q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, grid: Grid, g: Group
-) -> torch.Tensor:
-    if g.regions is not None:
-        return blocks._sdpa_with_region_groups(q, k, v, *g.regions)
-    rid = _pad_rid(*grid[1:], g.window, q.device)
-    if rid is not None:
-        return attn.attention(q, k, v, rid)
-    return blocks.F.scaled_dot_product_attention(q, k, v)
 
 
 def attend(m: Attn, x: torch.Tensor, grid: Grid, groups: list[Group]) -> torch.Tensor:
@@ -143,11 +159,25 @@ def attend(m: Attn, x: torch.Tensor, grid: Grid, groups: list[Group]) -> torch.T
     tokens = math.prod(grid)
 
     for g in groups:
-        q, k, v = _split(m, y, grid, g)
-        a = _attend(q, k, v, grid, g).to(BF16).contiguous()
-        args: list[Arg] = [a, gate, out, _none(x.device), tokens, *_geo(grid, g, m)]
-        n = -(-tokens * g.heads * m.head_dim // 8 // 256)
-        load("ck_ops", x.device.index).launch("merge", (n, 1, 1), (256, 1, 1), args)
+        n = grid[1] * g.window[0] * g.window[1]
+        mask = _mask(grid, g, n, x.device)
+        order = _none(x.device) if mask is None else mask[1]
+        q, k, v = _split(m, y, grid, g, order)
+        a = (
+            blocks.F.scaled_dot_product_attention(q, k, v)
+            if mask is None
+            else attn.attention(q, k, v, mask[0])
+        )
+        args: list[Arg] = [
+            a.to(BF16).contiguous(),
+            gate,
+            out,
+            order,
+            tokens,
+            *_geo(grid, g, m),
+        ]
+        size = -(-tokens * g.heads * m.head_dim // 8 // 256)
+        load("ck_ops", x.device.index).launch("merge", (size, 1, 1), (256, 1, 1), args)
     return m.proj(out)
 
 
