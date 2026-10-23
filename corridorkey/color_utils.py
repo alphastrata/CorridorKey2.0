@@ -84,7 +84,6 @@ def srgb_to_linear(x):
     return _on_gpu(srgb_to_linear, x)
 
 
-# Backwards compatibility aliases
 to_srgb = linear_to_srgb
 to_linear = srgb_to_linear
 
@@ -176,20 +175,16 @@ def rgb_to_yuv(image):
     if not _is_tensor(image):
         raise TypeError("rgb_to_yuv only supports dict/tensor inputs currently")
 
-    # Weights for RGB -> Y
-    # Rec. 601: 0.299, 0.587, 0.114
     
-    # Assume BCHW layout if 4 dims
     if image.dim() == 4:
         r = image[:, 0:1, :, :]
         g = image[:, 1:2, :, :]
         b = image[:, 2:3, :, :]
-    elif image.dim() == 3 and image.shape[0] == 3: # CHW
+    elif image.dim() == 3 and image.shape[0] == 3:
         r = image[0:1, :, :]
         g = image[1:2, :, :]
         b = image[2:3, :, :]
     else:
-        # Last dim conversion
         r = image[..., 0]
         g = image[..., 1]
         b = image[..., 2]
@@ -198,7 +193,7 @@ def rgb_to_yuv(image):
     u = 0.492 * (b - y)
     v = 0.877 * (r - y)
     
-    if image.dim() >= 3 and image.shape[-3] == 3: # Concatenate along Channel dim
+    if image.dim() >= 3 and image.shape[-3] == 3:
          return torch.cat([y, u, v], dim=-3)
     else:
          return torch.stack([y, u, v], dim=-1)
