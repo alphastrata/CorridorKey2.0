@@ -91,10 +91,10 @@ struct Args {
     /// contrast pivot
     #[argh(option, default = "0.18")]
     pivot: f32,
-    /// encoder for 3-channel outputs
+    /// encoder for 3-channel outputs (`hevc_nvenc` encodes on the GPU, far faster at 4K)
     #[argh(option, default = "String::from(\"libx264\")")]
     codec: String,
-    /// encoder quality
+    /// encoder quality (`-crf`, or `-cq` for NVENC)
     #[argh(option, default = "12")]
     crf: u32,
     /// encoder preset
