@@ -894,7 +894,11 @@ def _sdpa_with_region_groups(
             batch_windows, device=q.device, dtype=torch.long) * num_windows
         return (idx.unsqueeze(0) + offsets.unsqueeze(1)).reshape(-1)
 
-    out = torch.zeros_like(q)
+    # SDPA returns the autocast dtype, which can differ from q's.
+    out_dtype = q.dtype
+    if torch.is_autocast_enabled(q.device.type):
+        out_dtype = torch.get_autocast_dtype(q.device.type)
+    out = torch.zeros_like(q, dtype=out_dtype)
     if full_idx:
         win_idx = _batched_windows(full_idx)
         out.index_copy_(
