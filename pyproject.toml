@@ -5,7 +5,7 @@ requires-python = ">=3.13, <3.14"
 dependencies = [
     "einops>=0.8",
     "huggingface-hub>=0.36",
-    "numpy>=1.26,<2",
+    "numpy>=2,<3",
     "opencv-python>=4.11",
     "pillow>=11",
     "safetensors>=0.6",
