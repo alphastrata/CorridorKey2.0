@@ -51,7 +51,7 @@ struct Fuse {
     short: Pair,
     norm: Tensor,
     gu: Pair,
-    down: Pair,
+    down: Tensor,
 }
 
 impl Fuse {
@@ -64,7 +64,7 @@ impl Fuse {
         let h = ops::norm(gpu, &flat, &self.norm, Shift::none(1, 1))?;
         let gu = gpu.empty(&[rows, self.gu.0.shape[0]], Dtype::Bf16)?;
         gpu.linear(&h, &self.gu.0, Some(&self.gu.1), &gu, false)?;
-        gpu.linear(&ops::swiglu(gpu, &gu)?, &self.down.0, Some(&self.down.1), &out, true)?;
+        gpu.linear(&ops::swiglu(gpu, &gu)?, &self.down, None, &out, true)?;
         Ok(out)
     }
 }
@@ -138,7 +138,7 @@ impl Stage1 {
                     ld.rows(&["fuse.w_gate.weight", "fuse.w_up.weight"])?,
                     ld.cat(&["fuse.w_gate.bias", "fuse.w_up.bias"])?,
                 ),
-                down: pair("fuse.w_down")?,
+                down: ld.biased("fuse.w_down.weight", "fuse.w_down.bias")?,
             },
             body: load_blocks(ld, "body_64", &vec![Kind::Full; count("body_64")], true, 16)?,
             mid_up: up("mid_up")?,

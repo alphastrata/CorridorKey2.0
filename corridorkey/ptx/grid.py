@@ -174,6 +174,7 @@ def attend(m: Attn, x: torch.Tensor, grid: Grid, groups: list[Group]) -> torch.T
             out,
             order,
             tokens,
+            x.shape[-1],
             *_geo(grid, g, m),
         ]
         size = -(-tokens * g.heads * m.head_dim // 8 // 256)

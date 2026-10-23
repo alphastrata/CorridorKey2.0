@@ -270,7 +270,8 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
     )?;
 
     let tokens = l.b * l.t * l.gh * l.gw;
-    let merge = [[&o, gate, out, order].map(Arg::from).as_slice(), &[tokens.into()], &geo].concat();
+    let ld = *out.shape.last().unwrap_or(&0);
+    let merge = [[&o, gate, out, order].map(Arg::from).as_slice(), &[tokens.into(), ld.into()], &geo].concat();
     gpu.launch(
         "ck_ops",
         "merge",

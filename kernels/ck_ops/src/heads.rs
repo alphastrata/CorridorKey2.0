@@ -183,6 +183,7 @@ pub fn merge(
     out: &mut [u16],
     order: &[u32],
     tokens: u32,
+    ld: u32,
     t: u32,
     gh: u32,
     gw: u32,
@@ -216,5 +217,9 @@ pub fn merge(
     let tok = win.reorder(order, true, w, tok);
     let s = sigmoid(gate[g * heads + head0 + hh]);
     let vals = chunk(o, ((w * hc + hh) * win.tokens() + tok) * d + j).map(|x| x * s);
-    store(&mut out, g * heads * d + (head0 + hh) * d + j, vals);
+    let row = g * ld as usize;
+    store(&mut out, row + (head0 + hh) * d + j, vals);
+    if head0 + hh + j == 0 && ld as usize > heads * d {
+        store(&mut out, row + heads * d, [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    }
 }

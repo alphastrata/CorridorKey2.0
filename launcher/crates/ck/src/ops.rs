@@ -2,6 +2,8 @@
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::{Result, ensure};
 
+use crate::weights::TAIL;
+
 fn grid(n: usize) -> (u32, u32, u32) {
     (n.div_ceil(256) as u32, 1, 1)
 }
@@ -288,8 +290,9 @@ pub fn unshift_add(gpu: &Gpu, x: &Tensor, a: &Tensor, s: Shift) -> Result<()> {
 pub fn swiglu(gpu: &Gpu, gu: &Tensor) -> Result<Tensor> {
     let width = *gu.shape.last().unwrap_or(&0);
     let rows = gu.numel() / width;
-    let out = gpu.empty(&[rows, width / 2], Dtype::Bf16)?;
-    let args = [pairs(gu), pairs(&out), rows.into(), (width / 2).into()];
+    let ld = width / 2 + TAIL;
+    let out = gpu.empty(&[rows, ld], Dtype::Bf16)?;
+    let args = [pairs(gu), pairs(&out), rows.into(), (width / 2).into(), ld.into()];
     gpu.launch("ck_glue", "swiglu_bf16", grid(rows * width / 2 / 8), 256, 0, &args)?;
     Ok(out)
 }

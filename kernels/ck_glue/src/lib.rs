@@ -9,6 +9,8 @@ use ptx::slice::GpuSlice;
 mod grid;
 mod head;
 
+pub(crate) const ONES: u32 = 0x3f80_3f80;
+
 pub(crate) fn low(p: u32) -> f32 {
     f32::from_bits(p << 16)
 }
@@ -36,7 +38,7 @@ pub(crate) fn f32x8(x: GpuSlice<f32>, i: usize) -> [f32; 8] {
 }
 
 #[kernel]
-pub fn swiglu_bf16(gu: &[u32], out: &mut [u32], rows: u32, h: u32) {
+pub fn swiglu_bf16(gu: &[u32], out: &mut [u32], rows: u32, h: u32, ld: u32) {
     let i = (block_idx_x() * 256 + thread_idx_x()) as usize;
     let per = h as usize / 8;
     if i >= rows as usize * per {
@@ -50,9 +52,13 @@ pub fn swiglu_bf16(gu: &[u32], out: &mut [u32], rows: u32, h: u32) {
     );
     let silu = |g: f32| g * (1.0 + (-g).exp()).rcp();
     let f = |g: u32, u: u32| pack(silu(low(g)) * low(u), silu(high(g)) * high(u));
+    let row = r * ld as usize / 2;
+    if j == 0 && ld > h {
+        unsafe { st_global_v4_u32(out.addr_at(row + h as usize / 2), ONES, 0, 0, 0) };
+    }
     unsafe {
         st_global_v4_u32(
-            out.addr_at(r * h as usize / 2 + j),
+            out.addr_at(row + j),
             f(g.0, u.0),
             f(g.1, u.1),
             f(g.2, u.2),
