@@ -1,4 +1,3 @@
-
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::{Result, ensure};
 
@@ -144,18 +143,38 @@ pub enum Act {
 }
 
 pub fn act(gpu: &Gpu, x: &Tensor, kind: Act, dtype: Dtype) -> Result<Tensor> {
+    if (x.dtype, dtype) == (Dtype::F32, Dtype::Bf16) {
+        return act_ld(gpu, x, kind, 0);
+    }
     let out = gpu.empty(&x.shape, dtype)?;
-    let name = match (x.dtype, dtype) {
-        (Dtype::F32, Dtype::F32) => "act_f32",
-        (Dtype::F32, _) => "act_bf16",
-        _ => "act_bf16_bf16",
+    let n = x.numel();
+    let name = if x.dtype == Dtype::F32 {
+        "act_f32"
+    } else {
+        "act_bf16_bf16"
     };
-    ops(
-        gpu,
-        name,
-        x.numel(),
-        &[x.into(), (&out).into(), x.numel().into(), Arg::U(kind as u32)],
-    )?;
+    ops(gpu, name, n, &[x.into(), (&out).into(), n.into(), Arg::U(kind as u32)])?;
+    Ok(out)
+}
+
+pub fn act_tail(gpu: &Gpu, x: &Tensor, kind: Act) -> Result<Tensor> {
+    act_ld(gpu, x, kind, TAIL)
+}
+
+fn act_ld(gpu: &Gpu, x: &Tensor, kind: Act, tail: usize) -> Result<Tensor> {
+    let (n, c) = (x.numel(), *x.shape.last().unwrap_or(&1));
+    let mut shape = x.shape.clone();
+    *shape.last_mut().unwrap_or(&mut 0) += tail;
+    let out = gpu.empty(&shape, Dtype::Bf16)?;
+    let args = [
+        x.into(),
+        (&out).into(),
+        n.into(),
+        Arg::U(kind as u32),
+        c.into(),
+        (c + tail).into(),
+    ];
+    ops(gpu, "act_bf16", n, &args)?;
     Ok(out)
 }
 

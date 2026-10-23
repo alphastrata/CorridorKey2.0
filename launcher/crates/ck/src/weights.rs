@@ -1,4 +1,3 @@
-
 use std::path::Path;
 
 use ck_gpu::{Dtype, Gpu, Tensor};
@@ -101,6 +100,10 @@ impl Loader<'_> {
 
     pub fn biased(&self, w: &str, b: &str) -> Result<Tensor> {
         let ((shape, w), (_, b)) = (self.get(w)?, self.get(b)?);
+        self.tail(&shape, &w, &b)
+    }
+
+    pub fn tail(&self, shape: &[usize], w: &[f32], b: &[f32]) -> Result<Tensor> {
         let inner = shape[1..].iter().product::<usize>();
         let round: fn(f32) -> f32 = if self.half == Dtype::F16 {
             |v| f16::from_f32(v).to_f32()
@@ -109,7 +112,7 @@ impl Loader<'_> {
         };
         let v: Vec<f32> = w
             .chunks(inner)
-            .zip(&b)
+            .zip(b)
             .flat_map(|(row, &bias)| {
                 let hi = round(bias);
                 row.iter().copied().chain([hi, bias - hi]).chain([0.0; TAIL - 2])

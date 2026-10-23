@@ -1,4 +1,3 @@
-
 use crate::frame::Geometry;
 
 const A: f64 = 2.5;

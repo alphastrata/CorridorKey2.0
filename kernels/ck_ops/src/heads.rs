@@ -1,9 +1,8 @@
-
 use crate::{gid, rn, sigmoid};
 use ptx::kernel;
+use ptx::mem::{ld_global_nc_v4_f32, ld_global_nc_v4_u32, st_global_v4_u32};
 use ptx::prelude::*;
 use ptx::slice::{GpuSlice, GpuSliceMut};
-use ptx::mem::{ld_global_nc_v4_f32, ld_global_nc_v4_u32, st_global_v4_u32};
 use ptx::warp_ops::shfl_idx;
 
 #[derive(Clone, Copy)]
@@ -63,7 +62,13 @@ impl Windows {
 fn chunk(src: GpuSlice<u16>, at: usize) -> [f32; 8] {
     let w = unsafe { ld_global_nc_v4_u32(src.addr_at(at)) };
     let w = [w.0, w.1, w.2, w.3];
-    core::array::from_fn(|j| f32::from_bits(if j % 2 == 0 { w[j / 2] << 16 } else { w[j / 2] & 0xffff_0000 }))
+    core::array::from_fn(|j| {
+        f32::from_bits(if j % 2 == 0 {
+            w[j / 2] << 16
+        } else {
+            w[j / 2] & 0xffff_0000
+        })
+    })
 }
 
 fn quad(x: GpuSlice<f32>, at: usize) -> [f32; 4] {
@@ -72,7 +77,8 @@ fn quad(x: GpuSlice<f32>, at: usize) -> [f32; 4] {
 }
 
 fn store(dst: &mut GpuSliceMut<u16>, at: usize, v: [f32; 8]) {
-    let w: [u32; 4] = core::array::from_fn(|j| u32::from(rn(v[2 * j])) | u32::from(rn(v[2 * j + 1])) << 16);
+    let w: [u32; 4] =
+        core::array::from_fn(|j| u32::from(rn(v[2 * j])) | u32::from(rn(v[2 * j + 1])) << 16);
     unsafe { st_global_v4_u32(dst.addr_at(at), w[0], w[1], w[2], w[3]) };
 }
 
@@ -158,7 +164,11 @@ pub fn split(
     };
     let live = slot < 32 / per && i < windows as usize * hc * n;
     let (hh, w) = (i / n % hc, i / (n * hc));
-    let tok = if live { win.reorder(order, false, w, i % n) } else { 0 };
+    let tok = if live {
+        win.reorder(order, false, w, i % n)
+    } else {
+        0
+    };
     let g = if live { win.grid(w, tok) } else { None };
     let row = g.map_or(0, |g| g * 3 * heads * d + (head0 + hh) * d) + 8 * l.part;
     let load = |at: usize| g.map_or([0.0; 8], |_| chunk(qkv, at));
@@ -220,6 +230,10 @@ pub fn merge(
     let row = g * ld as usize;
     store(&mut out, row + (head0 + hh) * d + j, vals);
     if head0 + hh + j == 0 && ld as usize > heads * d {
-        store(&mut out, row + heads * d, [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        store(
+            &mut out,
+            row + heads * d,
+            [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        );
     }
 }

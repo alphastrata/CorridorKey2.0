@@ -1,4 +1,3 @@
-
 use std::path::{Path, PathBuf};
 
 use ck_gpu::Gpu;

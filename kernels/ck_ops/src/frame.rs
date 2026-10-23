@@ -1,4 +1,3 @@
-
 use crate::gid;
 use ptx::kernel;
 use ptx::prelude::*;
@@ -116,7 +115,10 @@ pub fn prep(
         contrast,
         pivot,
     };
-    out.set(f * ld as usize + ch * plane + yx, encode(v, false, mode, adj));
+    out.set(
+        f * ld as usize + ch * plane + yx,
+        encode(v, false, mode, adj),
+    );
 }
 
 #[kernel]
@@ -152,7 +154,10 @@ pub fn prep_f32(
         pivot,
     };
     let v = if linear { v } else { v.clamp(0.0, 1.0) };
-    out.set(f * ld as usize + ch * plane + yx, encode(v, linear, mode, adj));
+    out.set(
+        f * ld as usize + ch * plane + yx,
+        encode(v, linear, mode, adj),
+    );
 }
 
 #[kernel]
@@ -182,12 +187,25 @@ pub fn planar(raw: &[u16], out: &mut [f32], n: u32, h: u32, w: u32, c: u32) {
     let [n, h, w, c] = [n, h, w, c].map(|v| v as usize);
     if i < n * c * h * w {
         let (yx, p, f) = (i % (h * w), i / (h * w) % c, i / (c * h * w));
-        out.set(i, f32::from(raw[(f * h * w + yx) * c + (p + 1) % c]) / 65535.0);
+        out.set(
+            i,
+            f32::from(raw[(f * h * w + yx) * c + (p + 1) % c]) / 65535.0,
+        );
     }
 }
 
 #[kernel]
-pub fn crop(x: &[f32], out: &mut [f32], planes: u32, h: u32, w: u32, h0: u32, w0: u32, top: u32, left: u32) {
+pub fn crop(
+    x: &[f32],
+    out: &mut [f32],
+    planes: u32,
+    h: u32,
+    w: u32,
+    h0: u32,
+    w0: u32,
+    top: u32,
+    left: u32,
+) {
     let i = gid();
     let [planes, h, w, h0, w0, top, left] = [planes, h, w, h0, w0, top, left].map(|v| v as usize);
     if i < planes * h0 * w0 {

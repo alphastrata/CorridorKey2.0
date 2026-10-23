@@ -1,4 +1,3 @@
-
 use std::path::PathBuf;
 
 use argh::FromArgs;
@@ -12,97 +11,101 @@ use eyre::{Result, bail, ensure};
 #[derive(FromArgs)]
 #[argh(description = "Key a video or frame directory with `CorridorKey` v2.")]
 struct Args {
-#[argh(description = "input videos or frame directories")]
+    #[argh(description = "input videos or frame directories")]
     #[argh(positional)]
     inputs: Vec<PathBuf>,
-#[argh(description = "output directory")]
+    #[argh(description = "output directory")]
     #[argh(option, short = 'o', default = "PathBuf::from(\"output\")")]
     output: PathBuf,
-#[argh(description = "comma-separated outputs: alpha, fg, cutout, checker")]
+    #[argh(description = "comma-separated outputs: alpha, fg, cutout, checker")]
     #[argh(option, default = "String::from(\"alpha,fg\")")]
     outputs: String,
-#[argh(description = "CUDA devices to use, e.g. `0` or `0,1` (default: every device)")]
+    #[argh(description = "CUDA devices to use, e.g. `0` or `0,1` (default: every device)")]
     #[argh(option, from_str_fn(devices))]
     device: Vec<Vec<usize>>,
-#[argh(description = "model weights")]
+    #[argh(description = "model weights")]
     #[argh(option, default = "PathBuf::from(\"weights/corridorkey_v2.safetensors\")")]
     weights: PathBuf,
-#[argh(description = "foundation-model weights (`launcher/parity/export.py`)")]
+    #[argh(description = "foundation-model weights (`launcher/parity/export.py`)")]
     #[argh(option, default = "PathBuf::from(\"weights/vfms.safetensors\")")]
     vfms: PathBuf,
-#[argh(description = "PTX directory")]
+    #[argh(description = "PTX directory")]
     #[argh(option, default = "PathBuf::from(\"corridorkey/ptx/bin\")")]
     ptx: PathBuf,
-#[argh(description = "scale of the frames the model sees, by Lanczos-4 (outputs stay native)")]
+    #[argh(description = "scale of the frames the model sees, by Lanczos-4 (outputs stay native)")]
     #[argh(option, default = "1.0")]
     model_scale: f64,
-#[argh(description = "frames per stage-1 window, or `auto` to pick it (and the stride) per clip from free GPU memory")]
+    #[argh(
+        description = "frames per stage-1 window, or `auto` to pick it (and the stride) per clip from free GPU memory"
+    )]
     #[argh(option, default = "Some(80)", from_str_fn(window))]
     chunk: Option<usize>,
-#[argh(description = "frames between window starts")]
+    #[argh(description = "frames between window starts")]
     #[argh(option, default = "40")]
     stride: usize,
-#[argh(description = "model frames are padded to multiples of this")]
+    #[argh(description = "model frames are padded to multiples of this")]
     #[argh(option, default = "128")]
     quantum: usize,
-#[argh(description = "frames per foundation-model batch")]
+    #[argh(description = "frames per foundation-model batch")]
     #[argh(option, default = "8")]
     vfm_batch: usize,
-#[argh(description = "do not carry each window's alpha into the next as a hint")]
+    #[argh(description = "do not carry each window's alpha into the next as a hint")]
     #[argh(switch)]
     no_carry: bool,
-#[argh(description = "first-frame alpha hint (image)")]
+    #[argh(description = "first-frame alpha hint (image)")]
     #[argh(option)]
     hint: Option<PathBuf>,
-#[argh(description = "alpha hint video or frame directory for every frame")]
+    #[argh(description = "alpha hint video or frame directory for every frame")]
     #[argh(option)]
     hint_video: Option<PathBuf>,
-#[argh(description = "trust in user hints")]
+    #[argh(description = "trust in user hints")]
     #[argh(option, default = "0.95")]
     hint_quality: f32,
-#[argh(description = "trust in carried hints")]
+    #[argh(description = "trust in carried hints")]
     #[argh(option, default = "0.95")]
     carry_quality: f32,
-#[argh(description = "key only the first N frames")]
+    #[argh(description = "key only the first N frames")]
     #[argh(option)]
     frames: Option<usize>,
-#[argh(description = "frame rate of a frame directory")]
+    #[argh(description = "frame rate of a frame directory")]
     #[argh(option, default = "24.0")]
     fps: f64,
-#[argh(description = "despill strength in [0, 1]")]
+    #[argh(description = "despill strength in [0, 1]")]
     #[argh(option, default = "0.5")]
     despill: f32,
-#[argh(description = "write the cutout in linear light")]
+    #[argh(description = "write the cutout in linear light")]
     #[argh(switch)]
     cutout_linear: bool,
-#[argh(description = "float (EXR) input frames are scene-linear")]
+    #[argh(description = "float (EXR) input frames are scene-linear")]
     #[argh(switch)]
     linear: bool,
-#[argh(description = "write EXR sequences: half or float")]
+    #[argh(description = "write EXR sequences: half or float")]
     #[argh(option)]
     exr: Option<String>,
-#[argh(description = "scene-linear gain")]
+    #[argh(description = "scene-linear gain")]
     #[argh(option, default = "1.0")]
     brightness: f32,
-#[argh(description = "scene-linear contrast")]
+    #[argh(description = "scene-linear contrast")]
     #[argh(option, default = "1.0")]
     contrast: f32,
-#[argh(description = "contrast pivot")]
+    #[argh(description = "contrast pivot")]
     #[argh(option, default = "0.18")]
     pivot: f32,
-#[argh(description = "encoder for 3-channel outputs (`hevc_nvenc` encodes on the GPU, far faster at 4K)")]
+    #[argh(description = "encoder for 3-channel outputs (`hevc_nvenc` encodes on the GPU, far faster at 4K)")]
     #[argh(option, default = "String::from(\"libx264\")")]
     codec: String,
-#[argh(description = "encoder quality (`-crf`, or `-cq` for NVENC)")]
+    #[argh(description = "encoder quality (`-crf`, or `-cq` for NVENC)")]
     #[argh(option, default = "12")]
     crf: u32,
-#[argh(description = "encoder preset")]
+    #[argh(description = "encoder preset")]
     #[argh(option, default = "String::from(\"medium\")")]
     preset: String,
-#[argh(description = "encoder threads per output (0: ffmpeg decides, which at 4K can take over 13 GB of RAM per encoder)")]
+    #[argh(
+        description = "encoder threads per output (0: ffmpeg decides, which at 4K can take over 13 GB of RAM per encoder)"
+    )]
     #[argh(option, default = "8")]
     threads: usize,
-#[argh(description = "encoder pixel format")]
+    #[argh(description = "encoder pixel format")]
     #[argh(option, default = "String::from(\"yuv444p10le\")")]
     pix_fmt: String,
 }
@@ -121,7 +124,11 @@ fn outputs(list: &str) -> Result<Vec<Output>> {
 
 fn devices(s: &str) -> Result<Vec<usize>, String> {
     s.split(',')
-        .map(|d| d.trim().parse().map_err(|_| format!("--device wants indices like 0 or 0,1, got {s:?}")))
+        .map(|d| {
+            d.trim()
+                .parse()
+                .map_err(|_| format!("--device wants indices like 0 or 0,1, got {s:?}"))
+        })
         .collect()
 }
 
@@ -161,7 +168,10 @@ fn main() -> Result<()> {
     };
     let chunk = a.chunk.unwrap_or(80);
     ensure!((1..=chunk).contains(&a.stride), "want 0 < stride <= chunk");
-    ensure!(a.quantum > 0 && a.quantum % 64 == 0, "--quantum must be a multiple of 64");
+    ensure!(
+        a.quantum > 0 && a.quantum % 64 == 0,
+        "--quantum must be a multiple of 64"
+    );
     ensure!(a.vfm_batch > 0, "--vfm-batch must be positive");
     let cfg = Config {
         chunk,

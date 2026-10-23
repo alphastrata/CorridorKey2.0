@@ -52,117 +52,191 @@
 	.param .u64 .ptr .align 1 act_bf16_param_2,
 	.param .u64 act_bf16_param_3,
 	.param .u32 act_bf16_param_4,
-	.param .u32 act_bf16_param_5
+	.param .u32 act_bf16_param_5,
+	.param .u32 act_bf16_param_6,
+	.param .u32 act_bf16_param_7
 )
 .maxntid 256, 1, 1
 .minnctapersm 4
 {
-	.reg .pred 	%p<6>;
-	.reg .b32 	%r<45>;
-	.reg .b64 	%rd<15>;
+	.reg .pred 	%p<18>;
+	.reg .b32 	%r<51>;
+	.reg .b64 	%rd<29>;
 
 // %bb.0:
-	ld.param.b64 	%rd6, [act_bf16_param_0];
-	cvta.to.global.u64 	%rd1, %rd6;
-	ld.param.b64 	%rd7, [act_bf16_param_2];
-	cvta.to.global.u64 	%rd2, %rd7;
-	ld.param.b32 	%rd8, [act_bf16_param_4];
+	ld.param.b64 	%rd11, [act_bf16_param_0];
+	cvta.to.global.u64 	%rd1, %rd11;
+	ld.param.b64 	%rd12, [act_bf16_param_2];
+	cvta.to.global.u64 	%rd2, %rd12;
+	ld.param.b32 	%rd13, [act_bf16_param_4];
 	// begin inline asm
-	mov.u32 %r3, %ctaid.x;
+	mov.u32 %r7, %ctaid.x;
 	// end inline asm
-	mul.wide.u32 	%rd9, %r3, 256;
+	mul.wide.u32 	%rd14, %r7, 256;
 	// begin inline asm
-	mov.u32 %r4, %tid.x;
+	mov.u32 %r8, %tid.x;
 	// end inline asm
-	cvt.u64.u32 	%rd10, %r4;
-	add.s64 	%rd3, %rd9, %rd10;
-	setp.ge.u64 	%p1, %rd3, %rd8;
-	@%p1 bra 	$L__BB0_9;
+	cvt.u64.u32 	%rd15, %r8;
+	add.s64 	%rd3, %rd14, %rd15;
+	setp.ge.u64 	%p1, %rd3, %rd13;
+	@%p1 bra 	$L__BB0_19;
 // %bb.1:
-	ld.param.b64 	%rd4, [act_bf16_param_1];
-	setp.ge.u64 	%p2, %rd3, %rd4;
-	@%p2 bra 	$L__BB0_10;
+	ld.param.b32 	%r5, [act_bf16_param_6];
+	setp.eq.b32 	%p2, %r5, 0;
+	@%p2 bra 	$L__BB0_20;
 // %bb.2:
-	ld.param.b32 	%r2, [act_bf16_param_5];
-	ld.param.b64 	%rd5, [act_bf16_param_3];
-	shl.b64 	%rd11, %rd3, 2;
-	add.s64 	%rd12, %rd1, %rd11;
-	ld.global.b32 	%r1, [%rd12];
-	setp.eq.b32 	%p3, %r2, 0;
-	@%p3 bra 	$L__BB0_5;
+	ld.param.b64 	%rd9, [act_bf16_param_1];
+	setp.lt.u64 	%p3, %rd3, %rd9;
+	@!%p3 bra 	$L__BB0_21;
 // %bb.3:
-	setp.eq.b32 	%p4, %r2, 1;
-	@!%p4 bra 	$L__BB0_4;
-// %bb.6:
-	mul.rn.f32 	%r7, %r1, 0f3F000000;
-	mul.rn.f32 	%r8, %r1, 0f3F3504F3;
-	abs.f32 	%r9, %r8;
-	mul.rn.f32 	%r10, %r9, 0f3EA7BA05;
-	add.rn.f32 	%r6, %r10, 0f3F800000;
+	ld.param.b32 	%r6, [act_bf16_param_7];
+	ld.param.b32 	%r4, [act_bf16_param_5];
+	ld.param.b64 	%rd10, [act_bf16_param_3];
+	cvt.u32.u64 	%r1, %rd3;
+	div.u32 	%r9, %r1, %r5;
+	mul.lo.s32 	%r2, %r9, %r5;
+	sub.s32 	%r10, %r1, %r2;
+	cvt.u64.u32 	%rd16, %r10;
+	mul.wide.u32 	%rd5, %r9, %r6;
+	add.s64 	%rd6, %rd5, %rd16;
+	shl.b64 	%rd17, %rd3, 2;
+	add.s64 	%rd18, %rd1, %rd17;
+	ld.global.b32 	%r3, [%rd18];
+	setp.eq.b32 	%p4, %r4, 0;
+	@%p4 bra 	$L__BB0_6;
+// %bb.4:
+	setp.eq.b32 	%p5, %r4, 1;
+	@!%p5 bra 	$L__BB0_5;
+// %bb.7:
+	mul.rn.f32 	%r13, %r3, 0f3F000000;
+	mul.rn.f32 	%r14, %r3, 0f3F3504F3;
+	abs.f32 	%r15, %r14;
+	mul.rn.f32 	%r16, %r15, 0f3EA7BA05;
+	add.rn.f32 	%r12, %r16, 0f3F800000;
 	// begin inline asm
-	rcp.rn.f32 %r5, %r6;
+	rcp.rn.f32 %r11, %r12;
 	// end inline asm
-	mul.rn.f32 	%r11, %r5, 0f3F87DC22;
-	add.rn.f32 	%r12, %r11, 0fBFBA00E3;
-	mul.rn.f32 	%r13, %r5, %r12;
-	add.rn.f32 	%r14, %r13, 0f3FB5F0E3;
-	mul.rn.f32 	%r15, %r5, %r14;
-	add.rn.f32 	%r16, %r15, 0fBE91A98F;
-	mul.rn.f32 	%r17, %r5, %r16;
-	add.rn.f32 	%r18, %r17, 0f3E827906;
-	mul.rn.f32 	%r19, %r5, %r18;
-	mul.rn.f32 	%r20, %r9, %r9;
-	mul.rn.f32 	%r21, %r20, 0fBFB8AA3B;
-	ex2.approx.ftz.f32 	%r22, %r21;
-	mul.rn.f32 	%r23, %r22, %r19;
-	mov.b32 	%r24, 0f3F800000;
-	sub.rn.f32 	%r25, %r24, %r23;
-	copysign.f32 	%r26, %r8, %r25;
-	add.rn.f32 	%r27, %r26, 0f3F800000;
-	mul.rn.f32 	%r44, %r7, %r27;
-	bra.uni 	$L__BB0_7;
+	mul.rn.f32 	%r17, %r11, 0f3F87DC22;
+	add.rn.f32 	%r18, %r17, 0fBFBA00E3;
+	mul.rn.f32 	%r19, %r11, %r18;
+	add.rn.f32 	%r20, %r19, 0f3FB5F0E3;
+	mul.rn.f32 	%r21, %r11, %r20;
+	add.rn.f32 	%r22, %r21, 0fBE91A98F;
+	mul.rn.f32 	%r23, %r11, %r22;
+	add.rn.f32 	%r24, %r23, 0f3E827906;
+	mul.rn.f32 	%r25, %r11, %r24;
+	mul.rn.f32 	%r26, %r15, %r15;
+	mul.rn.f32 	%r27, %r26, 0fBFB8AA3B;
+	ex2.approx.ftz.f32 	%r28, %r27;
+	mul.rn.f32 	%r29, %r28, %r25;
+	mov.b32 	%r30, 0f3F800000;
+	sub.rn.f32 	%r31, %r30, %r29;
+	copysign.f32 	%r32, %r14, %r31;
+	add.rn.f32 	%r33, %r32, 0f3F800000;
+	mul.rn.f32 	%r50, %r13, %r33;
+	bra.uni 	$L__BB0_8;
+$L__BB0_6:
+	mul.rn.f32 	%r36, %r3, 0fBFB8AA3B;
+	ex2.approx.ftz.f32 	%r37, %r36;
+	add.rn.f32 	%r35, %r37, 0f3F800000;
+	// begin inline asm
+	rcp.rn.f32 %r34, %r35;
+	// end inline asm
+	mul.rn.f32 	%r50, %r3, %r34;
+	bra.uni 	$L__BB0_8;
 $L__BB0_5:
-	mul.rn.f32 	%r30, %r1, 0fBFB8AA3B;
-	ex2.approx.ftz.f32 	%r31, %r30;
-	add.rn.f32 	%r29, %r31, 0f3F800000;
+	mul.rn.f32 	%r40, %r3, 0f3F000000;
+	mul.rn.f32 	%r41, %r3, 0f3D372713;
+	mul.rn.f32 	%r42, %r3, %r41;
+	mul.rn.f32 	%r43, %r3, %r42;
+	add.rn.f32 	%r44, %r3, %r43;
+	mul.rn.f32 	%r39, %r44, 0f3F4C422A;
 	// begin inline asm
-	rcp.rn.f32 %r28, %r29;
+	tanh.approx.f32 %r38, %r39;
 	// end inline asm
-	mul.rn.f32 	%r44, %r1, %r28;
-	bra.uni 	$L__BB0_7;
-$L__BB0_4:
-	mul.rn.f32 	%r34, %r1, 0f3F000000;
-	mul.rn.f32 	%r35, %r1, 0f3D372713;
-	mul.rn.f32 	%r36, %r1, %r35;
-	mul.rn.f32 	%r37, %r1, %r36;
-	add.rn.f32 	%r38, %r1, %r37;
-	mul.rn.f32 	%r33, %r38, 0f3F4C422A;
-	// begin inline asm
-	tanh.approx.f32 %r32, %r33;
-	// end inline asm
-	add.rn.f32 	%r39, %r32, 0f3F800000;
-	mul.rn.f32 	%r44, %r34, %r39;
-$L__BB0_7:
-	setp.lt.u64 	%p5, %rd3, %rd5;
-	@!%p5 bra 	$L__BB0_11;
-// %bb.8:
-	bfe.u32 	%r40, %r44, 16, 1;
-	add.s32 	%r41, %r44, %r40;
-	add.s32 	%r42, %r41, 32767;
-	shr.u32 	%r43, %r42, 16;
-	shl.b64 	%rd13, %rd3, 1;
-	add.s64 	%rd14, %rd2, %rd13;
-	st.global.b16 	[%rd14], %r43;
-$L__BB0_9:
+	add.rn.f32 	%r45, %r38, 0f3F800000;
+	mul.rn.f32 	%r50, %r40, %r45;
+$L__BB0_8:
+	setp.lt.u64 	%p6, %rd6, %rd10;
+	@!%p6 bra 	$L__BB0_22;
+// %bb.9:
+	bfe.u32 	%r46, %r50, 16, 1;
+	add.s32 	%r47, %r50, %r46;
+	add.s32 	%r48, %r47, 32767;
+	shr.u32 	%r49, %r48, 16;
+	shl.b64 	%rd19, %rd6, 1;
+	add.s64 	%rd20, %rd2, %rd19;
+	st.global.b16 	[%rd20], %r49;
+	setp.eq.b32 	%p7, %r1, %r2;
+	setp.gt.u32 	%p8, %r6, %r5;
+	and.pred 	%p9, %p8, %p7;
+	@!%p9 bra 	$L__BB0_19;
+// %bb.10:
+	cvt.u64.u32 	%rd4, %r5;
+	add.s64 	%rd7, %rd5, %rd4;
+	setp.ge.u64 	%p10, %rd7, %rd10;
+	@%p10 bra 	$L__BB0_23;
+// %bb.11:
+	shl.b64 	%rd21, %rd7, 1;
+	add.s64 	%rd8, %rd2, %rd21;
+	st.global.b16 	[%rd8], 16256;
+	add.s64 	%rd22, %rd7, 1;
+	setp.ge.u64 	%p11, %rd22, %rd10;
+	@%p11 bra 	$L__BB0_23;
+// %bb.12:
+	st.global.b16 	[%rd8+2], 16256;
+	add.s64 	%rd23, %rd7, 2;
+	setp.ge.u64 	%p12, %rd23, %rd10;
+	@%p12 bra 	$L__BB0_23;
+// %bb.13:
+	st.global.b16 	[%rd8+4], 0;
+	add.s64 	%rd24, %rd7, 3;
+	setp.ge.u64 	%p13, %rd24, %rd10;
+	@%p13 bra 	$L__BB0_23;
+// %bb.14:
+	st.global.b16 	[%rd8+6], 0;
+	add.s64 	%rd25, %rd7, 4;
+	setp.ge.u64 	%p14, %rd25, %rd10;
+	@%p14 bra 	$L__BB0_23;
+// %bb.15:
+	st.global.b16 	[%rd8+8], 0;
+	add.s64 	%rd26, %rd7, 5;
+	setp.ge.u64 	%p15, %rd26, %rd10;
+	@%p15 bra 	$L__BB0_23;
+// %bb.16:
+	st.global.b16 	[%rd8+10], 0;
+	add.s64 	%rd27, %rd7, 6;
+	setp.ge.u64 	%p16, %rd27, %rd10;
+	@%p16 bra 	$L__BB0_23;
+// %bb.17:
+	st.global.b16 	[%rd8+12], 0;
+	add.s64 	%rd28, %rd7, 7;
+	setp.ge.u64 	%p17, %rd28, %rd10;
+	@%p17 bra 	$L__BB0_23;
+// %bb.18:
+	st.global.b16 	[%rd8+14], 0;
+$L__BB0_19:
 	ret;
-$L__BB0_10:
+$L__BB0_23:
+	{ // callseq 2, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 2
+$L__BB0_20:
+	{ // callseq 3, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 3
+$L__BB0_21:
 	{ // callseq 0, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 0
-$L__BB0_11:
+$L__BB0_22:
 	{ // callseq 1, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
@@ -282,19 +356,19 @@ $L__BB1_7:
 $L__BB1_9:
 	ret;
 $L__BB1_10:
-	{ // callseq 2, 0
+	{ // callseq 4, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 2
+	} // callseq 4
 $L__BB1_11:
-	{ // callseq 3, 0
+	{ // callseq 5, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 3
+	} // callseq 5
                                         // -- End function
 }
 	// .globl	act_f32                 // -- Begin function act_f32
@@ -403,19 +477,19 @@ $L__BB2_7:
 $L__BB2_9:
 	ret;
 $L__BB2_10:
-	{ // callseq 4, 0
+	{ // callseq 6, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 4
+	} // callseq 6
 $L__BB2_11:
-	{ // callseq 5, 0
+	{ // callseq 7, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 5
+	} // callseq 7
                                         // -- End function
 }
 	// .globl	add_bias                // -- Begin function add_bias
@@ -508,7 +582,7 @@ $L__BB3_5:                              // %.split
 $L__BB3_8:
 	ret;
 $L__BB3_9:
-	{ // callseq 6, 0
+	{ // callseq 8, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -520,9 +594,9 @@ $L__BB3_9:
 	st.param.b64 	[param0], %rd21;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 6
+	} // callseq 8
 $L__BB3_10:
-	{ // callseq 7, 0
+	{ // callseq 9, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -534,12 +608,12 @@ $L__BB3_10:
 	st.param.b64 	[param0], %rd27;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 7
+	} // callseq 9
 $L__BB3_11:
-	{ // callseq 8, 0
+	{ // callseq 10, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 8
+	} // callseq 10
                                         // -- End function
 }
 	// .globl	add_gated               // -- Begin function add_gated
@@ -669,38 +743,38 @@ $L__BB4_13:
 $L__BB4_16:
 	ret;
 $L__BB4_17:
-	{ // callseq 13, 0
+	{ // callseq 15, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 13
+	} // callseq 15
 $L__BB4_20:
+	{ // callseq 13, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 13
+$L__BB4_21:
+	{ // callseq 14, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 14
+$L__BB4_18:
 	{ // callseq 11, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 11
-$L__BB4_21:
+$L__BB4_19:
 	{ // callseq 12, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 12
-$L__BB4_18:
-	{ // callseq 9, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 9
-$L__BB4_19:
-	{ // callseq 10, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 10
                                         // -- End function
 }
 	// .globl	add_scaled              // -- Begin function add_scaled
@@ -774,31 +848,31 @@ $L__BB4_19:
 $L__BB5_6:
 	ret;
 $L__BB5_7:
-	{ // callseq 14, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 14
-$L__BB5_8:
-	{ // callseq 17, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 17
-$L__BB5_9:
-	{ // callseq 15, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 15
-$L__BB5_10:
 	{ // callseq 16, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 16
+$L__BB5_8:
+	{ // callseq 19, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 19
+$L__BB5_9:
+	{ // callseq 17, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 17
+$L__BB5_10:
+	{ // callseq 18, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 18
                                         // -- End function
 }
 	// .globl	axpy                    // -- Begin function axpy
@@ -856,19 +930,19 @@ $L__BB5_10:
 $L__BB6_4:
 	ret;
 $L__BB6_5:
-	{ // callseq 18, 0
+	{ // callseq 20, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 18
+	} // callseq 20
 $L__BB6_6:
-	{ // callseq 19, 0
+	{ // callseq 21, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 19
+	} // callseq 21
                                         // -- End function
 }
 	// .globl	bf16_f16                // -- Begin function bf16_f16
@@ -927,19 +1001,19 @@ $L__BB6_6:
 $L__BB7_4:
 	ret;
 $L__BB7_5:
-	{ // callseq 20, 0
+	{ // callseq 22, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 20
+	} // callseq 22
 $L__BB7_6:
-	{ // callseq 21, 0
+	{ // callseq 23, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 21
+	} // callseq 23
                                         // -- End function
 }
 	// .globl	col2im                  // -- Begin function col2im
@@ -1221,12 +1295,12 @@ $L__BB8_43:                             // %.loopexit28
 	setp.lt.u64 	%p25, %rd32, %rd40;
 	@%p25 bra 	$L__BB8_45;
 // %bb.72:
-	{ // callseq 24, 0
+	{ // callseq 26, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 24
+	} // callseq 26
 $L__BB8_47:                             // %.loopexit29
 	setp.eq.b64 	%p27, %rd118, %rd20;
 	@!%p27 bra 	$L__BB8_62;
@@ -1321,70 +1395,70 @@ $L__BB8_62:
 $L__BB8_64:
 	ret;
 $L__BB8_71:
-	{ // callseq 23, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 23
-$L__BB8_73:
 	{ // callseq 25, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 25
-$L__BB8_65:
-	{ // callseq 33, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 33
-$L__BB8_66:
-	{ // callseq 32, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 32
-$L__BB8_67:
-	{ // callseq 31, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 31
-$L__BB8_68:
-	{ // callseq 30, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 30
-$L__BB8_69:
-	{ // callseq 29, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 29
-$L__BB8_70:
-	{ // callseq 28, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 28
-$L__BB8_75:
-	{ // callseq 22, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 22
-$L__BB8_76:
+$L__BB8_73:
 	{ // callseq 27, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 27
-$L__BB8_74:
-	{ // callseq 26, 0
+$L__BB8_65:
+	{ // callseq 35, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 35
+$L__BB8_66:
+	{ // callseq 34, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 34
+$L__BB8_67:
+	{ // callseq 33, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 33
+$L__BB8_68:
+	{ // callseq 32, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 32
+$L__BB8_69:
+	{ // callseq 31, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 31
+$L__BB8_70:
+	{ // callseq 30, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 30
+$L__BB8_75:
+	{ // callseq 24, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 26
+	} // callseq 24
+$L__BB8_76:
+	{ // callseq 29, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 29
+$L__BB8_74:
+	{ // callseq 28, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 28
                                         // -- End function
 }
 	// .globl	crop                    // -- Begin function crop
@@ -1502,29 +1576,29 @@ $L__BB9_12:                             // %.split.split.split
 $L__BB9_15:
 	ret;
 $L__BB9_16:
-	{ // callseq 37, 0
+	{ // callseq 39, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 37
+	} // callseq 39
 $L__BB9_17:
+	{ // callseq 38, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 38
+$L__BB9_18:
 	{ // callseq 36, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 36
-$L__BB9_18:
-	{ // callseq 34, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 34
 $L__BB9_19:
-	{ // callseq 35, 0
+	{ // callseq 37, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 35
+	} // callseq 37
                                         // -- End function
 }
 	// .globl	embed                   // -- Begin function embed
@@ -1669,48 +1743,48 @@ $L__BB10_16:
 $L__BB10_19:
 	ret;
 $L__BB10_25:
+	{ // callseq 46, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 46
+$L__BB10_26:
+	{ // callseq 45, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 45
+$L__BB10_27:
 	{ // callseq 44, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 44
-$L__BB10_26:
-	{ // callseq 43, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 43
-$L__BB10_27:
-	{ // callseq 42, 0
-	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 42
+	} // callseq 44
 $L__BB10_23:
-	{ // callseq 40, 0
+	{ // callseq 42, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 40
+	} // callseq 42
 $L__BB10_24:
+	{ // callseq 43, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 43
+$L__BB10_22:
 	{ // callseq 41, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 41
-$L__BB10_22:
-	{ // callseq 39, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 39
 $L__BB10_28:
-	{ // callseq 38, 0
+	{ // callseq 40, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 38
+	} // callseq 40
                                         // -- End function
 }
 	// .globl	f32_bf16                // -- Begin function f32_bf16
@@ -1794,24 +1868,24 @@ $L__BB11_5:                             // %.split
 $L__BB11_8:
 	ret;
 $L__BB11_9:
-	{ // callseq 47, 0
+	{ // callseq 49, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 47
+	} // callseq 49
 $L__BB11_10:
-	{ // callseq 45, 0
+	{ // callseq 47, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 45
+	} // callseq 47
 $L__BB11_11:
-	{ // callseq 46, 0
+	{ // callseq 48, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 46
+	} // callseq 48
                                         // -- End function
 }
 	// .globl	gru_kv                  // -- Begin function gru_kv
@@ -2019,47 +2093,47 @@ $L__BB12_11:                            // =>This Inner Loop Header: Depth=1
 $L__BB12_16:                            // %.loopexit
 	ret;
 $L__BB12_17:
-	{ // callseq 48, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 48
-$L__BB12_18:
-	{ // callseq 49, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 49
-$L__BB12_22:
-	{ // callseq 53, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 53
-$L__BB12_21:
-	{ // callseq 52, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 52
-$L__BB12_20:
-	{ // callseq 51, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 51
-$L__BB12_19:
 	{ // callseq 50, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 50
+$L__BB12_18:
+	{ // callseq 51, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 51
+$L__BB12_22:
+	{ // callseq 55, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 55
+$L__BB12_21:
+	{ // callseq 54, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 54
+$L__BB12_20:
+	{ // callseq 53, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 53
+$L__BB12_19:
+	{ // callseq 52, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 52
                                         // -- End function
 }
 	// .globl	gru_mix                 // -- Begin function gru_mix
@@ -2166,38 +2240,38 @@ $L__BB13_5:                             // %.split
 $L__BB13_10:
 	ret;
 $L__BB13_11:
-	{ // callseq 58, 0
+	{ // callseq 60, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 58
+	} // callseq 60
 $L__BB13_12:
-	{ // callseq 54, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 54
-$L__BB13_13:
-	{ // callseq 55, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 55
-$L__BB13_14:
 	{ // callseq 56, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 56
-$L__BB13_15:
+$L__BB13_13:
 	{ // callseq 57, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 57
+$L__BB13_14:
+	{ // callseq 58, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 58
+$L__BB13_15:
+	{ // callseq 59, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 59
                                         // -- End function
 }
 	// .globl	heads                   // -- Begin function heads
@@ -2378,24 +2452,24 @@ $L__BB14_27:
 	mov.b64 	%rd4, %rd2;
 	@%p17 bra 	$L__BB14_34;
 // %bb.42:
-	{ // callseq 60, 0
+	{ // callseq 62, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 60
+	} // callseq 62
 $L__BB14_31:
 	ld.param.b64 	%rd21, [heads_param_3];
 	setp.lt.u64 	%p18, %rd14, %rd21;
 	mov.b64 	%rd4, %rd3;
 	@%p18 bra 	$L__BB14_34;
 // %bb.32:
-	{ // callseq 61, 0
+	{ // callseq 63, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 61
+	} // callseq 63
 $L__BB14_29:
 	ld.param.b64 	%rd23, [heads_param_7];
 	setp.lt.u64 	%p19, %rd14, %rd23;
@@ -2407,44 +2481,44 @@ $L__BB14_34:
 $L__BB14_35:
 	ret;
 $L__BB14_36:
-	{ // callseq 67, 0
+	{ // callseq 69, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 67
+	} // callseq 69
 $L__BB14_37:
+	{ // callseq 68, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 68
+$L__BB14_38:
+	{ // callseq 67, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 67
+$L__BB14_39:
 	{ // callseq 66, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 66
-$L__BB14_38:
+$L__BB14_40:
 	{ // callseq 65, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 65
-$L__BB14_39:
+$L__BB14_41:
+	{ // callseq 61, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 61
+$L__BB14_30:
 	{ // callseq 64, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 64
-$L__BB14_40:
-	{ // callseq 63, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 63
-$L__BB14_41:
-	{ // callseq 59, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 59
-$L__BB14_30:
-	{ // callseq 62, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 62
                                         // -- End function
 }
 	// .globl	hint                    // -- Begin function hint
@@ -2583,29 +2657,29 @@ $L__BB15_12:                            // %.split.split.split
 $L__BB15_15:
 	ret;
 $L__BB15_16:
-	{ // callseq 71, 0
+	{ // callseq 73, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 71
+	} // callseq 73
 $L__BB15_17:
+	{ // callseq 72, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 72
+$L__BB15_18:
 	{ // callseq 70, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 70
-$L__BB15_18:
-	{ // callseq 68, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 68
 $L__BB15_19:
-	{ // callseq 69, 0
+	{ // callseq 71, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 69
+	} // callseq 71
                                         // -- End function
 }
 	// .globl	im2col                  // -- Begin function im2col
@@ -2822,44 +2896,44 @@ $L__BB16_33:
 $L__BB16_35:
 	ret;
 $L__BB16_36:
+	{ // callseq 80, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 80
+$L__BB16_37:
+	{ // callseq 79, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 79
+$L__BB16_38:
 	{ // callseq 78, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 78
-$L__BB16_37:
+$L__BB16_39:
 	{ // callseq 77, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 77
-$L__BB16_38:
+$L__BB16_40:
 	{ // callseq 76, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 76
-$L__BB16_39:
+$L__BB16_42:
 	{ // callseq 75, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 75
-$L__BB16_40:
+$L__BB16_41:
 	{ // callseq 74, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 74
-$L__BB16_42:
-	{ // callseq 73, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 73
-$L__BB16_41:
-	{ // callseq 72, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 72
                                         // -- End function
 }
 	// .globl	layer_norm              // -- Begin function layer_norm
@@ -3053,47 +3127,47 @@ $L__BB17_11:                            // %.preheader
 $L__BB17_16:                            // %.loopexit
 	ret;
 $L__BB17_17:
-	{ // callseq 79, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 79
-$L__BB17_18:
-	{ // callseq 80, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 80
-$L__BB17_22:
-	{ // callseq 84, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 84
-$L__BB17_21:
-	{ // callseq 83, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 83
-$L__BB17_20:
-	{ // callseq 82, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 82
-$L__BB17_19:
 	{ // callseq 81, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 81
+$L__BB17_18:
+	{ // callseq 82, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 82
+$L__BB17_22:
+	{ // callseq 86, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 86
+$L__BB17_21:
+	{ // callseq 85, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 85
+$L__BB17_20:
+	{ // callseq 84, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 84
+$L__BB17_19:
+	{ // callseq 83, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 83
                                         // -- End function
 }
 	// .globl	layer_norm_f32          // -- Begin function layer_norm_f32
@@ -3281,47 +3355,47 @@ $L__BB18_11:                            // %.preheader
 $L__BB18_16:                            // %.loopexit
 	ret;
 $L__BB18_17:
-	{ // callseq 85, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 85
-$L__BB18_18:
-	{ // callseq 86, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 86
-$L__BB18_22:
-	{ // callseq 90, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 90
-$L__BB18_21:
-	{ // callseq 89, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 89
-$L__BB18_20:
-	{ // callseq 88, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 88
-$L__BB18_19:
 	{ // callseq 87, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 87
+$L__BB18_18:
+	{ // callseq 88, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 88
+$L__BB18_22:
+	{ // callseq 92, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 92
+$L__BB18_21:
+	{ // callseq 91, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 91
+$L__BB18_20:
+	{ // callseq 90, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 90
+$L__BB18_19:
+	{ // callseq 89, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 89
                                         // -- End function
 }
 	// .globl	merge                   // -- Begin function merge
@@ -3696,7 +3770,7 @@ $L__BB19_40:
 $L__BB19_47:
 	ret;
 $L__BB19_58:
-	{ // callseq 94, 0
+	{ // callseq 96, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -3708,9 +3782,9 @@ $L__BB19_58:
 	st.param.b64 	[param0], %rd85;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 94
+	} // callseq 96
 $L__BB19_59:
-	{ // callseq 95, 0
+	{ // callseq 97, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -3722,9 +3796,9 @@ $L__BB19_59:
 	st.param.b64 	[param0], %rd92;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 95
+	} // callseq 97
 $L__BB19_61:
-	{ // callseq 96, 0
+	{ // callseq 98, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -3736,66 +3810,66 @@ $L__BB19_61:
 	st.param.b64 	[param0], %rd99;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 96
+	} // callseq 98
 $L__BB19_48:
+	{ // callseq 106, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 106
+$L__BB19_49:
+	{ // callseq 105, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 105
+$L__BB19_50:
 	{ // callseq 104, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 104
-$L__BB19_49:
+$L__BB19_51:
 	{ // callseq 103, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 103
-$L__BB19_50:
+$L__BB19_52:
 	{ // callseq 102, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 102
-$L__BB19_51:
+$L__BB19_53:
 	{ // callseq 101, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 101
-$L__BB19_52:
+$L__BB19_54:
 	{ // callseq 100, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 100
-$L__BB19_53:
+$L__BB19_55:
 	{ // callseq 99, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 99
-$L__BB19_54:
-	{ // callseq 98, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 98
-$L__BB19_55:
-	{ // callseq 97, 0
-	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 97
+	} // callseq 99
 $L__BB19_60:
+	{ // callseq 95, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 95
+$L__BB19_56:
+	{ // callseq 94, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 94
+$L__BB19_57:
 	{ // callseq 93, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 93
-$L__BB19_56:
-	{ // callseq 92, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 92
-$L__BB19_57:
-	{ // callseq 91, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 91
                                         // -- End function
 }
 	// .globl	norm_mod                // -- Begin function norm_mod
@@ -3979,52 +4053,52 @@ $L__BB20_8:                             // =>This Inner Loop Header: Depth=1
 $L__BB20_14:                            // %.loopexit
 	ret;
 $L__BB20_15:
-	{ // callseq 105, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 105
-$L__BB20_20:
-	{ // callseq 110, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 110
-$L__BB20_19:
-	{ // callseq 109, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 109
-$L__BB20_18:
-	{ // callseq 108, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 108
-$L__BB20_17:
 	{ // callseq 107, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 107
-$L__BB20_16:
-	{ // callseq 106, 0
+$L__BB20_20:
+	{ // callseq 112, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 106
-$L__BB20_21:
+	} // callseq 112
+$L__BB20_19:
 	{ // callseq 111, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 111
+$L__BB20_18:
+	{ // callseq 110, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 110
+$L__BB20_17:
+	{ // callseq 109, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 109
+$L__BB20_16:
+	{ // callseq 108, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 108
+$L__BB20_21:
+	{ // callseq 113, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 113
                                         // -- End function
 }
 	// .globl	place                   // -- Begin function place
@@ -4107,24 +4181,24 @@ $L__BB21_5:                             // %.split
 $L__BB21_8:
 	ret;
 $L__BB21_9:
-	{ // callseq 114, 0
+	{ // callseq 116, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 114
+	} // callseq 116
 $L__BB21_10:
-	{ // callseq 112, 0
+	{ // callseq 114, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 112
+	} // callseq 114
 $L__BB21_11:
-	{ // callseq 113, 0
+	{ // callseq 115, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 113
+	} // callseq 115
                                         // -- End function
 }
 	// .globl	planar                  // -- Begin function planar
@@ -4243,34 +4317,34 @@ $L__BB22_13:                            // %.split1.split
 $L__BB22_16:
 	ret;
 $L__BB22_17:
+	{ // callseq 121, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 121
+$L__BB22_18:
+	{ // callseq 120, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 120
+$L__BB22_19:
 	{ // callseq 119, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 119
-$L__BB22_18:
-	{ // callseq 118, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 118
-$L__BB22_19:
+$L__BB22_20:
 	{ // callseq 117, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 117
-$L__BB22_20:
-	{ // callseq 115, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 115
 $L__BB22_21:
-	{ // callseq 116, 0
+	{ // callseq 118, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 116
+	} // callseq 118
                                         // -- End function
 }
 	// .globl	prep                    // -- Begin function prep
@@ -4504,29 +4578,29 @@ $L__BB23_25:
 $L__BB23_27:
 	ret;
 $L__BB23_28:
-	{ // callseq 123, 0
+	{ // callseq 125, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 123
+	} // callseq 125
 $L__BB23_29:
+	{ // callseq 124, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 124
+$L__BB23_31:
 	{ // callseq 122, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 122
-$L__BB23_31:
-	{ // callseq 120, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 120
 $L__BB23_32:
-	{ // callseq 121, 0
+	{ // callseq 123, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 121
+	} // callseq 123
                                         // -- End function
 }
 	// .globl	prep_f32                // -- Begin function prep_f32
@@ -4774,29 +4848,29 @@ $L__BB24_27:
 $L__BB24_29:
 	ret;
 $L__BB24_30:
-	{ // callseq 127, 0
+	{ // callseq 129, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 127
+	} // callseq 129
 $L__BB24_31:
+	{ // callseq 128, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 128
+$L__BB24_32:
 	{ // callseq 126, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 126
-$L__BB24_32:
-	{ // callseq 124, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 124
 $L__BB24_34:
-	{ // callseq 125, 0
+	{ // callseq 127, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 125
+	} // callseq 127
                                         // -- End function
 }
 	// .globl	render                  // -- Begin function render
@@ -5314,38 +5388,38 @@ $L__BB25_53:
 $L__BB25_59:
 	ret;
 $L__BB25_67:
-	{ // callseq 129, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 129
-$L__BB25_68:
-	{ // callseq 130, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 130
-$L__BB25_66:
-	{ // callseq 132, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 132
-$L__BB25_28:
-	{ // callseq 128, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 128
-$L__BB25_69:
 	{ // callseq 131, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 131
+$L__BB25_68:
+	{ // callseq 132, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 132
+$L__BB25_66:
+	{ // callseq 134, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 134
+$L__BB25_28:
+	{ // callseq 130, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 130
+$L__BB25_69:
+	{ // callseq 133, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 133
                                         // -- End function
 }
 	// .globl	render_exr              // -- Begin function render_exr
@@ -5712,12 +5786,12 @@ $L__BB26_48:
 	setp.lt.u64 	%p37, %rd3, %rd26;
 	@%p37 bra 	$L__BB26_49;
 // %bb.55:
-	{ // callseq 136, 0
+	{ // callseq 138, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 136
+	} // callseq 138
 $L__BB26_32:
 	setp.eq.b32 	%p38, %r8, 0;
 	@%p38 bra 	$L__BB26_34;
@@ -5739,38 +5813,38 @@ $L__BB26_49:
 $L__BB26_50:
 	ret;
 $L__BB26_52:
-	{ // callseq 134, 0
+	{ // callseq 136, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 134
+	} // callseq 136
 $L__BB26_54:
-	{ // callseq 135, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 135
-$L__BB26_51:
-	{ // callseq 138, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 138
-$L__BB26_53:
-	{ // callseq 133, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 133
-$L__BB26_35:
 	{ // callseq 137, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 137
+$L__BB26_51:
+	{ // callseq 140, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 140
+$L__BB26_53:
+	{ // callseq 135, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 135
+$L__BB26_35:
+	{ // callseq 139, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 139
                                         // -- End function
 }
 	// .globl	resize                  // -- Begin function resize
@@ -6821,139 +6895,139 @@ $L__BB27_115:                           // %.split5
 $L__BB27_120:
 	ret;
 $L__BB27_132:
-	{ // callseq 155, 0
+	{ // callseq 157, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 155
+	} // callseq 157
 $L__BB27_124:
+	{ // callseq 144, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	} // callseq 144
+$L__BB27_93:
+	{ // callseq 141, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	} // callseq 141
+$L__BB27_52:
+	{ // callseq 151, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	} // callseq 151
+$L__BB27_125:
+	{ // callseq 145, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	} // callseq 145
+$L__BB27_94:
 	{ // callseq 142, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 142
-$L__BB27_93:
-	{ // callseq 139, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 139
-$L__BB27_52:
-	{ // callseq 149, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 149
-$L__BB27_125:
-	{ // callseq 143, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 143
-$L__BB27_94:
-	{ // callseq 140, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 140
 $L__BB27_53:
-	{ // callseq 150, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 150
-$L__BB27_123:
-	{ // callseq 148, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 148
-$L__BB27_51:
-	{ // callseq 151, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 151
-$L__BB27_92:
-	{ // callseq 141, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 141
-$L__BB27_121:
-	{ // callseq 158, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 158
-$L__BB27_122:
-	{ // callseq 157, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 157
-$L__BB27_130:
-	{ // callseq 156, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 156
-$L__BB27_131:
 	{ // callseq 152, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 152
-$L__BB27_133:
+$L__BB27_123:
+	{ // callseq 150, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 150
+$L__BB27_51:
 	{ // callseq 153, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 153
-$L__BB27_134:
+$L__BB27_92:
+	{ // callseq 143, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 143
+$L__BB27_121:
+	{ // callseq 160, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 160
+$L__BB27_122:
+	{ // callseq 159, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 159
+$L__BB27_130:
+	{ // callseq 158, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 158
+$L__BB27_131:
 	{ // callseq 154, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 154
+$L__BB27_133:
+	{ // callseq 155, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 155
+$L__BB27_134:
+	{ // callseq 156, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 156
 $L__BB27_126:
-	{ // callseq 144, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 144
-$L__BB27_127:
-	{ // callseq 145, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 145
-$L__BB27_128:
 	{ // callseq 146, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 146
-$L__BB27_129:
+$L__BB27_127:
 	{ // callseq 147, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 147
+$L__BB27_128:
+	{ // callseq 148, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 148
+$L__BB27_129:
+	{ // callseq 149, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 149
                                         // -- End function
 }
 	// .globl	shuffle                 // -- Begin function shuffle
@@ -7142,49 +7216,49 @@ $L__BB28_28:                            // %.split3.split.split
 $L__BB28_31:
 	ret;
 $L__BB28_32:
-	{ // callseq 166, 0
+	{ // callseq 168, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 166
+	} // callseq 168
 $L__BB28_33:
+	{ // callseq 167, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 167
+$L__BB28_34:
+	{ // callseq 166, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 166
+$L__BB28_35:
 	{ // callseq 165, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 165
-$L__BB28_34:
+$L__BB28_36:
 	{ // callseq 164, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 164
-$L__BB28_35:
+$L__BB28_37:
 	{ // callseq 163, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 163
-$L__BB28_36:
-	{ // callseq 162, 0
-	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 162
-$L__BB28_37:
+	} // callseq 163
+$L__BB28_38:
 	{ // callseq 161, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 161
-$L__BB28_38:
-	{ // callseq 159, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 159
 $L__BB28_39:
-	{ // callseq 160, 0
+	{ // callseq 162, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 160
+	} // callseq 162
                                         // -- End function
 }
 	// .globl	split                   // -- Begin function split
@@ -8239,7 +8313,7 @@ $L__BB29_98:
 $L__BB29_100:
 	ret;
 $L__BB29_116:
-	{ // callseq 172, 0
+	{ // callseq 174, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8251,9 +8325,9 @@ $L__BB29_116:
 	st.param.b64 	[param0], %rd129;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 172
+	} // callseq 174
 $L__BB29_117:
-	{ // callseq 173, 0
+	{ // callseq 175, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8265,9 +8339,9 @@ $L__BB29_117:
 	st.param.b64 	[param0], %rd134;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 173
+	} // callseq 175
 $L__BB29_121:
-	{ // callseq 177, 0
+	{ // callseq 179, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8279,9 +8353,9 @@ $L__BB29_121:
 	st.param.b64 	[param0], %rd160;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 177
+	} // callseq 179
 $L__BB29_122:
-	{ // callseq 178, 0
+	{ // callseq 180, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8293,9 +8367,9 @@ $L__BB29_122:
 	st.param.b64 	[param0], %rd165;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 178
+	} // callseq 180
 $L__BB29_113:
-	{ // callseq 169, 0
+	{ // callseq 171, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8307,9 +8381,9 @@ $L__BB29_113:
 	st.param.b64 	[param0], %rd108;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 169
+	} // callseq 171
 $L__BB29_114:
-	{ // callseq 170, 0
+	{ // callseq 172, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8321,9 +8395,9 @@ $L__BB29_114:
 	st.param.b64 	[param0], %rd115;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 170
+	} // callseq 172
 $L__BB29_115:
-	{ // callseq 171, 0
+	{ // callseq 173, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8335,9 +8409,9 @@ $L__BB29_115:
 	st.param.b64 	[param0], %rd122;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 171
+	} // callseq 173
 $L__BB29_118:
-	{ // callseq 174, 0
+	{ // callseq 176, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8349,9 +8423,9 @@ $L__BB29_118:
 	st.param.b64 	[param0], %rd139;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 174
+	} // callseq 176
 $L__BB29_119:
-	{ // callseq 175, 0
+	{ // callseq 177, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8363,9 +8437,9 @@ $L__BB29_119:
 	st.param.b64 	[param0], %rd147;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 175
+	} // callseq 177
 $L__BB29_120:
-	{ // callseq 176, 0
+	{ // callseq 178, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8377,9 +8451,9 @@ $L__BB29_120:
 	st.param.b64 	[param0], %rd154;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 176
+	} // callseq 178
 $L__BB29_123:
-	{ // callseq 179, 0
+	{ // callseq 181, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8391,9 +8465,9 @@ $L__BB29_123:
 	st.param.b64 	[param0], %rd170;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 179
+	} // callseq 181
 $L__BB29_124:
-	{ // callseq 180, 0
+	{ // callseq 182, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8405,9 +8479,9 @@ $L__BB29_124:
 	st.param.b64 	[param0], %rd175;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 180
+	} // callseq 182
 $L__BB29_126:
-	{ // callseq 182, 0
+	{ // callseq 184, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8419,9 +8493,9 @@ $L__BB29_126:
 	st.param.b64 	[param0], %rd186;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 182
+	} // callseq 184
 $L__BB29_125:
-	{ // callseq 181, 0
+	{ // callseq 183, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8433,74 +8507,74 @@ $L__BB29_125:
 	st.param.b64 	[param0], %rd180;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 181
+	} // callseq 183
 $L__BB29_101:
-	{ // callseq 193, 0
+	{ // callseq 195, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 193
+	} // callseq 195
 $L__BB29_102:
+	{ // callseq 194, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 194
+$L__BB29_103:
+	{ // callseq 193, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 193
+$L__BB29_104:
 	{ // callseq 192, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 192
-$L__BB29_103:
+$L__BB29_105:
 	{ // callseq 191, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 191
-$L__BB29_104:
+$L__BB29_106:
 	{ // callseq 190, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 190
-$L__BB29_105:
+$L__BB29_108:
 	{ // callseq 189, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 189
-$L__BB29_106:
+$L__BB29_109:
 	{ // callseq 188, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 188
-$L__BB29_108:
+$L__BB29_110:
 	{ // callseq 187, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 187
-$L__BB29_109:
+$L__BB29_111:
 	{ // callseq 186, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 186
-$L__BB29_110:
+$L__BB29_112:
 	{ // callseq 185, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 185
-$L__BB29_111:
-	{ // callseq 184, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 184
-$L__BB29_112:
-	{ // callseq 183, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 183
 $L__BB29_107:
-	{ // callseq 168, 0
+	{ // callseq 170, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 168
+	} // callseq 170
 $L__BB29_29:
-	{ // callseq 167, 0
+	{ // callseq 169, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 167
+	} // callseq 169
                                         // -- End function
 }
 	// .globl	standardise             // -- Begin function standardise
@@ -8648,43 +8722,43 @@ $L__BB30_17:
 $L__BB30_19:
 	ret;
 $L__BB30_20:
-	{ // callseq 199, 0
+	{ // callseq 201, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 199
+	} // callseq 201
 $L__BB30_21:
-	{ // callseq 198, 0
+	{ // callseq 200, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 198
+	} // callseq 200
 $L__BB30_22:
-	{ // callseq 194, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 194
-$L__BB30_23:
-	{ // callseq 195, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 195
-$L__BB30_24:
 	{ // callseq 196, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 196
-$L__BB30_25:
+$L__BB30_23:
 	{ // callseq 197, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 197
+$L__BB30_24:
+	{ // callseq 198, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 198
+$L__BB30_25:
+	{ // callseq 199, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 199
                                         // -- End function
 }
 	// .globl	to_bf16                 // -- Begin function to_bf16
@@ -8741,19 +8815,19 @@ $L__BB30_25:
 $L__BB31_4:
 	ret;
 $L__BB31_5:
-	{ // callseq 200, 0
+	{ // callseq 202, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 200
+	} // callseq 202
 $L__BB31_6:
-	{ // callseq 201, 0
+	{ // callseq 203, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 201
+	} // callseq 203
                                         // -- End function
 }
 	// .globl	to_nhwc                 // -- Begin function to_nhwc
@@ -8868,29 +8942,29 @@ $L__BB32_12:                            // %.split.split.split
 $L__BB32_15:
 	ret;
 $L__BB32_16:
-	{ // callseq 205, 0
+	{ // callseq 207, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 205
+	} // callseq 207
 $L__BB32_17:
+	{ // callseq 206, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 206
+$L__BB32_18:
 	{ // callseq 204, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 204
-$L__BB32_18:
-	{ // callseq 202, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 202
 $L__BB32_19:
-	{ // callseq 203, 0
+	{ // callseq 205, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 203
+	} // callseq 205
                                         // -- End function
 }
 	// .globl	unheads                 // -- Begin function unheads
@@ -8903,173 +8977,235 @@ $L__BB32_19:
 	.param .u32 unheads_param_5,
 	.param .u32 unheads_param_6,
 	.param .u32 unheads_param_7,
-	.param .u32 unheads_param_8
+	.param .u32 unheads_param_8,
+	.param .u32 unheads_param_9
 )
 .maxntid 256, 1, 1
 .minnctapersm 4                                       // @unheads
 {
-	.reg .pred 	%p<13>;
+	.reg .pred 	%p<24>;
 	.reg .b16 	%rs<2>;
-	.reg .b32 	%r<21>;
-	.reg .b64 	%rd<39>;
+	.reg .b32 	%r<22>;
+	.reg .b64 	%rd<55>;
 
 // %bb.0:
 	ld.param.b32 	%r3, [unheads_param_7];
 	ld.param.b32 	%r2, [unheads_param_6];
 	ld.param.b32 	%r1, [unheads_param_5];
-	ld.param.b64 	%rd16, [unheads_param_0];
-	cvta.to.global.u64 	%rd1, %rd16;
-	ld.param.b64 	%rd17, [unheads_param_2];
-	cvta.to.global.u64 	%rd2, %rd17;
-	ld.param.b32 	%rd18, [unheads_param_4];
+	ld.param.b64 	%rd21, [unheads_param_0];
+	cvta.to.global.u64 	%rd1, %rd21;
+	ld.param.b64 	%rd22, [unheads_param_2];
+	cvta.to.global.u64 	%rd2, %rd22;
+	ld.param.b32 	%rd23, [unheads_param_4];
 	// begin inline asm
-	mov.u32 %r4, %ctaid.x;
+	mov.u32 %r5, %ctaid.x;
 	// end inline asm
-	mul.wide.u32 	%rd19, %r4, 256;
+	mul.wide.u32 	%rd24, %r5, 256;
 	// begin inline asm
-	mov.u32 %r5, %tid.x;
+	mov.u32 %r6, %tid.x;
 	// end inline asm
-	cvt.u64.u32 	%rd20, %r5;
-	add.s64 	%rd3, %rd19, %rd20;
+	cvt.u64.u32 	%rd25, %r6;
+	add.s64 	%rd3, %rd24, %rd25;
 	cvt.u64.u32 	%rd4, %r1;
 	mul.wide.u32 	%rd8, %r3, %r2;
 	mul.lo.s64 	%rd9, %rd8, %rd4;
-	mul.lo.s64 	%rd21, %rd9, %rd18;
-	setp.ge.u64 	%p1, %rd3, %rd21;
-	@%p1 bra 	$L__BB33_23;
+	mul.lo.s64 	%rd26, %rd9, %rd23;
+	setp.ge.u64 	%p1, %rd3, %rd26;
+	@%p1 bra 	$L__BB33_32;
 // %bb.1:
 	setp.eq.b32 	%p2, %r3, 0;
-	@%p2 bra 	$L__BB33_24;
+	@%p2 bra 	$L__BB33_33;
 // %bb.2:
 	cvt.u64.u32 	%rd6, %r3;
-	and.b64 	%rd22, %rd3, -4294967296;
-	setp.ne.b64 	%p3, %rd22, 0;
+	and.b64 	%rd27, %rd3, -4294967296;
+	setp.ne.b64 	%p3, %rd27, 0;
 	@!%p3 bra 	$L__BB33_3;
 // %bb.4:
 	div.u64 	%rd10, %rd3, %rd6;
 	bra.uni 	$L__BB33_5;
 $L__BB33_3:
-	cvt.u32.u64 	%r6, %rd6;
-	cvt.u32.u64 	%r7, %rd3;
-	div.u32 	%r8, %r7, %r6;
-	cvt.u64.u32 	%rd10, %r8;
+	cvt.u32.u64 	%r7, %rd6;
+	cvt.u32.u64 	%r8, %rd3;
+	div.u32 	%r9, %r8, %r7;
+	cvt.u64.u32 	%rd10, %r9;
 $L__BB33_5:                             // %.split
 	setp.eq.b32 	%p4, %r2, 0;
-	@%p4 bra 	$L__BB33_25;
+	@%p4 bra 	$L__BB33_34;
 // %bb.6:
 	cvt.u64.u32 	%rd5, %r2;
-	and.b64 	%rd24, %rd10, -4294967296;
-	setp.ne.b64 	%p5, %rd24, 0;
+	and.b64 	%rd29, %rd10, -4294967296;
+	setp.ne.b64 	%p5, %rd29, 0;
 	@!%p5 bra 	$L__BB33_7;
 // %bb.8:
 	rem.u64 	%rd12, %rd10, %rd5;
 	bra.uni 	$L__BB33_9;
 $L__BB33_7:
-	cvt.u32.u64 	%r9, %rd5;
-	cvt.u32.u64 	%r10, %rd10;
-	rem.u32 	%r11, %r10, %r9;
-	cvt.u64.u32 	%rd12, %r11;
+	cvt.u32.u64 	%r10, %rd5;
+	cvt.u32.u64 	%r11, %rd10;
+	rem.u32 	%r12, %r11, %r10;
+	cvt.u64.u32 	%rd12, %r12;
 $L__BB33_9:                             // %.split1
 	setp.eq.b32 	%p6, %r1, 0;
-	@%p6 bra 	$L__BB33_26;
+	@%p6 bra 	$L__BB33_35;
 // %bb.10:
 	setp.eq.b64 	%p7, %rd9, 0;
-	@%p7 bra 	$L__BB33_27;
+	@%p7 bra 	$L__BB33_36;
 // %bb.11:
-	or.b64 	%rd25, %rd3, %rd8;
-	and.b64 	%rd26, %rd25, -4294967296;
-	setp.ne.b64 	%p8, %rd26, 0;
+	or.b64 	%rd30, %rd3, %rd8;
+	and.b64 	%rd31, %rd30, -4294967296;
+	setp.ne.b64 	%p8, %rd31, 0;
 	@!%p8 bra 	$L__BB33_12;
 // %bb.13:
-	div.u64 	%rd36, %rd3, %rd8;
+	div.u64 	%rd52, %rd3, %rd8;
 	bra.uni 	$L__BB33_14;
 $L__BB33_12:
-	cvt.u32.u64 	%r12, %rd8;
-	cvt.u32.u64 	%r13, %rd3;
-	div.u32 	%r14, %r13, %r12;
-	cvt.u64.u32 	%rd36, %r14;
+	cvt.u32.u64 	%r13, %rd8;
+	cvt.u32.u64 	%r14, %rd3;
+	div.u32 	%r15, %r14, %r13;
+	cvt.u64.u32 	%rd52, %r15;
 $L__BB33_14:                            // %.split2
-	mul.lo.s64 	%rd23, %rd10, %rd6;
-	and.b64 	%rd27, %rd36, -4294967296;
-	setp.ne.b64 	%p9, %rd27, 0;
+	mul.lo.s64 	%rd28, %rd10, %rd6;
+	and.b64 	%rd32, %rd52, -4294967296;
+	setp.ne.b64 	%p9, %rd32, 0;
 	@!%p9 bra 	$L__BB33_15;
 // %bb.16:
-	rem.u64 	%rd37, %rd36, %rd4;
+	rem.u64 	%rd53, %rd52, %rd4;
 	bra.uni 	$L__BB33_17;
 $L__BB33_15:
-	cvt.u32.u64 	%r15, %rd4;
-	cvt.u32.u64 	%r16, %rd36;
-	rem.u32 	%r17, %r16, %r15;
-	cvt.u64.u32 	%rd37, %r17;
+	cvt.u32.u64 	%r16, %rd4;
+	cvt.u32.u64 	%r17, %rd52;
+	rem.u32 	%r18, %r17, %r16;
+	cvt.u64.u32 	%rd53, %r18;
 $L__BB33_17:                            // %.split2.split
-	ld.param.b64 	%rd14, [unheads_param_1];
+	ld.param.b64 	%rd19, [unheads_param_1];
 	ld.param.b32 	%rd7, [unheads_param_8];
-	sub.s64 	%rd11, %rd3, %rd23;
-	or.b64 	%rd28, %rd3, %rd9;
-	and.b64 	%rd29, %rd28, -4294967296;
-	setp.ne.b64 	%p10, %rd29, 0;
+	sub.s64 	%rd11, %rd3, %rd28;
+	or.b64 	%rd33, %rd3, %rd9;
+	and.b64 	%rd34, %rd33, -4294967296;
+	setp.ne.b64 	%p10, %rd34, 0;
 	@!%p10 bra 	$L__BB33_18;
 // %bb.19:
-	div.u64 	%rd38, %rd3, %rd9;
+	div.u64 	%rd54, %rd3, %rd9;
 	bra.uni 	$L__BB33_20;
 $L__BB33_18:
-	cvt.u32.u64 	%r18, %rd9;
-	cvt.u32.u64 	%r19, %rd3;
-	div.u32 	%r20, %r19, %r18;
-	cvt.u64.u32 	%rd38, %r20;
+	cvt.u32.u64 	%r19, %rd9;
+	cvt.u32.u64 	%r20, %rd3;
+	div.u32 	%r21, %r20, %r19;
+	cvt.u64.u32 	%rd54, %r21;
 $L__BB33_20:                            // %.split2.split.split
-	mad.lo.s64 	%rd30, %rd38, %rd5, %rd12;
-	mad.lo.s64 	%rd31, %rd30, %rd4, %rd37;
-	mad.lo.s64 	%rd13, %rd31, %rd7, %rd11;
-	setp.lt.u64 	%p11, %rd13, %rd14;
-	@!%p11 bra 	$L__BB33_28;
+	mad.lo.s64 	%rd37, %rd54, %rd5, %rd12;
+	mad.lo.s64 	%rd38, %rd37, %rd4, %rd53;
+	mad.lo.s64 	%rd16, %rd38, %rd7, %rd11;
+	setp.lt.u64 	%p11, %rd16, %rd19;
+	@!%p11 bra 	$L__BB33_37;
 // %bb.21:
-	ld.param.b64 	%rd15, [unheads_param_3];
-	setp.lt.u64 	%p12, %rd3, %rd15;
-	@!%p12 bra 	$L__BB33_29;
+	ld.param.b32 	%r4, [unheads_param_9];
+	ld.param.b64 	%rd20, [unheads_param_3];
+	mad.lo.s64 	%rd35, %rd54, %rd4, %rd53;
+	cvt.u64.u32 	%rd13, %r4;
+	mul.lo.s64 	%rd14, %rd35, %rd13;
+	mad.lo.s64 	%rd36, %rd12, %rd6, %rd11;
+	add.s64 	%rd15, %rd36, %rd14;
+	setp.lt.u64 	%p12, %rd15, %rd20;
+	@!%p12 bra 	$L__BB33_38;
 // %bb.22:
-	shl.b64 	%rd32, %rd13, 1;
-	add.s64 	%rd33, %rd1, %rd32;
-	ld.global.b16 	%rs1, [%rd33];
-	shl.b64 	%rd34, %rd3, 1;
-	add.s64 	%rd35, %rd2, %rd34;
-	st.global.b16 	[%rd35], %rs1;
-$L__BB33_23:
+	shl.b64 	%rd39, %rd16, 1;
+	add.s64 	%rd40, %rd1, %rd39;
+	ld.global.b16 	%rs1, [%rd40];
+	shl.b64 	%rd41, %rd15, 1;
+	add.s64 	%rd42, %rd2, %rd41;
+	st.global.b16 	[%rd42], %rs1;
+	or.b64 	%rd43, %rd12, %rd11;
+	setp.eq.b64 	%p13, %rd43, 0;
+	setp.lt.u64 	%p14, %rd8, %rd13;
+	and.pred 	%p15, %p14, %p13;
+	@!%p15 bra 	$L__BB33_32;
+// %bb.23:
+	add.s64 	%rd17, %rd14, %rd8;
+	setp.ge.u64 	%p16, %rd17, %rd20;
+	@%p16 bra 	$L__BB33_39;
+// %bb.24:
+	shl.b64 	%rd44, %rd17, 1;
+	add.s64 	%rd18, %rd2, %rd44;
+	st.global.b16 	[%rd18], 16256;
+	add.s64 	%rd45, %rd17, 1;
+	setp.ge.u64 	%p17, %rd45, %rd20;
+	@%p17 bra 	$L__BB33_39;
+// %bb.25:
+	st.global.b16 	[%rd18+2], 16256;
+	add.s64 	%rd46, %rd17, 2;
+	setp.ge.u64 	%p18, %rd46, %rd20;
+	@%p18 bra 	$L__BB33_39;
+// %bb.26:
+	st.global.b16 	[%rd18+4], 0;
+	add.s64 	%rd47, %rd17, 3;
+	setp.ge.u64 	%p19, %rd47, %rd20;
+	@%p19 bra 	$L__BB33_39;
+// %bb.27:
+	st.global.b16 	[%rd18+6], 0;
+	add.s64 	%rd48, %rd17, 4;
+	setp.ge.u64 	%p20, %rd48, %rd20;
+	@%p20 bra 	$L__BB33_39;
+// %bb.28:
+	st.global.b16 	[%rd18+8], 0;
+	add.s64 	%rd49, %rd17, 5;
+	setp.ge.u64 	%p21, %rd49, %rd20;
+	@%p21 bra 	$L__BB33_39;
+// %bb.29:
+	st.global.b16 	[%rd18+10], 0;
+	add.s64 	%rd50, %rd17, 6;
+	setp.ge.u64 	%p22, %rd50, %rd20;
+	@%p22 bra 	$L__BB33_39;
+// %bb.30:
+	st.global.b16 	[%rd18+12], 0;
+	add.s64 	%rd51, %rd17, 7;
+	setp.ge.u64 	%p23, %rd51, %rd20;
+	@%p23 bra 	$L__BB33_39;
+// %bb.31:
+	st.global.b16 	[%rd18+14], 0;
+$L__BB33_32:
 	ret;
-$L__BB33_24:
-	{ // callseq 211, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 211
-$L__BB33_25:
+$L__BB33_39:
 	{ // callseq 210, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 210
-$L__BB33_26:
-	{ // callseq 209, 0
+$L__BB33_33:
+	{ // callseq 214, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 209
-$L__BB33_27:
-	{ // callseq 208, 0
+	} // callseq 214
+$L__BB33_34:
+	{ // callseq 213, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 213
+$L__BB33_35:
+	{ // callseq 212, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 212
+$L__BB33_36:
+	{ // callseq 211, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 211
+$L__BB33_37:
+	{ // callseq 208, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 208
-$L__BB33_28:
-	{ // callseq 206, 0
+$L__BB33_38:
+	{ // callseq 209, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 206
-$L__BB33_29:
-	{ // callseq 207, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 207
+	} // callseq 209
                                         // -- End function
 }
 .func _RNvNtCscc5udagl66P_4core9panicking5panic(
@@ -9083,12 +9219,12 @@ $L__BB33_29:
 
 
 // %bb.0:
-	{ // callseq 212, 0
+	{ // callseq 215, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 212
+	} // callseq 215
                                         // -- End function
 }
 .func _RNvNtCscc5udagl66P_4core9panicking9panic_fmt(
@@ -9118,12 +9254,12 @@ $L__BB33_29:
 
 
 // %bb.0:
-	{ // callseq 213, 0
+	{ // callseq 216, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 213
+	} // callseq 216
                                         // -- End function
 }
 .func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero(
@@ -9135,12 +9271,12 @@ $L__BB33_29:
 
 
 // %bb.0:
-	{ // callseq 214, 0
+	{ // callseq 217, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 214
+	} // callseq 217
                                         // -- End function
 }
 .func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero(
@@ -9152,11 +9288,11 @@ $L__BB33_29:
 
 
 // %bb.0:
-	{ // callseq 215, 0
+	{ // callseq 218, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 215
+	} // callseq 218
                                         // -- End function
 }

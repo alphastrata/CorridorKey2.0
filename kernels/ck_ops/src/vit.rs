@@ -1,4 +1,3 @@
-
 use crate::{gid, rn, sigmoid};
 use ptx::kernel;
 use ptx::num::f16::{cvt_f32_f16, cvt_rn_f16_f32};
@@ -92,7 +91,7 @@ pub fn heads(
 }
 
 #[kernel]
-pub fn unheads(o: &[u16], out: &mut [u16], b: u32, n: u32, heads: u32, d: u32, dp: u32) {
+pub fn unheads(o: &[u16], out: &mut [u16], b: u32, n: u32, heads: u32, d: u32, dp: u32, ld: u32) {
     let i = gid();
     let [b, n, heads, d, dp] = [b, n, heads, d, dp].map(|v| v as usize);
     if i >= b * n * heads * d {
@@ -104,7 +103,11 @@ pub fn unheads(o: &[u16], out: &mut [u16], b: u32, n: u32, heads: u32, d: u32, d
         i / (d * heads) % n,
         i / (d * heads * n),
     );
-    out.set(i, o[((bb * heads + h) * n + tok) * dp + j]);
+    let row = (bb * n + tok) * ld as usize;
+    out.set(row + h * d + j, o[((bb * heads + h) * n + tok) * dp + j]);
+    if h + j == 0 && ld as usize > heads * d {
+        crate::elem::tail(&mut out, row + heads * d);
+    }
 }
 
 #[kernel]
