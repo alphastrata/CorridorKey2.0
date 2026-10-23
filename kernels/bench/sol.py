@@ -15,9 +15,9 @@ from torch.utils.flop_counter import FlopCounterMode
 
 @dataclass
 class Peaks:
-    tensor: float  # 16-bit × 16-bit + f32 FLOP/s
-    fp32: float  # f32 FMA FLOP/s
-    dram: float  # B/s
+    tensor: float
+    fp32: float
+    dram: float
 
 
 def seconds(fn: Callable[[], object], reps: int = 10) -> float:

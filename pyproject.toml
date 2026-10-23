@@ -25,9 +25,6 @@ dev = ["pytest>=9.1.1", "ruff>=0.17.1"]
 package = false
 
 [tool.ruff.lint.per-file-ignores]
-# Bench drivers and the runtime CLI report progress/results via stdout by design.
-# kernel/bench scripts must extend sys.path before they can import the package and
-# their bench-local modules.
 "kernels/bench/*" = ["T201", "E402"]
 "corridorkey/runtime.py" = ["T201"]
 

@@ -5,7 +5,6 @@ bench/frames/
 justfile
 bench/results/
 
-# rust build sources and workspace config stay local; only the built ptx ships
 .cargo/
 Cargo.lock
 Cargo.toml
