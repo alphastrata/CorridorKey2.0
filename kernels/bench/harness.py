@@ -6,6 +6,7 @@ from __future__ import annotations
 import functools
 import math
 import types
+import weakref
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -22,6 +23,7 @@ from corridorkey.model import CorridorKeyV3
 from corridorkey.runtime import (
     InferenceConfig,
     _build_foundation_inputs,
+    bf16_storage,
     configure_low_vram_inference,
 )
 from corridorkey.video_io import preprocess_frame_dir_path, probe_frame_dir_meta
@@ -32,6 +34,9 @@ LOW_VRAM = (
     "inference_window_batch",
     "inference_strip_batch",
     "inference_query_chunk_tokens",
+)
+_FP32: weakref.WeakKeyDictionary[torch.nn.Module, list[tuple[torch.nn.Module, str, torch.Tensor]]] = (
+    weakref.WeakKeyDictionary()
 )
 Err = tuple[float, float]
 Feats = dict[str, torch.Tensor]
@@ -107,12 +112,35 @@ def load(d: Path, t: int) -> Clip:
     )
 
 
+def keep_fp32(model: torch.nn.Module) -> None:
+    """Host copies of the fp32 weights the runtime stores in bf16 (``model`` loaded with ``bf16_weights=False``), so
+    :func:`config` can give each run the weights it needs; installs the runtime's bf16 ones."""
+    _FP32[model] = [
+        (m, n, p.detach().cpu())
+        for m in model.modules()
+        if bf16_storage(m)
+        for n, p in m.named_parameters(recurse=False)
+    ]
+    weights(model, torch.bfloat16)
+
+
+def weights(model: torch.nn.Module, dtype: torch.dtype) -> None:
+    """Installs ``dtype`` weights, dropping ck's fused gate|up copies so they are rebuilt from them."""
+    stale = [(m, n, w) for m, n, w in _FP32.get(model, []) if getattr(m, n).dtype != dtype]
+    for m, n, w in stale:
+        setattr(m, n, torch.nn.Parameter(w.to(getattr(m, n).device, dtype), requires_grad=False))
+    if stale:
+        for m in model.modules():
+            m.__dict__.pop("_ck", None)
+
+
 @contextmanager
 def config(model: torch.nn.Module, name: str) -> Iterator[None]:
     """``ref``: fp32 (no TF32), chunked as ``--low_vram`` so it fits; else bf16 autocast: ``ours`` patched,
     ``oracle`` with our depthwise and MLP slots computed in strict f32. The weight-cast cache is off: the runtime
     opens autocast per stage call, so casts never outlive one."""
     ref = name == "ref"
+    weights(model, torch.float32 if name in ("ref", "oracle") else torch.bfloat16)
     ptx.enable(model, name == "ours")
     if ref:
         configure_low_vram_inference(model, InferenceConfig())
