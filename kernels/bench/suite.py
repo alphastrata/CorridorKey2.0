@@ -2,7 +2,7 @@
 end), peak memory, GPU time by kernel, our kernels against the ops they replace, and precision against fp32 /
 float64 references. Writes ``results/<gpu>.json``, then ``render.py`` builds the report from every GPU's JSON.
 
-uv run python kernels/bench/suite.py [--tiers 2160 1080 720] [--clips 4] [--frames 8] [--device cuda:0]
+uv run python kernels/bench/suite.py [--tiers 2160 1080 720] [--clips 4] [--frames 8] [--device cuda:0] [--frames-dir DIR]
 
 Each tier runs ``--clips`` clips of ``--frames`` consecutive frames (``prep.py``) through the runtime's own
 preprocessing, VFMs, stage 1 over the window and stage 2 per frame, without a hint. Timings, memory and the
@@ -174,6 +174,7 @@ def main() -> None:
     ap.add_argument("--clips", type=int, default=4)
     ap.add_argument("--frames", type=int, default=8)
     ap.add_argument("--device", default="cuda:0")
+    ap.add_argument("--frames-dir", type=Path, default=ROOT / "frames")
     a = ap.parse_args()
     torch.cuda.set_device(a.device)
     dev = torch.cuda.current_device()
@@ -188,7 +189,7 @@ def main() -> None:
     for tier in a.tiers:
         clips = [
             load(d, a.frames)
-            for d in sorted((ROOT / "frames").glob(f"*/{tier}p"))[: a.clips]
+            for d in sorted(a.frames_dir.glob(f"*/{tier}p"))[: a.clips]
         ]
         shapes[tier] = list(clips[0].x.shape[-2:])
 
@@ -226,7 +227,6 @@ def main() -> None:
         "clips": a.clips,
         "frames": a.frames,
         "shapes": shapes,
-
         "weights_gib": sum(
             t.numel() * t.element_size()
             for t in [*model.parameters(), *model.buffers()]
