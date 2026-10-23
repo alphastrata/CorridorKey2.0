@@ -17,7 +17,7 @@ ptx:
     done
 
 lint:
-    cd kernels && for sm in 75 120; do cargo clippy --release --workspace --features ck_arch/sm_$sm 2>&1 | rg -n "error(\[|:)|warning:" || true; done
+    cd kernels && for sm in 75 120; do RUSTFLAGS="-C target-cpu=sm_$sm" cargo clippy --release --workspace --features ck_arch/sm_$sm 2>&1 | rg -n "error(\[|:)|warning:" || true; done
     cd kernels && typos --locale en-gb .
 
 profile *args:
