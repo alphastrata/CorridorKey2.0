@@ -1,4 +1,3 @@
-#![cfg_attr(feature = "sm_120", feature(asm_experimental_arch))]
 #![no_std]
 
 #[cfg(feature = "sm_120")]

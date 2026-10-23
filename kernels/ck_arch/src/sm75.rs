@@ -1,5 +1,6 @@
 use ptx::mem::ld_global_nc_v4_u32;
 use ptx::mma::{FragA16x8F16, FragB8x8F16, FragC16x8F32, mma_m16n8k8_f16f16f32};
+use ptx::num::b16::cvt_rn_bf16x2_f32;
 use ptx::num::f16::cvt_rn_f16x2_f32;
 use ptx::sync::shared::shst_v4_u32;
 
@@ -17,11 +18,7 @@ pub fn mma16(a: [u32; 4], b: [u32; 2], c: [f32; 4]) -> [f32; 4] {
 #[inline]
 #[must_use]
 pub fn bf16x2(lo: f32, hi: f32) -> u32 {
-    let rn = |x: f32| {
-        let b = x.to_bits();
-        (b + 0x7fff + ((b >> 16) & 1)) >> 16
-    };
-    rn(lo) | (rn(hi) << 16)
+    cvt_rn_bf16x2_f32(lo, hi)
 }
 
 #[inline]
