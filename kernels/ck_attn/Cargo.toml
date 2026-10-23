@@ -5,7 +5,7 @@ version.workspace = true
 
 [package.metadata.ck]
 archs         = [75, 120]
-launch_bounds = [128, 1]
+launch_bounds = {75 = [256, 1], 120 = [128, 1]}
 
 [lib]
 crate-type = ["cdylib"]

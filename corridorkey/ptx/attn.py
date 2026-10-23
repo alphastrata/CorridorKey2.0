@@ -17,6 +17,7 @@ from . import arch, available, load
 HEADS = (64, 80, 96)
 BR, BC = 128, 64
 STAGES = {75: 1, 120: 2}
+THREADS = {75: 256, 120: 128}
 
 
 def attention(
@@ -45,7 +46,7 @@ def attention(
 
     name = f"attn{d}" + ("_masked" if rid is not None else "")
     load("ck_attn", dev).launch(
-        name, (-(-n // BR), b * h, 1), (256, 1, 1), args, shared
+        name, (-(-n // BR), b * h, 1), (THREADS[arch("ck_attn", dev)], 1, 1), args, shared
     )
     return out
 

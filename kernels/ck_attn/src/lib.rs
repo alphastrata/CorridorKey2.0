@@ -9,7 +9,7 @@ use ptx::prelude::*;
 use ptx::slice::{GpuSlice, GpuSliceMut};
 use ptx::sync::shared::{shared_window, shld_u32, shst_u32};
 use ptx::warp_ops::shfl_bfly_sync_b32;
-use tune::STAGES;
+use tune::{RB, STAGES};
 
 #[cfg_attr(feature = "sm_120", path = "tune/sm120.rs")]
 #[cfg_attr(not(feature = "sm_120"), path = "tune/sm75.rs")]
@@ -17,7 +17,6 @@ mod tune;
 
 const BR: usize = 128;
 const BC: usize = 64;
-const RB: usize = 2;
 const THREADS: usize = BR / (16 * RB) * 32;
 const KS: usize = 6;
 const DN: usize = 12;
@@ -143,9 +142,11 @@ fn step<const D: usize, const MASK: bool>(
             kf[D / 16 - 1] =
                 unsafe { ldmatrix_x2_b16_u32(at + ((D / 8 - 2) as u32 + (lane / 8) % 2) * 16) };
         }
-        ptx::unroll!(2, |rb| ptx::unroll!(6, |ks| if ks < D / 16 {
-            s[rb][j] = mma16(qa[rb][ks], kf[ks], s[rb][j]);
-        }));
+        ptx::unroll!(2, |rb| if rb < RB {
+            ptx::unroll!(6, |ks| if ks < D / 16 {
+                s[rb][j] = mma16(qa[rb][ks], kf[ks], s[rb][j]);
+            });
+        });
     });
     if (MASK && masked) || valid < BC {
         let quad = (lane % 4) as usize;
@@ -156,15 +157,17 @@ fn step<const D: usize, const MASK: bool>(
             } else {
                 0
             };
-            ptx::unroll!(2, |rb| ptx::unroll!(
-                2,
-                |r| if key >= valid || (MASK && masked && kr != qrid[rb][r]) {
-                    s[rb][j][2 * r + e] = f32::NEG_INFINITY;
-                }
-            ));
+            ptx::unroll!(2, |rb| if rb < RB {
+                ptx::unroll!(
+                    2,
+                    |r| if key >= valid || (MASK && masked && kr != qrid[rb][r]) {
+                        s[rb][j][2 * r + e] = f32::NEG_INFINITY;
+                    }
+                );
+            });
         }));
     }
-    ptx::unroll!(2, |rb| {
+    ptx::unroll!(2, |rb| if rb < RB {
         let corr = softmax(&mut acc.m[rb], &mut acc.l[rb], &mut s[rb], scale);
         ptx::unroll!(12, |dn| if dn < D / 8 {
             ptx::unroll!(4, |e| acc.o[rb][dn][e] *= corr[e / 2]);
@@ -186,7 +189,7 @@ fn step<const D: usize, const MASK: bool>(
             let v = unsafe {
                 ldmatrix_x4_trans_b16_u32(vbuf + key * row(D) + (2 * p as u32 + mi / 2) * 16)
             };
-            ptx::unroll!(2, |rb| {
+            ptx::unroll!(2, |rb| if rb < RB {
                 acc.o[rb][2 * p] = mma16(pa[rb], [v[0], v[1]], acc.o[rb][2 * p]);
                 acc.o[rb][2 * p + 1] = mma16(pa[rb], [v[2], v[3]], acc.o[rb][2 * p + 1]);
             });
@@ -254,10 +257,17 @@ fn attn<const D: usize, const MASK: bool>(
         operand(query[(base + rows[rb][r].min(s.n - 1) * D + d) / 2], qmul)
     };
     let mut qa = [[[0u32; 4]; KS]; RB];
-    ptx::unroll!(2, |rb| ptx::unroll!(6, |ks| if ks < D / 16 {
-        let d = 16 * ks + 2 * quad;
-        qa[rb][ks] = [qp(rb, 0, d), qp(rb, 1, d), qp(rb, 0, d + 8), qp(rb, 1, d + 8)];
-    }));
+    ptx::unroll!(2, |rb| if rb < RB {
+        ptx::unroll!(6, |ks| if ks < D / 16 {
+            let d = 16 * ks + 2 * quad;
+            qa[rb][ks] = [
+                qp(rb, 0, d),
+                qp(rb, 1, d),
+                qp(rb, 0, d + 8),
+                qp(rb, 1, d + 8),
+            ];
+        });
+    });
     let qrid: [[u32; 2]; RB] = core::array::from_fn(|rb| {
         core::array::from_fn(|r| {
             if MASK {
@@ -291,23 +301,37 @@ fn attn<const D: usize, const MASK: bool>(
         sync_threads();
         acc
     });
-    ptx::unroll!(2, |rb| ptx::unroll!(2, |r| {
-        let outside = MASK && (qrid[rb][r] as i32) < 0;
-        let inv = if outside {
-            0.0
-        } else {
-            1.0 / (quad_sum(acc.l[rb][r]) * vmul)
-        };
-        if rows[rb][r] < s.n {
-            let at = base / 2 + rows[rb][r] * (D / 2) + quad;
-            ptx::unroll!(12, |dn| if dn < D / 8 {
-                out.set(
-                    at + dn * 4,
-                    bf16x2(acc.o[rb][dn][2 * r] * inv, acc.o[rb][dn][2 * r + 1] * inv),
-                );
-            });
-        }
-    }));
+    write::<D, MASK>(&acc, &rows, &qrid, (base, quad, vmul), &mut out, s.n);
+}
+
+#[inline(always)]
+fn write<const D: usize, const MASK: bool>(
+    acc: &Acc,
+    rows: &[[usize; 2]; RB],
+    qrid: &[[u32; 2]; RB],
+    (base, quad, vmul): (usize, usize, f32),
+    out: &mut GpuSliceMut<u32>,
+    n: usize,
+) {
+    ptx::unroll!(2, |rb| if rb < RB {
+        ptx::unroll!(2, |r| {
+            let outside = MASK && (qrid[rb][r] as i32) < 0;
+            let inv = if outside {
+                0.0
+            } else {
+                1.0 / (quad_sum(acc.l[rb][r]) * vmul)
+            };
+            if rows[rb][r] < n {
+                let at = base / 2 + rows[rb][r] * (D / 2) + quad;
+                ptx::unroll!(12, |dn| if dn < D / 8 {
+                    out.set(
+                        at + dn * 4,
+                        bf16x2(acc.o[rb][dn][2 * r] * inv, acc.o[rb][dn][2 * r + 1] * inv),
+                    );
+                });
+            }
+        });
+    });
 }
 
 macro_rules! entry {
