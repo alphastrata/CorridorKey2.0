@@ -235,7 +235,7 @@ fn lead<'s, 'e>(
     let mut cfg = sh.cfg.clone();
     if cfg.auto {
         let free = free - cfg.encoder_gib((src.w, src.h));
-        let (chunk, stride, est) = vram::window(g, total, free);
+        let (chunk, stride, est) = vram::window(g, total, free, gpu.sm);
         println!("{name}: {free:.1} GiB free → window {chunk}, stride {stride} (estimated peak {est:.1} GiB)");
         if est > free {
             println!("warning: even one frame may not fit at this resolution");
