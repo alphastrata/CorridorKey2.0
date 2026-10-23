@@ -696,18 +696,17 @@ def _despill_average_srgb_torch(fg: torch.Tensor, strength: float = 0.5) -> torc
     return fg * (1.0 - strength) + full * strength
 
 
+def _to_uint16(x: torch.Tensor) -> torch.Tensor:
+    return (x.clamp(0.0, 1.0) * 65535.0).to(torch.uint16)
+
+
 def _srgb_to_bgr_uint16_cpu(x: torch.Tensor) -> np.ndarray:
-    x = x.clamp(0.0, 1.0)
-    x = x[:, [2, 1, 0]].permute(0, 2, 3, 1).contiguous().cpu().numpy()
-    return (x * 65535.0).astype(np.uint16)
+    return _to_uint16(x[:, [2, 1, 0]]).permute(0, 2, 3, 1).contiguous().cpu().numpy()
 
 
 def _srgb_to_bgra_uint16_cpu(rgb: torch.Tensor, alpha: torch.Tensor) -> np.ndarray:
-    rgb = rgb.clamp(0.0, 1.0)
-    alpha = alpha.clamp(0.0, 1.0)
-    bgra = torch.cat([rgb[:, [2, 1, 0]], alpha], dim=1)
-    bgra = bgra.permute(0, 2, 3, 1).contiguous().cpu().numpy()
-    return (bgra * 65535.0).astype(np.uint16)
+    bgra = _to_uint16(torch.cat([rgb[:, [2, 1, 0]], alpha], dim=1))
+    return bgra.permute(0, 2, 3, 1).contiguous().cpu().numpy()
 
 
 def _chw_to_bgr_f32_cpu(x: torch.Tensor) -> np.ndarray:
