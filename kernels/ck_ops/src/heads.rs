@@ -76,7 +76,7 @@ fn quad(x: GpuSlice<f32>, at: usize) -> [f32; 4] {
     [q.0, q.1, q.2, q.3]
 }
 
-fn store(dst: &mut GpuSliceMut<u16>, at: usize, v: [f32; 8]) {
+pub(crate) fn store(dst: &mut GpuSliceMut<u16>, at: usize, v: [f32; 8]) {
     let w: [u32; 4] =
         core::array::from_fn(|j| u32::from(rn(v[2 * j])) | u32::from(rn(v[2 * j + 1])) << 16);
     unsafe { st_global_v4_u32(dst.addr_at(at), w[0], w[1], w[2], w[3]) };

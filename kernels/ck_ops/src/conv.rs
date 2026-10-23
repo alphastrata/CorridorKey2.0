@@ -1,5 +1,52 @@
 use crate::{gid, rn};
 use ptx::kernel;
+use ptx::slice::GpuSlice;
+
+#[derive(Clone, Copy)]
+struct Geo {
+    c: usize,
+    h: usize,
+    w: usize,
+    k: usize,
+    s: usize,
+    p: usize,
+    oh: usize,
+    ow: usize,
+    nhwc: bool,
+}
+
+impl Geo {
+    fn locate(&self, i: usize) -> [usize; 4] {
+        let g = *self;
+        let width = g.c * g.k * g.k;
+        let (row, col) = (i / width, i % width);
+        let (ch, ky, kx) = if g.nhwc {
+            (col % g.c, col / (g.k * g.c), col / g.c % g.k)
+        } else {
+            (col / (g.k * g.k), col / g.k % g.k, col % g.k)
+        };
+        let (b, oy, ox) = (row / (g.oh * g.ow), row / g.ow % g.oh, row % g.ow);
+        [
+            b,
+            ch,
+            (oy * g.s + ky).wrapping_sub(g.p),
+            (ox * g.s + kx).wrapping_sub(g.p),
+        ]
+    }
+
+    fn read(&self, x: GpuSlice<f32>, [b, ch, iy, ix]: [usize; 4]) -> f32 {
+        let g = *self;
+        if iy < g.h && ix < g.w {
+            x[if g.nhwc {
+                ((b * g.h + iy) * g.w + ix) * g.c + ch
+            } else {
+                ((b * g.c + ch) * g.h + iy) * g.w + ix
+            }]
+        } else {
+            0.0
+        }
+    }
+}
 
 #[kernel]
 pub fn im2col(
@@ -16,31 +63,36 @@ pub fn im2col(
     ow: u32,
     nhwc: u32,
 ) {
-    let i = gid();
     let [n, c, h, w, k, s, p, oh, ow] = [n, c, h, w, k, s, p, oh, ow].map(|v| v as usize);
-    let width = c * k * k;
-    if i >= n * oh * ow * width {
+    let g = Geo {
+        c,
+        h,
+        w,
+        k,
+        s,
+        p,
+        oh,
+        ow,
+        nhwc: nhwc != 0,
+    };
+    let (i, total) = (gid() * 8, n * oh * ow * c * k * k);
+    if i >= total {
         return;
     }
-    let (row, col) = (i / width, i % width);
-    let (ch, ky, kx) = (col / (k * k), col / k % k, col % k);
-    let (b, oy, ox) = (row / (oh * ow), row / ow % oh, row % ow);
-    let (iy, ix) = (
-        (oy * s + ky) as isize - p as isize,
-        (ox * s + kx) as isize - p as isize,
-    );
-    let inside = iy >= 0 && ix >= 0 && (iy as usize) < h && (ix as usize) < w;
-    let v = if inside {
-        let (iy, ix) = (iy as usize, ix as usize);
-        x[if nhwc == 0 {
-            ((b * c + ch) * h + iy) * w + ix
-        } else {
-            ((b * h + iy) * w + ix) * c + ch
-        }]
+    if (if g.nhwc { c } else { k }) % 8 == 0 {
+        let [b, ch, iy, ix] = g.locate(i);
+        let tap = |e: usize| {
+            let at = if g.nhwc {
+                [b, ch + e, iy, ix]
+            } else {
+                [b, ch, iy, ix.wrapping_add(e)]
+            };
+            g.read(x, at)
+        };
+        crate::heads::store(&mut cols, i, core::array::from_fn(tap));
     } else {
-        0.0
-    };
-    cols.set(i, rn(v));
+        (i..(i + 8).min(total)).for_each(|j| cols.set(j, rn(g.read(x, g.locate(j)))));
+    }
 }
 
 #[kernel]
