@@ -12,8 +12,11 @@ import torch
 
 from corridorkey import blocks
 from corridorkey.blocks import (
+    CSwinBlock2D,
+    CSwinBlock3D,
     FullResolutionRecurrentMemorySite,
     FullSpatialBlock2D,
+    FullSpatialBlock3D,
     FullSpatioTemporalBlock,
     SwinBlock2D,
     SwinBlock3D,
@@ -36,7 +39,7 @@ def _ok(block: torch.nn.Module, x: torch.Tensor) -> bool:
 
 
 def _attend(
-    block: SwinBlock3D | SwinBlock2D | FullSpatioTemporalBlock | FullSpatialBlock2D,
+    block: Block,
     x: torch.Tensor,
     window: tuple[int, int],
     run: Callable[[torch.Tensor, tuple | None], torch.Tensor],
@@ -56,6 +59,29 @@ def _attend(
 
     back = a.roll(shift[2:], (-3, -2))[..., :h, :w, :] if shift else a
     return x + back
+
+
+Block = (
+    SwinBlock3D
+    | SwinBlock2D
+    | FullSpatioTemporalBlock
+    | FullSpatialBlock2D
+    | FullSpatialBlock3D
+    | CSwinBlock2D
+    | CSwinBlock3D
+)
+
+
+def _mlp(block: Block, x: torch.Tensor) -> torch.Tensor:
+    """``x + mlp(norm2(x))``, the add in one vectorised pass when the MLP rounds to bf16."""
+    y = block.mlp(block.norm2(x))
+    return unshift_add(x, y) if y.dtype == BF16 else x + y
+
+
+def _mix(block: Block, x: torch.Tensor) -> torch.Tensor:
+    if block.local_mix is None:
+        return x
+    return mix_add(block.local_mix, x.flatten(0, x.dim() - 4)).view(x.shape)
 
 
 def _forward3d(
@@ -83,9 +109,7 @@ def _forward3d(
         ),
     )
 
-    if self.local_mix is not None:
-        x = mix_add(self.local_mix, x.flatten(0, 1)).view(x.shape)
-    return x + self.mlp(self.norm2(x))
+    return _mlp(self, _mix(self, x))
 
 
 def _forward2d(self: SwinBlock2D, x: torch.Tensor) -> torch.Tensor:
@@ -103,9 +127,7 @@ def _forward2d(self: SwinBlock2D, x: torch.Tensor) -> torch.Tensor:
         ),
     )
 
-    if self.local_mix is not None:
-        x = mix_add(self.local_mix, x)
-    return x + self.mlp(self.norm2(x))
+    return _mlp(self, _mix(self, x))
 
 
 def _full3d(
@@ -122,9 +144,7 @@ def _full3d(
 
     x = _attend(self, x, (1, 1), lambda y, _: self.attn(y, t_stride=t_stride), _none)
 
-    if self.local_mix is not None:
-        x = mix_add(self.local_mix, x.flatten(0, 1)).view(x.shape)
-    return x + self.mlp(self.norm2(x))
+    return _mlp(self, _mix(self, x))
 
 
 def _full2d(self: FullSpatialBlock2D, x: torch.Tensor) -> torch.Tensor:
@@ -133,9 +153,35 @@ def _full2d(self: FullSpatialBlock2D, x: torch.Tensor) -> torch.Tensor:
 
     x = _attend(self, x, (1, 1), lambda y, _: self.attn(y[:, None]).squeeze(1), _none)
 
-    if self.local_mix is not None:
-        x = mix_add(self.local_mix, x)
-    return x + self.mlp(self.norm2(x))
+    return _mlp(self, _mix(self, x))
+
+
+def _cswin2d(self: CSwinBlock2D, x: torch.Tensor) -> torch.Tensor:
+    if not _ok(self, x):
+        return CSwinBlock2D.forward(self, x)
+    x = _attend(self, x, (1, 1), lambda y, _: self.attn(y), _none)
+    return _mlp(self, _mix(self, x))
+
+
+def _cswin3d(
+    self: CSwinBlock3D, x: torch.Tensor, t_stride: float = 1.0
+) -> torch.Tensor:
+    if not _ok(self, x):
+        return CSwinBlock3D.forward(self, x, t_stride)
+    x = _attend(self, x, (1, 1), lambda y, _: self.attn(y, t_stride=t_stride), _none)
+    return _mlp(self, _mix(self, x))
+
+
+def _spatial3d(
+    self: FullSpatialBlock3D,
+    x: torch.Tensor,
+    t_stride: float = 1.0,
+    adaln_cond: torch.Tensor | None = None,
+) -> torch.Tensor:
+    if not _ok(self, x):
+        return FullSpatialBlock3D.forward(self, x, t_stride, adaln_cond)
+    x = _attend(self, x, (1, 1), lambda y, _: self.attn(y), _none)
+    return _mlp(self, _mix(self, x))
 
 
 def _none(*_: int) -> tuple:
@@ -147,6 +193,9 @@ FORWARDS: dict[type, Callable] = {
     SwinBlock2D: _forward2d,
     FullSpatioTemporalBlock: _full3d,
     FullSpatialBlock2D: _full2d,
+    CSwinBlock2D: _cswin2d,
+    CSwinBlock3D: _cswin3d,
+    FullSpatialBlock3D: _spatial3d,
 }
 
 
