@@ -7,12 +7,11 @@ import types
 from collections.abc import Callable
 
 import torch
-import torch.nn.functional as F
 
 from corridorkey import blocks
 from corridorkey.blocks import SwinAttention2D, SwinAttention3D
 
-from . import Arg, available, load
+from . import Arg, available, half, load
 from .glue import BF16, HEADS, NORM, ROPE, _bf16, blocks_for
 
 Attn = SwinAttention2D | SwinAttention3D
@@ -120,7 +119,7 @@ def attend(
         a = blocks._sdpa_with_region_groups(q, k, v, *region_groups)
     else:
         a = blocks.F.scaled_dot_product_attention(q, k, v)
-    logits = F.linear(x, m.attn_gate.proj.weight).view(*grid, -1)
+    logits = half.linear(x, m.attn_gate.proj.weight).view(*grid, -1)
     return m.proj(scatter(a.to(BF16), logits, grid, window).view(x.shape))
 
 
