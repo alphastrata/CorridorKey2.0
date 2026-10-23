@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import types
+from collections.abc import Callable
 
 import torch
 
@@ -86,7 +86,20 @@ def swiglu(m: DepthwiseSwiGLU2D, x: torch.Tensor, add: bool = False) -> torch.Te
 
     out = torch.empty_like(x)
 
-    args: list[Arg] = [x, r, wn, taps, bias, gamma, out, h, w, c, _reflect(h, w), int(add)]
+    args: list[Arg] = [
+        x,
+        r,
+        wn,
+        taps,
+        bias,
+        gamma,
+        out,
+        h,
+        w,
+        c,
+        _reflect(h, w),
+        int(add),
+    ]
     mod.launch(f"mix_{sfx}", _grid(n, h, w, c), (256, 1, 1), args, _shared(2))
     return out
 

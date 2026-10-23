@@ -1,5 +1,0 @@
-[build]
-target = "nvptx64-nvidia-cuda"
-
-[unstable]
-build-std = ["core"]

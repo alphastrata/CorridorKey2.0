@@ -2,7 +2,7 @@
 # usage: download_sample_clips.sh [frames=50] : the 4K green-screen clip (CC0), plus 720p/1080p/2160p frame sets of it
 set -euo pipefail
 R=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
-OUT=$R/kernels/bench/footage
+OUT=$R/bench/footage
 FRAMES=${1:-50}
 FILE=$OUT/commons_4k_video_of_a_Chicken_fillet_roll___green_screen.webm
 URL=https://upload.wikimedia.org/wikipedia/commons/8/8e/4k_video_of_a_Chicken_fillet_roll_-_green_screen_alan_butler_VP9.webm

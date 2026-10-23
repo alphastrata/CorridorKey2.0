@@ -1,4 +1,4 @@
-"""Load compiled PTX (kernels/) through the CUDA driver API and launch on torch's current stream."""
+"""Load the committed PTX (bin/) through the CUDA driver API and launch on torch's current stream."""
 
 from __future__ import annotations
 

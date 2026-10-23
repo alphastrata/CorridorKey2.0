@@ -14,7 +14,7 @@ import torch
 from torch.utils._python_dispatch import TorchDispatchMode
 
 REPO = Path(__file__).parents[2]
-sys.path[:0] = [str(REPO), str(REPO / "kernels/bench")]
+sys.path[:0] = [str(REPO), str(REPO / "bench")]
 
 from harness import config, frame2, stage1, vfm
 

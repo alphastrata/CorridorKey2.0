@@ -2,7 +2,7 @@
 end), peak memory, GPU time by kernel, our kernels against the ops they replace, and precision against fp32 /
 float64 references. Writes ``results/<gpu>.json``, then ``render.py`` builds the report from every GPU's JSON.
 
-uv run python kernels/bench/suite.py [--tiers 2160 1080 720] [--clips 4] [--frames 8] [--device cuda:0] [--frames-dir DIR]
+uv run python bench/suite.py [--tiers 2160 1080 720] [--clips 4] [--frames 8] [--device cuda:0] [--frames-dir DIR]
 
 Each tier runs ``--clips`` clips of ``--frames`` consecutive frames (``prep.py``) through the runtime's own
 preprocessing, VFMs, stage 1 over the window and stage 2 per frame, without a hint. Timings, memory and the
@@ -23,7 +23,7 @@ from pathlib import Path
 import torch
 
 ROOT = Path(__file__).parent
-REPO = ROOT.parents[1]
+REPO = ROOT.parent
 sys.path.insert(0, str(REPO))
 
 import breakdown
