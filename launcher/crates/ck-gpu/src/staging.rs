@@ -1,4 +1,3 @@
-
 use cudarc::driver::result::{memcpy_dtoh_async, memcpy_htod_async};
 use cudarc::driver::{CudaEvent, PinnedHostSlice};
 use eyre::{Result, ensure};
@@ -20,7 +19,9 @@ fn pieces(lens: impl Iterator<Item = usize>) -> impl Iterator<Item = (usize, usi
 impl Gpu {
     fn slot<'a>(&self, staging: &'a mut Staging, i: usize) -> Result<&'a mut (PinnedHostSlice<u8>, Option<CudaEvent>)> {
         while staging.0.len() < 2 {
-            staging.0.push((unsafe { self.ctx.alloc_pinned_with_flags::<u8>(PIECE, 0) }?, None));
+            staging
+                .0
+                .push((unsafe { self.ctx.alloc_pinned_with_flags::<u8>(PIECE, 0) }?, None));
         }
         let slot = &mut staging.0[i % 2];
         if let Some(e) = slot.1.take() {
@@ -31,10 +32,16 @@ impl Gpu {
 
     pub fn upload_parts(&self, parts: &[&[u8]], shape: &[usize], dtype: Dtype) -> Result<Tensor> {
         let len: usize = parts.iter().map(|p| p.len()).sum();
-        ensure!(len == shape.iter().product::<usize>() * dtype.size(), "upload size {shape:?}");
+        ensure!(
+            len == shape.iter().product::<usize>() * dtype.size(),
+            "upload size {shape:?}"
+        );
         let out = self.empty(shape, dtype)?;
         let mut staging = self.staging.borrow_mut();
-        let starts: Vec<usize> = parts.iter().scan(0, |at, p| Some(std::mem::replace(at, *at + p.len()))).collect();
+        let starts: Vec<usize> = parts
+            .iter()
+            .scan(0, |at, p| Some(std::mem::replace(at, *at + p.len())))
+            .collect();
         pieces(parts.iter().map(|p| p.len()))
             .enumerate()
             .try_for_each(|(i, (p, o, n))| -> Result<()> {

@@ -84,7 +84,10 @@ fn conv<const F: usize>(
     let tid = thread_idx_x() as usize;
     if F == 1 {
         (tid..TAPS * CG).step_by(THREADS).for_each(|i| unsafe {
-            shst_f32(taps + 4 * i as u32, ld(&weights, i / CG * dims.c + c0 + i % CG));
+            shst_f32(
+                taps + 4 * i as u32,
+                ld(&weights, i / CG * dims.c + c0 + i % CG),
+            );
         });
     }
     let (c, line) = (tid % CG, tid / CG);

@@ -1,4 +1,3 @@
-
 use core::arch::asm;
 use ptx::mma::{FragA16x16Bf16, FragB16x8Bf16, FragC16x8F32, mma_m16n8k16_bf16bf16f32};
 use ptx::pipe::{cp_async_cg, cp_async_commit_group, cp_async_wait_group};
