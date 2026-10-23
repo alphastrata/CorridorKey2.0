@@ -96,8 +96,16 @@ impl Writer {
                 tags(&mut cmd, linear);
             }
             Format::Video { enc, linear } => {
-                cmd.args(["-c:v", &enc.codec, "-preset", &enc.preset, "-pix_fmt", &enc.pix_fmt])
-                    .args(["-crf", &enc.crf.to_string(), "-threads", &enc.threads.to_string()]);
+                let pix = match (enc.codec.as_str(), enc.pix_fmt.as_str()) {
+                    ("hevc_nvenc", "yuv444p10le") => "yuv444p16le",
+                    (_, p) => p,
+                };
+                cmd.args(["-c:v", &enc.codec, "-preset", &enc.preset, "-pix_fmt", pix]);
+                if enc.codec.ends_with("_nvenc") {
+                    cmd.args(["-rc", "vbr", "-cq", &enc.crf.to_string()]);
+                } else {
+                    cmd.args(["-crf", &enc.crf.to_string(), "-threads", &enc.threads.to_string()]);
+                }
                 tags(&mut cmd, linear);
             }
         }
