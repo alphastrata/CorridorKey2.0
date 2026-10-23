@@ -1,6 +1,7 @@
 
 use crate::{bf, gelu, gelu_tanh, gid, rn, silu};
 use ptx::kernel;
+use ptx::mem::{ld_global_nc_v4_f32, st_global_v4_f32};
 use ptx::num::f16::cvt_rn_f16_f32;
 use ptx::prelude::*;
 use ptx::warp_ops::shfl_bfly_sync_b32;
@@ -80,6 +81,18 @@ pub fn add_scaled(x: &mut [f32], y: &[f32], scale: &[f32], n: u32, c: u32) {
         let v = x[i] + scale[i % c as usize] * y[i];
         x.set(i, v);
     }
+}
+
+#[kernel]
+pub fn add_bias(y: &mut [f32], b: &[f32], rows: u32, n: u32, ld: u32, off: u32) {
+    let (i, quads) = (gid(), n as usize / 4);
+    if i >= rows as usize * quads {
+        return;
+    }
+    let (r, j) = (i / quads, 4 * (i % quads));
+    let at = r * ld as usize + off as usize + j;
+    let (v, w) = unsafe { (ld_global_nc_v4_f32(y.addr_at(at)), ld_global_nc_v4_f32(b.addr_at(j))) };
+    unsafe { st_global_v4_f32(y.addr_at(at), v.0 + w.0, v.1 + w.1, v.2 + w.2, v.3 + w.3) };
 }
 
 #[kernel]

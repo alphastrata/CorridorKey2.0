@@ -199,6 +199,8 @@ impl Gpu {
             bias.is_none_or(|b| b.dtype == Dtype::F32 && b.numel() == out),
             "bias must be f32 [{out}]"
         );
+        let split = accumulate && y.dtype == Dtype::F32 && [out, ld, off].iter().all(|v| v % 4 == 0);
+        let fused = bias.filter(|_| !split);
         let gemm = Gemm {
             rows,
             n: out,
@@ -207,12 +209,19 @@ impl Gpu {
             x: x.dtype,
             w: w.dtype,
             y: y.dtype,
-            epilogue: if bias.is_some() { Epilogue::Bias } else { Epilogue::None },
+            epilogue: if fused.is_some() { Epilogue::Bias } else { Epilogue::None },
             accumulate,
         };
         let at = y.ptr() + (off * y.dtype.size()) as u64;
-        let bias = bias.map(|b| self.bias(b, y.dtype)).transpose()?;
-        self.lt.run(gemm, x.ptr(), w.ptr(), bias, at)
+        let ptr = fused.map(|b| self.bias(b, y.dtype)).transpose()?;
+        self.lt.run(gemm, x.ptr(), w.ptr(), ptr, at)?;
+        match bias.filter(|_| split) {
+            Some(b) => {
+                let args = [y.into(), b.into(), rows.into(), out.into(), ld.into(), off.into()];
+                self.launch("ck_ops", "add_bias", ((rows * out / 4).div_ceil(256) as u32, 1, 1), 256, 0, &args)
+            }
+            None => Ok(()),
+        }
     }
 
     fn linear_f16(
