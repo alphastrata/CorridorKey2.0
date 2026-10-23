@@ -1,9 +1,8 @@
-
 use crate::{f32x8, high, low, pack};
-use ptx::slice::{GpuSlice, GpuSliceMut};
 use ptx::kernel;
 use ptx::mem::{ld_global_nc_v4_u32, st_global_v4_f32, st_global_v4_u32};
 use ptx::prelude::*;
+use ptx::slice::{GpuSlice, GpuSliceMut};
 use ptx::warp_ops::shfl_bfly_sync_b32;
 
 #[derive(Clone, Copy)]
@@ -149,10 +148,21 @@ fn modulate(
     let row = p / per as usize * ld as usize;
     octets().for_each(|i| {
         let (vals, gain) = (load(p * c + i), f32x8(weight, i));
-        let (sh, sc) = (f32x8(mods, row + shift as usize + i), f32x8(mods, row + scale as usize + i));
+        let (sh, sc) = (
+            f32x8(mods, row + shift as usize + i),
+            f32x8(mods, row + scale as usize + i),
+        );
         let apply = |k: usize| (vals[k] * inv * gain[k]).fma_rn(1.0 + sc[k], sh[k]);
         let words: [u32; 4] = core::array::from_fn(|k| pack(apply(2 * k), apply(2 * k + 1)));
-        unsafe { st_global_v4_u32(out.addr_at(p * c / 2 + i / 2), words[0], words[1], words[2], words[3]) };
+        unsafe {
+            st_global_v4_u32(
+                out.addr_at(p * c / 2 + i / 2),
+                words[0],
+                words[1],
+                words[2],
+                words[3],
+            )
+        };
     });
 }
 
@@ -171,7 +181,14 @@ pub fn norm_mod_bf16(
     scale: u32,
 ) {
     let geo = (pixels, c, eps);
-    modulate(|i| f32x8(x, i), weight, mods, &mut out, geo, (per, ld, shift, scale));
+    modulate(
+        |i| f32x8(x, i),
+        weight,
+        mods,
+        &mut out,
+        geo,
+        (per, ld, shift, scale),
+    );
 }
 
 #[kernel]
@@ -189,7 +206,14 @@ pub fn norm_mod_bf16_bf16(
     scale: u32,
 ) {
     let geo = (pixels, c, eps);
-    modulate(|i| bf8(x, i), weight, mods, &mut out, geo, (per, ld, shift, scale));
+    modulate(
+        |i| bf8(x, i),
+        weight,
+        mods,
+        &mut out,
+        geo,
+        (per, ld, shift, scale),
+    );
 }
 
 fn gated(
@@ -204,9 +228,18 @@ fn gated(
         return None;
     }
     let (p, at) = (i / octets, i * 8);
-    let (base, gate) = (load(at), f32x8(mods, p / per as usize * ld as usize + off as usize + at % c as usize));
+    let (base, gate) = (
+        load(at),
+        f32x8(
+            mods,
+            p / per as usize * ld as usize + off as usize + at % c as usize,
+        ),
+    );
     let add = bf8(branch, at);
-    Some((at, core::array::from_fn(|k| add[k].fma_rn(gate[k], base[k]))))
+    Some((
+        at,
+        core::array::from_fn(|k| add[k].fma_rn(gate[k], base[k])),
+    ))
 }
 
 #[kernel]

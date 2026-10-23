@@ -1,4 +1,3 @@
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -209,7 +208,11 @@ impl Gpu {
             x: x.dtype,
             w: w.dtype,
             y: y.dtype,
-            epilogue: if fused.is_some() { Epilogue::Bias } else { Epilogue::None },
+            epilogue: if fused.is_some() {
+                Epilogue::Bias
+            } else {
+                Epilogue::None
+            },
             accumulate,
         };
         let at = y.ptr() + (off * y.dtype.size()) as u64;
@@ -218,7 +221,14 @@ impl Gpu {
         match bias.filter(|_| split) {
             Some(b) => {
                 let args = [y.into(), b.into(), rows.into(), out.into(), ld.into(), off.into()];
-                self.launch("ck_ops", "add_bias", ((rows * out / 4).div_ceil(256) as u32, 1, 1), 256, 0, &args)
+                self.launch(
+                    "ck_ops",
+                    "add_bias",
+                    ((rows * out / 4).div_ceil(256) as u32, 1, 1),
+                    256,
+                    0,
+                    &args,
+                )
             }
             None => Ok(()),
         }

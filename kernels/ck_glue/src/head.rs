@@ -78,7 +78,8 @@ pub(crate) fn emit<const D: usize>(
         }
         let i = 8 * l.part;
         let (lo, hi) = (quad(p.weight, i), quad(p.weight, i + 4));
-        ptx::unroll!(8, |j| vals[j] *= inv * if j < 4 { lo[j] } else { hi[j - 4] });
+        ptx::unroll!(8, |j| vals[j] *=
+            inv * if j < 4 { lo[j] } else { hi[j - 4] });
     }
     if !live {
         return;
@@ -124,7 +125,16 @@ macro_rules! entry {
                 eps,
                 mode,
             };
-            emit::<$d>(x, from, &p, row % n as usize, &l, &mut out, row * $d / 2, live);
+            emit::<$d>(
+                x,
+                from,
+                &p,
+                row % n as usize,
+                &l,
+                &mut out,
+                row * $d / 2,
+                live,
+            );
         }
     };
 }

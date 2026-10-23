@@ -1,4 +1,3 @@
-
 use ptx::mem::ld_global_nc_v4_u32;
 use ptx::mma::{FragA16x8F16, FragB8x8F16, FragC16x8F32, mma_m16n8k8_f16f16f32};
 use ptx::num::f16::cvt_rn_f16x2_f32;
