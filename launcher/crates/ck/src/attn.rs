@@ -77,10 +77,39 @@ type Key = (usize, usize, usize, usize, bool);
 type MaskKey = (Layout, usize, usize, usize, usize);
 type Pair = Rc<(Tensor, Tensor)>;
 
+pub struct Mask {
+    rid: Tensor,
+    spans: Tensor,
+    order: Tensor,
+}
+
+fn sorted(rid: &[i32], n: usize) -> (Vec<i32>, Vec<u32>) {
+    let perms: Vec<Vec<usize>> = rid
+        .chunks(n)
+        .map(|row| {
+            let mut idx: Vec<usize> = (0..n).collect();
+            idx.sort_by_key(|&j| (row[j] < 0, row[j]));
+            idx
+        })
+        .collect();
+    let rid = perms
+        .iter()
+        .zip(rid.chunks(n))
+        .flat_map(|(p, row)| p.iter().map(|&j| row[j]))
+        .collect();
+    let forward = perms.iter().flatten().map(|&j| j as u32);
+    let inverse = perms.iter().flat_map(|p| {
+        let mut inv = vec![0u32; n];
+        p.iter().enumerate().for_each(|(at, &j)| inv[j] = at as u32);
+        inv
+    });
+    (rid, forward.chain(inverse).collect())
+}
+
 #[derive(Default)]
 pub struct Cache {
     tables: RefCell<HashMap<Key, Pair>>,
-    masks: RefCell<HashMap<MaskKey, Option<Pair>>>,
+    masks: RefCell<HashMap<MaskKey, Option<Rc<Mask>>>>,
     ones: RefCell<Option<Tensor>>,
     zeros: RefCell<Option<Tensor>>,
 }
@@ -113,7 +142,7 @@ impl Cache {
         l: Layout,
         shift: (usize, usize),
         real: (usize, usize),
-    ) -> Result<Option<Rc<(Tensor, Tensor)>>> {
+    ) -> Result<Option<Rc<Mask>>> {
         let key = (l, shift.0, shift.1, real.0, real.1);
         if let Some(hit) = self.masks.borrow().get(&key) {
             return Ok(hit.clone());
@@ -121,9 +150,14 @@ impl Cache {
         let made = regions(l, shift, real)
             .map(|rid| -> Result<_> {
                 let n = l.tokens();
+                let (rid, order) = sorted(&rid, n);
                 let sp = spans(&rid, n);
-                let up = |v: &[i32], shape: &[usize]| gpu.upload(bytemuck::cast_slice(v), shape, Dtype::I32);
-                Ok(Rc::new((up(&rid, &[rid.len() / n, n])?, up(&sp, &[sp.len()])?)))
+                let up = |v: &[u8], shape: &[usize]| gpu.upload(v, shape, Dtype::I32);
+                Ok(Rc::new(Mask {
+                    rid: up(bytemuck::cast_slice(&rid), &[rid.len() / n, n])?,
+                    spans: up(bytemuck::cast_slice(&sp), &[sp.len()])?,
+                    order: up(bytemuck::cast_slice(&order), &[order.len()])?,
+                }))
             })
             .transpose()?;
         self.masks.borrow_mut().insert(key, made.clone());
@@ -178,9 +212,12 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
     let [q, k, v, o] = [(); 4].map(|()| gpu.empty(&shape, Dtype::Bf16));
     let [q, k, v, o] = [q?, k?, v?, o?];
     let rope = cache.tables(gpu, d, g.rope, g.spatial)?;
+    let mask = cache.mask(gpu, l, g.shift, g.real)?;
+    let zeros = constant(gpu, &cache.zeros, &[0.0, 0.0])?;
+    let order = mask.as_ref().map_or(&zeros, |m| &m.order);
     let geo = [l.t, l.gh, l.gw, l.ph, l.pw, l.wh, l.ww, qk.heads, d, g.head0, g.heads].map(Arg::from);
     let split = [
-        [qkv, qk.q_norm, qk.k_norm, &rope.0, &rope.1, &q, &k, &v]
+        [qkv, qk.q_norm, qk.k_norm, &rope.0, &rope.1, &q, &k, &v, order]
             .map(Arg::from)
             .as_slice(),
         &[windows.into()],
@@ -197,12 +234,10 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
         &split,
     )?;
 
-    let mask = cache.mask(gpu, l, g.shift, g.real)?;
-    let zeros = constant(gpu, &cache.zeros, &[0.0, 0.0])?;
     let ones = constant(gpu, &cache.ones, &[1.0, 1.0, 1.0])?;
     let pairs = |t: &Tensor| Arg::Buf(t.ptr(), t.numel() / 2);
     let (rid, sp, rows) = mask.as_ref().map_or((Arg::from(&zeros), Arg::from(&zeros), 0), |m| {
-        (Arg::from(&m.0), Arg::from(&m.1), m.0.shape[0])
+        (Arg::from(&m.rid), Arg::from(&m.spans), m.rid.shape[0])
     });
     let stages = if gpu.sm >= 80 { 2 } else { 1 };
     let shared = stages * (2 * 64 * (d + 8) * 2 + 4 * 64);
@@ -231,7 +266,7 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
     )?;
 
     let tokens = l.b * l.t * l.gh * l.gw;
-    let merge = [[&o, gate, out].map(Arg::from).as_slice(), &[tokens.into()], &geo].concat();
+    let merge = [[&o, gate, out, order].map(Arg::from).as_slice(), &[tokens.into()], &geo].concat();
     gpu.launch(
         "ck_ops",
         "merge",

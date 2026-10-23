@@ -70,6 +70,11 @@ def _pad_rid(
     return rid.int().to(device)
 
 
+@functools.cache
+def _none(device: torch.device) -> torch.Tensor:
+    return torch.zeros(2, dtype=torch.int32, device=device)
+
+
 def _geo(grid: Grid, g: Group, m: Attn) -> list[Arg]:
     _, t, h, w = grid
     geo: list[Arg] = [
@@ -106,6 +111,7 @@ def _split(
         q,
         k,
         v,
+        one,
         windows,
         *_geo(grid, g, m),
         float(m.q_norm.eps) if norm else 0.0,
@@ -139,7 +145,7 @@ def attend(m: Attn, x: torch.Tensor, grid: Grid, groups: list[Group]) -> torch.T
     for g in groups:
         q, k, v = _split(m, y, grid, g)
         a = _attend(q, k, v, grid, g).to(BF16).contiguous()
-        args: list[Arg] = [a, gate, out, tokens, *_geo(grid, g, m)]
+        args: list[Arg] = [a, gate, out, _none(x.device), tokens, *_geo(grid, g, m)]
         n = -(-tokens * g.heads * m.head_dim // 8 // 256)
         load("ck_ops", x.device.index).launch("merge", (n, 1, 1), (256, 1, 1), args)
     return m.proj(out)

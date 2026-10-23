@@ -34,6 +34,19 @@ impl Windows {
         (y < self.gh && x < self.gw).then_some(((b * self.t + tt) * self.gh + y) * self.gw + x)
     }
 
+    fn pattern(self) -> usize {
+        (self.ph / self.wh) * (self.pw / self.ww)
+    }
+
+    fn reorder(self, order: GpuSlice<u32>, inverse: bool, w: usize, tok: usize) -> usize {
+        let n = self.tokens();
+        let table = self.pattern() * n;
+        if order.len() < 2 * table {
+            return tok;
+        }
+        order[usize::from(inverse) * table + w % self.pattern() * n + tok] as usize
+    }
+
     fn local(self, g: usize) -> (usize, usize) {
         let (nh, nw) = (self.ph / self.wh, self.pw / self.ww);
         let (x, y, tt, b) = (
@@ -106,6 +119,7 @@ pub fn split(
     q: &mut [u16],
     k: &mut [u16],
     v: &mut [u16],
+    order: &[u32],
     windows: u32,
     t: u32,
     gh: u32,
@@ -143,7 +157,8 @@ pub fn split(
         per: per as u32,
     };
     let live = slot < 32 / per && i < windows as usize * hc * n;
-    let (tok, hh, w) = (i % n, i / n % hc, i / (n * hc));
+    let (hh, w) = (i / n % hc, i / (n * hc));
+    let tok = if live { win.reorder(order, false, w, i % n) } else { 0 };
     let g = if live { win.grid(w, tok) } else { None };
     let row = g.map_or(0, |g| g * 3 * heads * d + (head0 + hh) * d) + 8 * l.part;
     let load = |at: usize| g.map_or([0.0; 8], |_| chunk(qkv, at));
@@ -166,6 +181,7 @@ pub fn merge(
     o: &[u16],
     gate: &[f32],
     out: &mut [u16],
+    order: &[u32],
     tokens: u32,
     t: u32,
     gh: u32,
@@ -197,6 +213,7 @@ pub fn merge(
     }
     let (j, hh, g) = (8 * (i % per), i / per % hc, i / (per * hc));
     let (w, tok) = win.local(g);
+    let tok = win.reorder(order, true, w, tok);
     let s = sigmoid(gate[g * heads + head0 + hh]);
     let vals = chunk(o, ((w * hc + hh) * win.tokens() + tok) * d + j).map(|x| x * s);
     store(&mut out, g * heads * d + (head0 + hh) * d + j, vals);
