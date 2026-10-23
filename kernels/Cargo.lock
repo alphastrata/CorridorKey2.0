@@ -111,6 +111,7 @@ dependencies = [
 [[package]]
 name = "ptx"
 version = "0.1.0"
+source = "git+https://codeberg.org/P-E-T-R-A/ptx.git?branch=develop#5f38e56eb0f6a98070b9d00a9d853524ab3a518a"
 dependencies = [
  "half",
  "ptx_macros",
