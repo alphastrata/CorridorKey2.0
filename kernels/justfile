@@ -1,6 +1,5 @@
 out := "../corridorkey/ptx/bin"
 
-# every kernel crate's PTX, per arch: bin/sm_XX/<crate>.ptx
 ptx:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -21,15 +20,12 @@ lint:
     typos --locale en-gb .
 
 
-# stage 1 / stage 2 timings and peak memory at --hw HxW (--ck for the kernels, --nvtx for nsys)
 profile *args:
     cd .. && uv run python kernels/bench/randprof.py weights/corridorkey_v2.safetensors {{args}}
 
-# consecutive bench frames per tier from bench/footage
 prep:
     cd .. && uv run python kernels/bench/prep.py
 
-# stock vs ours on every GPU (time / frame, memory, kernel split, precision), then the report in bench/results/
 bench *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -38,6 +34,5 @@ bench *args:
       uv run python kernels/bench/suite.py --device cuda:$d {{args}}
     done
 
-# rebuild bench/results/*.md from the measured JSON
 render:
     cd .. && uv run python kernels/bench/render.py
