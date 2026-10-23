@@ -192,6 +192,11 @@ pub struct Qk<'a> {
 
 const HEAD_BYTES: usize = 512 << 20;
 
+pub fn launch(gpu: &Gpu, d: usize) -> (u32, u32) {
+    let (stages, threads) = if gpu.sm >= 120 { (2, 128) } else { (1, 256) };
+    ((stages * (2 * 64 * (d + 8) * 2 + 4 * 64)) as u32, threads)
+}
+
 pub fn attend(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk: &Qk, g: Group) -> Result<()> {
     let per_head = g.layout.windows() * g.layout.tokens() * qk.head * 2 * 4;
     let step = (HEAD_BYTES / per_head).clamp(1, g.heads);
@@ -239,8 +244,7 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
     let (rid, sp, rows) = mask.as_ref().map_or((Arg::from(&zeros), Arg::from(&zeros), 0), |m| {
         (Arg::from(&m.rid), Arg::from(&m.spans), m.rid.shape[0])
     });
-    let stages = if gpu.sm >= 80 { 2 } else { 1 };
-    let shared = stages * (2 * 64 * (d + 8) * 2 + 4 * 64);
+    let (shared, threads) = launch(gpu, d);
     let name = format!("attn{d}{}", if mask.is_some() { "_masked" } else { "" });
     let scale = std::f32::consts::LOG2_E / (d as f32).sqrt();
     let args = [
@@ -260,8 +264,8 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
         "ck_attn",
         &name,
         (n.div_ceil(128) as u32, (windows * g.heads) as u32, 1),
-        256,
-        shared as u32,
+        threads,
+        shared,
         &args,
     )?;
 

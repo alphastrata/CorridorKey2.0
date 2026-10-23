@@ -106,8 +106,7 @@ pub fn attention(
     let split = [[qkv, &q, &k, &v].map(Arg::from).as_slice(), &dims].concat();
     ops(gpu, "heads", 3 * q.numel(), &split)?;
     let pairs = |t: &Tensor| Arg::Buf(t.ptr(), t.numel() / 2);
-    let stages = if gpu.sm >= 80 { 2 } else { 1 };
-    let shared = stages * (2 * 64 * (dp + 8) * 2 + 4 * 64);
+    let (shared, threads) = crate::attn::launch(gpu, dp);
     let args = [
         pairs(&q),
         pairs(&k),
@@ -125,8 +124,8 @@ pub fn attention(
         "ck_attn",
         &format!("attn{dp}"),
         (n.div_ceil(128) as u32, (b * heads) as u32, 1),
-        256,
-        shared as u32,
+        threads,
+        shared,
         &args,
     )?;
     let out = gpu.empty(&[b * n, heads * d], Dtype::Bf16)?;
