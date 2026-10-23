@@ -42,3 +42,9 @@ run *args:
       --ptx {{out}} \
       --weights {{justfile_directory()}}/weights/corridorkey_v2.safetensors \
       --vfms {{justfile_directory()}}/weights/vfms.safetensors "$@"
+
+wall *args:
+    kernels/bench/wall.sh {{args}}
+
+kprof name *args:
+    kernels/bench/kprof.sh {{name}} {{args}}
