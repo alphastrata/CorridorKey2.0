@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import contextlib
 import gc
 import json
 import os
 import sys
 import tempfile
 import time
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -289,6 +291,21 @@ def bf16_storage(module: nn.Module) -> bool:
     return isinstance(module, _BF16_WEIGHT_MODULES) and getattr(module, "groups", 1) == 1
 
 
+@contextlib.contextmanager
+def _no_random_init() -> Iterator[None]:
+    """Every weight comes from a checkpoint, so torch's random initialisers are wasted work while building."""
+    names = ("uniform_", "normal_", "trunc_normal_", "kaiming_uniform_", "kaiming_normal_",
+             "xavier_uniform_", "xavier_normal_")
+    saved = {n: getattr(nn.init, n) for n in names}
+    for n in names:
+        setattr(nn.init, n, lambda t, *_, **__: t)
+    try:
+        yield
+    finally:
+        for n, f in saved.items():
+            setattr(nn.init, n, f)
+
+
 def load_model(paths: RuntimePaths, device: str = "cuda", bf16_weights: bool = True) -> CorridorKeyV3:
     paths.validate()
     prepare_runtime_environment(paths)
@@ -305,7 +322,8 @@ def load_model(paths: RuntimePaths, device: str = "cuda", bf16_weights: bool = T
     cfg["stage1_recurrent_64_sites"] = ()
 
     print(f"Loading CorridorKey v2 runtime weights: {paths.weights}")
-    model = CorridorKeyV3(**cfg)
+    with _no_random_init():
+        model = CorridorKeyV3(**cfg)
     missing, unexpected = model.load_state_dict(ckpt["state_dict"], strict=False)
     train_missing = [k for k in missing if not k.startswith("foundations.")]
     train_unexpected = [k for k in unexpected if not k.startswith("foundations.")]
