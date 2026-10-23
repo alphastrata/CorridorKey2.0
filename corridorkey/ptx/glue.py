@@ -13,7 +13,7 @@ from corridorkey import blocks
 from corridorkey.blocks import RMSNorm, SwiGLU
 from corridorkey.rope import apply_rotary
 
-from . import Arg, available, load
+from . import Arg, available, half, load
 
 BF16 = torch.bfloat16
 HEADS = (64, 80, 96)
@@ -199,7 +199,7 @@ def _swiglu_forward(self: SwiGLU, x: torch.Tensor) -> torch.Tensor:
     ):
         return SwiGLU.forward(self, x)
     w, b = _fuse(self)
-    return self.w_down(silu_mul(F.linear(x.to(BF16), w, b)))
+    return self.w_down(silu_mul(half.linear(x.to(BF16), w, b)))
 
 
 def patch(model: torch.nn.Module) -> int:
