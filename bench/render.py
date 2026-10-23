@@ -1,5 +1,5 @@
 """The report: ``results/<gpu>.md`` for every ``results/<gpu>.json`` that ``suite.py`` wrote, and ``results/README.md``
-across GPUs. ``uv run python kernels/bench/render.py`` rebuilds them without measuring."""
+across GPUs. ``uv run python bench/render.py`` rebuilds them without measuring."""
 
 from __future__ import annotations
 

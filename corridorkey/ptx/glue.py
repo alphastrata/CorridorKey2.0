@@ -7,7 +7,6 @@ import types
 from typing import cast
 
 import torch
-import torch.nn.functional as F
 
 from corridorkey import blocks
 from corridorkey.blocks import RMSNorm, SwiGLU

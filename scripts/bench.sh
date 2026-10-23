@@ -2,7 +2,7 @@
 # usage: [FRAMES=50] [TIERS="720 1080 2160"] bench.sh : python (stock kernels) and ck on one clip per tier and GPU → one csv, one table
 set -uo pipefail
 R=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
-B=$R/kernels/bench/results/bench
+B=$R/bench/results/bench
 FRAMES=${FRAMES:-50}
 TIERS=${TIERS:-720 1080 2160}
 CSV=$B/bench.csv
@@ -11,7 +11,7 @@ export CUDA_DEVICE_ORDER=PCI_BUS_ID
 declare -A NAME BASE
 
 frames() {
-  echo $R/kernels/bench/footage/sample/$1p
+  echo $R/bench/footage/sample/$1p
 }
 
 f() { awk "BEGIN { printf \"$1\", $2 }"; }
@@ -55,6 +55,7 @@ ck() {
 }
 
 "$R/scripts/download_sample_clips.sh" $FRAMES
+command -v cargo > /dev/null || { echo "no Rust toolchain: run scripts/dev-setup.sh" >&2; exit 1; }
 cargo build -q --release --manifest-path $R/launcher/Cargo.toml -p ck
 CK=$(cargo metadata -q --format-version 1 --no-deps --manifest-path $R/launcher/Cargo.toml | jq -r .target_directory)/release/ck
 mkdir -p $B/logs $B/samples $B/out

@@ -16,7 +16,7 @@ import torch
 from safetensors.torch import save_file
 
 REPO = Path(__file__).parents[2]
-sys.path[:0] = [str(REPO), str(REPO / "kernels/bench")]
+sys.path[:0] = [str(REPO), str(REPO / "bench")]
 
 from harness import Feats, config, frame2, load, stage1, vfm
 
@@ -69,7 +69,7 @@ def main() -> None:
     ap.add_argument("--frames", type=int, default=4)
     a = ap.parse_args()
     model = load_model(RuntimePaths.from_package(REPO, None)).cuda()
-    clip = load(min((REPO / "kernels/bench/frames").glob(f"*/{a.tier}p")), a.frames)
+    clip = load(min((REPO / "bench/frames").glob(f"*/{a.tier}p")), a.frames)
     x, display = clip.x.cuda().float(), clip.display.cuda()
     fm = model.foundations
     named0 = [

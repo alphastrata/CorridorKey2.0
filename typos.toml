@@ -5,7 +5,13 @@ locale = "en-gb"
 flavor = "flavor"
 setp = "setp"
 iy = "iy"
-synchronize  = "synchronize"
+synchronize = "synchronize"
+utilization = "utilization"
+
+[default.extend-identifiers]
+color_eyre = "color_eyre"
+color_primaries = "color_primaries"
+color_trc = "color_trc"
 
 [files]
 extend-exclude = ["target", "bench/footage", "bench/frames", "bench/results"]

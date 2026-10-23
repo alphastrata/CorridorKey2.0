@@ -2,7 +2,7 @@
 # usage: kprof.sh NAME [ck args…] : nsys one ck run, print the top kernels by GPU time → results/NAME.nsys-rep
 set -eu
 R=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
-B=$R/kernels/bench/results
+B=$R/bench/results
 NAME=$1; shift
 mkdir -p $B
 cargo build -q --release --manifest-path $R/launcher/Cargo.toml -p ck
