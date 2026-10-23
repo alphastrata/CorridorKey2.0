@@ -1,5 +1,6 @@
 
 use crate::{f32x8, high, low, pack};
+use ptx::slice::{GpuSlice, GpuSliceMut};
 use ptx::kernel;
 use ptx::mem::{ld_global_nc_v4_u32, st_global_v4_f32, st_global_v4_u32};
 use ptx::prelude::*;
@@ -117,5 +118,131 @@ pub fn unshift_add(
     unsafe {
         st_global_v4_f32(out.addr_at(p * c + o), s[0], s[1], s[2], s[3]);
         st_global_v4_f32(out.addr_at(p * c + o + 4), s[4], s[5], s[6], s[7]);
+    }
+}
+
+fn bf8(x: GpuSlice<u32>, i: usize) -> [f32; 8] {
+    crate::head::chunk(x, i / 2)
+}
+
+fn modulate(
+    load: impl Fn(usize) -> [f32; 8],
+    weight: GpuSlice<f32>,
+    mods: GpuSlice<f32>,
+    out: &mut GpuSliceMut<u32>,
+    (pixels, c, eps): (u32, u32, f32),
+    (per, ld, shift, scale): (u32, u32, u32, u32),
+) {
+    let p = (block_idx_x() * 8 + thread_idx_x() / 32) as usize;
+    if p >= pixels as usize {
+        return;
+    }
+    let (c, lane) = (c as usize, thread_idx_x() as usize % 32);
+    let octets = || (lane..c / 8).step_by(32).map(|o| 8 * o);
+    let sq = octets()
+        .flat_map(|i| load(p * c + i))
+        .fold(0.0f32, |acc, v| v.fma_rn(v, acc));
+    let sq = [16, 8, 4, 2, 1].into_iter().fold(sq, |acc, m| {
+        acc + f32::from_bits(shfl_bfly_sync_b32(acc.to_bits(), m, 0x1f))
+    });
+    let inv = (sq / c as f32 + eps).rsqrt();
+    let row = p / per as usize * ld as usize;
+    octets().for_each(|i| {
+        let (vals, gain) = (load(p * c + i), f32x8(weight, i));
+        let (sh, sc) = (f32x8(mods, row + shift as usize + i), f32x8(mods, row + scale as usize + i));
+        let apply = |k: usize| (vals[k] * inv * gain[k]).fma_rn(1.0 + sc[k], sh[k]);
+        let words: [u32; 4] = core::array::from_fn(|k| pack(apply(2 * k), apply(2 * k + 1)));
+        unsafe { st_global_v4_u32(out.addr_at(p * c / 2 + i / 2), words[0], words[1], words[2], words[3]) };
+    });
+}
+
+#[kernel]
+pub fn norm_mod_bf16(
+    x: &[f32],
+    weight: &[f32],
+    mods: &[f32],
+    out: &mut [u32],
+    pixels: u32,
+    c: u32,
+    eps: f32,
+    per: u32,
+    ld: u32,
+    shift: u32,
+    scale: u32,
+) {
+    let geo = (pixels, c, eps);
+    modulate(|i| f32x8(x, i), weight, mods, &mut out, geo, (per, ld, shift, scale));
+}
+
+#[kernel]
+pub fn norm_mod_bf16_bf16(
+    x: &[u32],
+    weight: &[f32],
+    mods: &[f32],
+    out: &mut [u32],
+    pixels: u32,
+    c: u32,
+    eps: f32,
+    per: u32,
+    ld: u32,
+    shift: u32,
+    scale: u32,
+) {
+    let geo = (pixels, c, eps);
+    modulate(|i| bf8(x, i), weight, mods, &mut out, geo, (per, ld, shift, scale));
+}
+
+fn gated(
+    load: impl Fn(usize) -> [f32; 8],
+    branch: GpuSlice<u32>,
+    mods: GpuSlice<f32>,
+    (pixels, c, per, ld, off): (u32, u32, u32, u32, u32),
+) -> Option<(usize, [f32; 8])> {
+    let i = (block_idx_x() * 256 + thread_idx_x()) as usize;
+    let octets = c as usize / 8;
+    if i >= pixels as usize * octets {
+        return None;
+    }
+    let (p, at) = (i / octets, i * 8);
+    let (base, gate) = (load(at), f32x8(mods, p / per as usize * ld as usize + off as usize + at % c as usize));
+    let add = bf8(branch, at);
+    Some((at, core::array::from_fn(|k| add[k].fma_rn(gate[k], base[k]))))
+}
+
+#[kernel]
+pub fn add_gate(
+    x: &[f32],
+    a: &[u32],
+    mods: &[f32],
+    out: &mut [f32],
+    pixels: u32,
+    c: u32,
+    per: u32,
+    ld: u32,
+    off: u32,
+) {
+    if let Some((at, s)) = gated(|i| f32x8(x, i), a, mods, (pixels, c, per, ld, off)) {
+        unsafe {
+            st_global_v4_f32(out.addr_at(at), s[0], s[1], s[2], s[3]);
+            st_global_v4_f32(out.addr_at(at + 4), s[4], s[5], s[6], s[7]);
+        }
+    }
+}
+
+#[kernel]
+pub fn add_gate_bf16(
+    x: &[u32],
+    a: &[u32],
+    mods: &[f32],
+    out: &mut [u32],
+    pixels: u32,
+    c: u32,
+    per: u32,
+    ld: u32,
+    off: u32,
+) {
+    if let Some((at, s)) = gated(|i| bf8(x, i), a, mods, (pixels, c, per, ld, off)) {
+        let q: [u32; 4] = core::array::from_fn(|k| pack(s[2 * k], s[2 * k + 1]));
+        unsafe { st_global_v4_u32(out.addr_at(at / 2), q[0], q[1], q[2], q[3]) };
     }
 }

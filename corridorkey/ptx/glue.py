@@ -77,6 +77,67 @@ def unshift_add(
     return out
 
 
+def norm_mod(
+    m: RMSNorm, x: torch.Tensor, mods: torch.Tensor, per: int, shift: int, scale: int
+) -> torch.Tensor:
+    """``m(x) · (1 + mods[scale]) + mods[shift]`` in bf16, ``mods`` rows ``[frames, ld]`` one per ``per`` pixels."""
+    c = x.shape[-1]
+    x = x.contiguous()
+    out = torch.empty(x.shape, dtype=BF16, device=x.device)
+    pixels = x.numel() // c
+    half = x.dtype == BF16
+    args: list[Arg] = [
+        x.view(torch.int32) if half else x,
+        m.weight.detach().float(),
+        mods,
+        out.view(torch.int32),
+        pixels,
+        c,
+        float(m.eps),
+        per,
+        mods.shape[-1],
+        shift,
+        scale,
+    ]
+    load("ck_glue", x.device.index).launch(
+        "norm_mod_bf16" + ("_bf16" if half else ""),
+        (-(-pixels // 8), 1, 1),
+        (256, 1, 1),
+        args,
+    )
+    return out
+
+
+def add_gate(
+    x: torch.Tensor, a: torch.Tensor, mods: torch.Tensor, per: int, off: int
+) -> torch.Tensor:
+    """``x + a · mods[off]``: f32 or bf16 ``x``, bf16 ``a``."""
+    c = x.shape[-1]
+    x, a = x.contiguous(), a.contiguous()
+    out = torch.empty_like(x)
+    pixels = x.numel() // c
+    half = x.dtype == BF16
+    xs, outs = (t.view(torch.int32) if half else t for t in (x, out))
+    args: list[Arg] = [
+        xs,
+        a.view(torch.int32),
+        mods,
+        outs,
+        pixels,
+        c,
+        per,
+        mods.shape[-1],
+        off,
+    ]
+    load("ck_glue", x.device.index).launch(
+        "add_gate" + ("_bf16" if half else ""),
+        (-(-pixels * c // 8 // 256), 1, 1),
+        (256, 1, 1),
+        args,
+    )
+    return out
+
+
 def silu_mul(gu: torch.Tensor) -> torch.Tensor:
     """``silu(g) · u`` of bf16 rows ``[g | u]``."""
     h = gu.shape[-1] // 2
