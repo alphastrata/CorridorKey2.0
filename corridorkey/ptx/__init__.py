@@ -1,4 +1,4 @@
-"""Load Rust-compiled PTX (kernels/) through the CUDA driver API and launch on torch's current stream."""
+"""Load compiled PTX (kernels/) through the CUDA driver API and launch on torch's current stream."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ MAX_DYNAMIC_SHARED = 8
 
 @functools.cache
 def _driver() -> ctypes.CDLL | None:
+    #TODO: Get someone on windows to test...
     name = "nvcuda.dll" if sys.platform == "win32" else "libcuda.so.1"
     try:
         return ctypes.CDLL(name)
