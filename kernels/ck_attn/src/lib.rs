@@ -17,7 +17,8 @@ mod tune;
 
 const BR: usize = 128;
 const BC: usize = 64;
-const THREADS: usize = 256;
+const RB: usize = 2;
+const THREADS: usize = BR / (16 * RB) * 32;
 const KS: usize = 6;
 const DN: usize = 12;
 
@@ -42,9 +43,9 @@ struct Shape {
 
 #[derive(Clone, Copy)]
 struct Acc {
-    m: [f32; 2],
-    l: [f32; 2],
-    o: [[f32; 4]; DN],
+    m: [[f32; 2]; RB],
+    l: [[f32; 2]; RB],
+    o: [[[f32; 4]; DN]; RB],
 }
 
 fn quad_max(v: f32) -> f32 {
@@ -71,7 +72,7 @@ fn load<const D: usize, const MASK: bool>(
     let s = shape;
     let tid = thread_idx_x() as usize;
     let dn = D / 8;
-    ptx::unroll!(6, |it| if it < dn / 2 {
+    ptx::unroll!(12, |it| if it < 2 * BC * dn / THREADS {
         let i = tid + it * THREADS;
         let (which, rem) = (i / (BC * dn), i % (BC * dn));
         let (key, ch) = (rem / dn, rem % dn);
@@ -95,26 +96,26 @@ fn load<const D: usize, const MASK: bool>(
 }
 
 #[inline(always)]
-fn softmax(acc: &mut Acc, s: &mut [[f32; 4]; 8], scale: f32) -> [f32; 2] {
+fn softmax(m: &mut [f32; 2], l: &mut [f32; 2], s: &mut [[f32; 4]; 8], scale: f32) -> [f32; 2] {
     let mut corr = [0.0f32; 2];
     ptx::unroll!(2, |r| {
         let mut mx = f32::NEG_INFINITY;
         ptx::unroll!(8, |j| mx = mx.max(s[j][2 * r]).max(s[j][2 * r + 1]));
-        let m_new = acc.m[r].max(quad_max(mx));
+        let m_new = m[r].max(quad_max(mx));
         let shift = if m_new == f32::NEG_INFINITY {
             0.0
         } else {
             -m_new * scale
         };
-        corr[r] = ptx_exp2_approx(acc.m[r].fma_rn(scale, shift));
+        corr[r] = ptx_exp2_approx(m[r].fma_rn(scale, shift));
         let mut sum = 0.0f32;
         ptx::unroll!(8, |j| {
             s[j][2 * r] = ptx_exp2_approx(s[j][2 * r].fma_rn(scale, shift));
             s[j][2 * r + 1] = ptx_exp2_approx(s[j][2 * r + 1].fma_rn(scale, shift));
             sum += s[j][2 * r] + s[j][2 * r + 1];
         });
-        acc.l[r] = acc.l[r].fma_rn(corr[r], sum);
-        acc.m[r] = m_new;
+        l[r] = l[r].fma_rn(corr[r], sum);
+        m[r] = m_new;
     });
     corr
 }
@@ -122,14 +123,14 @@ fn softmax(acc: &mut Acc, s: &mut [[f32; 4]; 8], scale: f32) -> [f32; 2] {
 #[inline(always)]
 fn step<const D: usize, const MASK: bool>(
     mut acc: Acc,
-    qa: &[[u32; 4]; KS],
+    qa: &[[[u32; 4]; KS]; RB],
     buf: u32,
-    (valid, qrid, masked): (usize, [u32; 2], bool),
+    (valid, qrid, masked): (usize, [[u32; 2]; RB], bool),
     scale: f32,
 ) -> Acc {
     let lane = thread_idx_x() % 32;
     let (kbuf, vbuf, rbuf) = (buf, buf + tile(D), buf + 2 * tile(D));
-    let mut s = [[0.0f32; 4]; 8];
+    let mut s = [[[0.0f32; 4]; 8]; RB];
     ptx::unroll!(8, |j| {
         let at = kbuf + (j as u32 * 8 + lane % 8) * row(D);
         let mut kf = [[0u32; 2]; KS];
@@ -142,9 +143,9 @@ fn step<const D: usize, const MASK: bool>(
             kf[D / 16 - 1] =
                 unsafe { ldmatrix_x2_b16_u32(at + ((D / 8 - 2) as u32 + (lane / 8) % 2) * 16) };
         }
-        ptx::unroll!(6, |ks| if ks < D / 16 {
-            s[j] = mma16(qa[ks], kf[ks], s[j]);
-        });
+        ptx::unroll!(2, |rb| ptx::unroll!(6, |ks| if ks < D / 16 {
+            s[rb][j] = mma16(qa[rb][ks], kf[ks], s[rb][j]);
+        }));
     });
     if (MASK && masked) || valid < BC {
         let quad = (lane % 4) as usize;
@@ -155,34 +156,40 @@ fn step<const D: usize, const MASK: bool>(
             } else {
                 0
             };
-            ptx::unroll!(
+            ptx::unroll!(2, |rb| ptx::unroll!(
                 2,
-                |r| if key >= valid || (MASK && masked && kr != qrid[r]) {
-                    s[j][2 * r + e] = f32::NEG_INFINITY;
+                |r| if key >= valid || (MASK && masked && kr != qrid[rb][r]) {
+                    s[rb][j][2 * r + e] = f32::NEG_INFINITY;
                 }
-            );
+            ));
         }));
     }
-    let corr = softmax(&mut acc, &mut s, scale);
-    ptx::unroll!(12, |dn| if dn < D / 8 {
-        ptx::unroll!(4, |e| acc.o[dn][e] *= corr[e / 2]);
+    ptx::unroll!(2, |rb| {
+        let corr = softmax(&mut acc.m[rb], &mut acc.l[rb], &mut s[rb], scale);
+        ptx::unroll!(12, |dn| if dn < D / 8 {
+            ptx::unroll!(4, |e| acc.o[rb][dn][e] *= corr[e / 2]);
+        });
     });
     let mi = lane / 8;
     ptx::unroll!(4, |kk| {
-        let (x, y) = (s[2 * kk], s[2 * kk + 1]);
-        let pa = [
-            pack(x[0], x[1]),
-            pack(x[2], x[3]),
-            pack(y[0], y[1]),
-            pack(y[2], y[3]),
-        ];
+        let pa: [[u32; 4]; RB] = core::array::from_fn(|rb| {
+            let (x, y) = (s[rb][2 * kk], s[rb][2 * kk + 1]);
+            [
+                pack(x[0], x[1]),
+                pack(x[2], x[3]),
+                pack(y[0], y[1]),
+                pack(y[2], y[3]),
+            ]
+        });
         let key = kk as u32 * 16 + (mi % 2) * 8 + lane % 8;
         ptx::unroll!(6, |p| if p < D / 16 {
             let v = unsafe {
                 ldmatrix_x4_trans_b16_u32(vbuf + key * row(D) + (2 * p as u32 + mi / 2) * 16)
             };
-            acc.o[2 * p] = mma16(pa, [v[0], v[1]], acc.o[2 * p]);
-            acc.o[2 * p + 1] = mma16(pa, [v[2], v[3]], acc.o[2 * p + 1]);
+            ptx::unroll!(2, |rb| {
+                acc.o[rb][2 * p] = mma16(pa[rb], [v[0], v[1]], acc.o[rb][2 * p]);
+                acc.o[rb][2 * p + 1] = mma16(pa[rb], [v[2], v[3]], acc.o[rb][2 * p + 1]);
+            });
         });
     });
     acc
@@ -239,24 +246,31 @@ fn attn<const D: usize, const MASK: bool>(
     if STAGES == 2 {
         ld(first, 0);
     }
-    let rows = [qx * BR + warp * 16 + group, qx * BR + warp * 16 + group + 8];
-    let qp = |r: usize, d: usize| operand(query[(base + rows[r].min(s.n - 1) * D + d) / 2], qmul);
-    let mut qa = [[0u32; 4]; KS];
-    ptx::unroll!(6, |ks| if ks < D / 16 {
-        let d = 16 * ks + 2 * quad;
-        qa[ks] = [qp(0, d), qp(1, d), qp(0, d + 8), qp(1, d + 8)];
+    let rows: [[usize; 2]; RB] = core::array::from_fn(|rb| {
+        let top = qx * BR + (warp * RB + rb) * 16 + group;
+        [top, top + 8]
     });
-    let qrid: [u32; 2] = core::array::from_fn(|r| {
-        if MASK {
-            rid[w * s.n + rows[r].min(s.n - 1)]
-        } else {
-            0
-        }
+    let qp = |rb: usize, r: usize, d: usize| {
+        operand(query[(base + rows[rb][r].min(s.n - 1) * D + d) / 2], qmul)
+    };
+    let mut qa = [[[0u32; 4]; KS]; RB];
+    ptx::unroll!(2, |rb| ptx::unroll!(6, |ks| if ks < D / 16 {
+        let d = 16 * ks + 2 * quad;
+        qa[rb][ks] = [qp(rb, 0, d), qp(rb, 1, d), qp(rb, 0, d + 8), qp(rb, 1, d + 8)];
+    }));
+    let qrid: [[u32; 2]; RB] = core::array::from_fn(|rb| {
+        core::array::from_fn(|r| {
+            if MASK {
+                rid[w * s.n + rows[rb][r].min(s.n - 1)]
+            } else {
+                0
+            }
+        })
     });
     let init = Acc {
-        m: [f32::NEG_INFINITY; 2],
-        l: [0.0; 2],
-        o: [[0.0; 4]; DN],
+        m: [[f32::NEG_INFINITY; 2]; RB],
+        l: [[0.0; 2]; RB],
+        o: [[[0.0; 4]; DN]; RB],
     };
     let visits =
         core::iter::successors(Some(first), |&t| Some(next(t + 1))).take_while(|&t| t < tiles);
@@ -277,23 +291,23 @@ fn attn<const D: usize, const MASK: bool>(
         sync_threads();
         acc
     });
-    ptx::unroll!(2, |r| {
-        let outside = MASK && (qrid[r] as i32) < 0;
+    ptx::unroll!(2, |rb| ptx::unroll!(2, |r| {
+        let outside = MASK && (qrid[rb][r] as i32) < 0;
         let inv = if outside {
             0.0
         } else {
-            1.0 / (quad_sum(acc.l[r]) * vmul)
+            1.0 / (quad_sum(acc.l[rb][r]) * vmul)
         };
-        if rows[r] < s.n {
-            let at = base / 2 + rows[r] * (D / 2) + quad;
+        if rows[rb][r] < s.n {
+            let at = base / 2 + rows[rb][r] * (D / 2) + quad;
             ptx::unroll!(12, |dn| if dn < D / 8 {
                 out.set(
                     at + dn * 4,
-                    bf16x2(acc.o[dn][2 * r] * inv, acc.o[dn][2 * r + 1] * inv),
+                    bf16x2(acc.o[rb][dn][2 * r] * inv, acc.o[rb][dn][2 * r + 1] * inv),
                 );
             });
         }
-    });
+    }));
 }
 
 macro_rules! entry {
