@@ -3,7 +3,6 @@
 set -uo pipefail
 R=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 B=$R/kernels/bench/results/bench
-CLIP=$R/kernels/bench/footage/commons_4k_video_of_a_Chicken_fillet_roll___green_screen.webm
 FRAMES=${FRAMES:-50}
 TIERS=${TIERS:-720 1080 2160}
 CSV=$B/bench.csv
@@ -12,12 +11,7 @@ export CUDA_DEVICE_ORDER=PCI_BUS_ID
 declare -A NAME BASE
 
 frames() {
-  local d=$B/clips/$1p
-  if [ "$(ls $d 2>/dev/null | wc -l)" -ne $FRAMES ]; then
-    rm -rf $d && mkdir -p $d
-    ffmpeg -v error -ss 5 -i $CLIP -frames:v $FRAMES -vf scale=-2:$1:flags=lanczos $d/%03d.png
-  fi
-  echo $d
+  echo $R/kernels/bench/footage/sample/$1p
 }
 
 f() { awk "BEGIN { printf \"$1\", $2 }"; }
@@ -60,7 +54,7 @@ ck() {
     --frames $FRAMES --chunk auto -o $B/out/${1//,/+}_$2p_ck $(frames $2)
 }
 
-"$R/scripts/download_sample_clips.sh"
+"$R/scripts/download_sample_clips.sh" $FRAMES
 cargo build -q --release --manifest-path $R/launcher/Cargo.toml -p ck
 CK=$(cargo metadata -q --format-version 1 --no-deps --manifest-path $R/launcher/Cargo.toml | jq -r .target_directory)/release/ck
 mkdir -p $B/logs $B/samples $B/out
