@@ -24,17 +24,17 @@ from corridorkey.blocks import (
 
 from . import available
 from .dw import mix_add
-from .glue import BF16, norm, unshift_add
+from .glue import BF16, add_gate, norm, norm_mod, unshift_add
 
 
-def _ok(block: torch.nn.Module, x: torch.Tensor) -> bool:
+def _ok(block: torch.nn.Module, x: torch.Tensor, adaln: bool = False) -> bool:
     return (
         x.is_cuda
-        and x.dtype == torch.float32
+        and (x.dtype == torch.float32 or (adaln and x.dtype == BF16))
         and x.shape[-1] % 8 == 0
         and torch.is_autocast_enabled("cuda")
         and torch.get_autocast_dtype("cuda") == BF16
-        and getattr(block, "adaln", None) is None
+        and (adaln or getattr(block, "adaln", None) is None)
     )
 
 
@@ -178,10 +178,32 @@ def _spatial3d(
     t_stride: float = 1.0,
     adaln_cond: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    if not _ok(self, x):
+    if not _ok(self, x, adaln=True):
         return FullSpatialBlock3D.forward(self, x, t_stride, adaln_cond)
-    x = _attend(self, x, (1, 1), lambda y, _: self.attn(y), _none)
-    return _mlp(self, _mix(self, x))
+    if self.adaln is None:
+        if x.dtype != torch.float32:
+            return FullSpatialBlock3D.forward(self, x, t_stride, adaln_cond)
+        x = _attend(self, x, (1, 1), lambda y, _: self.attn(y), _none)
+        return _mlp(self, _mix(self, x))
+
+    b, t, h, w, c = x.shape
+    cond = x.new_zeros(b, t) if adaln_cond is None else adaln_cond
+    cond = cond.unsqueeze(-1) if cond.dim() == 2 else cond
+    ada = self.adaln
+    mods = ada.proj(ada.act(ada.in_proj(cond.to(ada.in_proj.weight.dtype))))
+    mods = mods.float().reshape(b * t, -1).contiguous()
+
+    x = add_gate(
+        x, self.attn(norm_mod(self.norm1, x, mods, h * w, 0, c)), mods, h * w, 2 * c
+    )
+    x = _mix(self, x)
+    return add_gate(
+        x,
+        self.mlp(norm_mod(self.norm2, x, mods, h * w, 3 * c, 4 * c)),
+        mods,
+        h * w,
+        5 * c,
+    )
 
 
 def _none(*_: int) -> tuple:
