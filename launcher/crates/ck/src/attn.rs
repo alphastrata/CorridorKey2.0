@@ -191,7 +191,7 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
     gpu.launch(
         "ck_ops",
         "split",
-        ((q.numel() / d).div_ceil(8) as u32, 1, 1),
+        ((q.numel() / d).div_ceil(8 * (32 / (d / 8))) as u32, 1, 1),
         256,
         0,
         &split,
@@ -235,7 +235,7 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
     gpu.launch(
         "ck_ops",
         "merge",
-        ((tokens * g.heads * d).div_ceil(256) as u32, 1, 1),
+        ((tokens * g.heads * d / 8).div_ceil(256) as u32, 1, 1),
         256,
         0,
         &merge,
