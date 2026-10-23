@@ -115,8 +115,6 @@ class InferenceConfig:
     low_vram: bool = False
     # Pick hann_chunk/hann_stride/low_vram per clip from free GPU memory.
     auto_vram: bool = False
-    # Set by auto-VRAM: estimate of the chosen profile, and the estimate that
-    # any retry after an OOM must stay below.
     vram_estimate_gb: float | None = None
     vram_ceiling_gb: float | None = None
     low_vram_foundation_chunk: int = 4
@@ -157,7 +155,6 @@ _VRAM_PEAK_GB = {
     )),
 }
 _VRAM_MARGIN_SCALE = 1.1
-# Fixed headroom for other GPU processes and allocator slack.
 _VRAM_HEADROOM_GB = 1.5
 _VRAM_HEADROOM_FRAC = 0.05
 
@@ -195,6 +192,7 @@ def select_vram_profile(shape_hw, num_frames: int, budget_gb: float,
     Profiles estimated at `ceiling_gb` or more are skipped. Falls back to a
     single-frame window when nothing is estimated to fit.
     """
+
     megapixels = shape_hw[0] * shape_hw[1] / 1e6
     estimate = 0.0
     for chunk in reversed(_VRAM_PEAK_GB[True][0]):
@@ -334,6 +332,7 @@ def load_model(paths: RuntimePaths, device: str = "cuda", bf16_weights: bool = T
     print(f"  loaded weights; omitted frozen foundation tensors={len(missing)}")
     model.eval()
     model.requires_grad_(False)
+
     for module in model.modules():
         if bf16_weights and bf16_storage(module):
             for p in module.parameters(recurse=False):
@@ -845,7 +844,6 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
             cfg.vram_ceiling_gb = cfg.vram_estimate_gb
             print(f"  [AUTO VRAM] Out of memory at hann_chunk={cfg.hann_chunk}, "
                   f"low_vram={cfg.low_vram}; retrying with a smaller profile.")
-        # Past the except block, so the traceback no longer pins GPU tensors.
         gc.collect()
         torch.cuda.empty_cache()
 
