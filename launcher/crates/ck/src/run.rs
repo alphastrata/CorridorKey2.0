@@ -157,6 +157,16 @@ impl Config {
     }
 
     /// `{clip}_{stem}.mp4|mov`, or frames `{stem}_000000.exr` in `{clip}_{stem}_exr/`.
+    /// GiB of GPU memory the NVENC encoders of a `w`×`h` clip hold (about 1.7 per 4K stream); none for others.
+    #[must_use]
+    pub fn encoder_gib(&self, (w, h): (usize, usize)) -> f64 {
+        if self.exr.is_some() || !self.encoder.codec.ends_with("_nvenc") {
+            return 0.0;
+        }
+        let streams = self.outputs.iter().filter(|o| o.channels() == 3).count();
+        streams as f64 * 1.7 * (w * h) as f64 / (4096.0 * 2160.0)
+    }
+
     pub(crate) fn writer(&self, out_dir: &Path, clip: &str, src: &Source, o: Output) -> Result<Writer> {
         let stem = stem(o, self.look.despill);
         let size = (src.w, src.h);

@@ -234,6 +234,7 @@ fn lead<'s, 'e>(
     let g = Geometry::scaled(src.h, src.w, sh.cfg.scale, sh.cfg.quantum);
     let mut cfg = sh.cfg.clone();
     if cfg.auto {
+        let free = free - cfg.encoder_gib((src.w, src.h));
         let (chunk, stride, est) = vram::window(g, total, free);
         println!("{name}: {free:.1} GiB free → window {chunk}, stride {stride} (estimated peak {est:.1} GiB)");
         if est > free {
