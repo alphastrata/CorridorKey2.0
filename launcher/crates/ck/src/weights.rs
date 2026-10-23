@@ -166,6 +166,21 @@ impl Loader<'_> {
         self.gpu.upload_f32(&v, &[v.len()], Dtype::F32)
     }
 
+    pub fn nhwc(&self, n: &str) -> Result<Tensor> {
+        let (shape, v) = self.get(n)?;
+        let [o, c, k, _] = shape[..] else {
+            eyre::bail!("{n}: want [out, c, k, k], got {shape:?}")
+        };
+        let kk = k * k;
+        let t: Vec<f32> = (0..o * c * kk)
+            .map(|i| {
+                let (row, col) = (i / (c * kk), i % (c * kk));
+                v[row * c * kk + col % c * kk + col / c]
+            })
+            .collect();
+        self.gpu.upload_f32(&t, &[o, c * kk], self.half)
+    }
+
     pub fn deconv(&self, n: &str) -> Result<Tensor> {
         let (shape, v) = self.get(n)?;
         let (rows, cols) = (shape[0], shape[1..].iter().product::<usize>());

@@ -73,7 +73,7 @@ pub fn im2col(gpu: &Gpu, x: &Tensor, nhwc: bool, conv: Conv) -> Result<Tensor> {
     ops(
         gpu,
         "im2col",
-        cols.numel(),
+        cols.numel().div_ceil(8),
         &[[x.into(), (&cols).into()].as_slice(), &dims].concat(),
     )?;
     Ok(cols)

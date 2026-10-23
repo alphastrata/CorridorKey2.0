@@ -101,6 +101,7 @@ pub struct Stage1 {
 impl Stage1 {
     pub fn load(ld: &Loader) -> Result<Self> {
         let pair = |n: &str| -> Result<Pair> { Ok((ld.mat(&format!("{n}.weight"))?, ld.f32(&format!("{n}.bias"))?)) };
+        let nhwc = |n: &str| -> Result<Pair> { Ok((ld.nhwc(&format!("{n}.weight"))?, ld.f32(&format!("{n}.bias"))?)) };
         let count = |p: &str| (0..64).take_while(|i| ld.has(&format!("{p}.{i}.norm1.weight"))).count();
         let (w, hw) = (16, 8);
         let swin = |shift| Kind::Swin { window: w, shift };
@@ -123,13 +124,13 @@ impl Stage1 {
         let up = |n: &str| -> Result<Up> {
             Ok(Up {
                 proj: pair(&format!("{n}.proj"))?,
-                smooth: pair(&format!("{n}.smooth"))?,
+                smooth: nhwc(&format!("{n}.smooth"))?,
             })
         };
         Ok(Self {
             stem: pair("stem.conv")?,
             enc: load_blocks(ld, "enc_16", &vec![Kind::Full; count("enc_16")], false, 8)?,
-            down: pair("down.conv")?,
+            down: nhwc("down.conv")?,
             fuse: Fuse {
                 short: pair("fuse.linear_shortcut")?,
                 norm: ld.f32("fuse.norm.weight")?,
@@ -143,7 +144,7 @@ impl Stage1 {
             mid_up: up("mid_up")?,
             mid_scale: ld.f32("mid_skip_scale")?,
             mid: load_blocks(ld, "mid_16", &mid, true, 8)?,
-            mid_down: pair("mid_down.conv")?,
+            mid_down: nhwc("mid_down.conv")?,
             up: up("up")?,
             skip_scale: ld.f32("uskip_scale")?,
             late_scale: ld.f32("patch_late_skip_scale")?,

@@ -42,9 +42,9 @@
 )
 .noreturn;
 .global .align 1 .b8 anon_$_0cb7a8d285785f3700824b3a646dccf7_$_0[38] = {97, 115, 115, 101, 114, 116, 105, 111, 110, 32, 102, 97, 105, 108, 101, 100, 58, 32, 105, 32, 60, 32, 115, 101, 108, 102, 46, 105, 110, 110, 101, 114, 46, 108, 101, 110, 40, 41};
-.global .align 1 .b8 anon_$_0cb7a8d285785f3700824b3a646dccf7_$_1[73] = {47, 104, 111, 109, 101, 47, 106, 101, 114, 47, 46, 99, 97, 114, 103, 111, 47, 103, 105, 116, 47, 99, 104, 101, 99, 107, 111, 117, 116, 115, 47, 112, 116, 120, 45, 49, 100, 97, 101, 98, 50, 98, 56, 102, 98, 51, 55, 48, 102, 97, 55, 47, 53, 102, 51, 56, 101, 53, 54, 47, 115, 114, 99, 47, 115, 108, 105, 99, 101, 46, 114, 115};
-.global .align 8 .u64 anon_$_0cb7a8d285785f3700824b3a646dccf7_$_2[3] = {generic(anon_$_0cb7a8d285785f3700824b3a646dccf7_$_1), 72, 38654705720};
-.global .align 8 .u64 anon_$_0cb7a8d285785f3700824b3a646dccf7_$_3[3] = {generic(anon_$_0cb7a8d285785f3700824b3a646dccf7_$_1), 72, 38654705794};
+.global .align 1 .b8 anon_$_0cb7a8d285785f3700824b3a646dccf7_$_1[73] = {47, 104, 111, 109, 101, 47, 106, 101, 114, 47, 46, 99, 97, 114, 103, 111, 47, 103, 105, 116, 47, 99, 104, 101, 99, 107, 111, 117, 116, 115, 47, 112, 116, 120, 45, 49, 100, 97, 101, 98, 50, 98, 56, 102, 98, 51, 55, 48, 102, 97, 55, 47, 98, 99, 55, 50, 57, 53, 101, 47, 115, 114, 99, 47, 115, 108, 105, 99, 101, 46, 114, 115};
+.global .align 8 .u64 anon_$_0cb7a8d285785f3700824b3a646dccf7_$_2[3] = {generic(anon_$_0cb7a8d285785f3700824b3a646dccf7_$_1), 72, 38654705738};
+.global .align 8 .u64 anon_$_0cb7a8d285785f3700824b3a646dccf7_$_3[3] = {generic(anon_$_0cb7a8d285785f3700824b3a646dccf7_$_1), 72, 38654705823};
                                         // @act_bf16
 .visible .entry act_bf16(
 	.param .u64 .ptr .align 1 act_bf16_param_0,
@@ -2702,238 +2702,802 @@ $L__BB15_19:
 .maxntid 256, 1, 1
 .minnctapersm 4                                       // @im2col
 {
-	.reg .pred 	%p<22>;
-	.reg .b32 	%r<33>;
-	.reg .b64 	%rd<61>;
+	.reg .pred 	%p<66>;
+	.reg .b32 	%r<113>;
+	.reg .b64 	%rd<203>;
 
 // %bb.0:
-	ld.param.b32 	%r3, [im2col_param_12];
-	ld.param.b32 	%r2, [im2col_param_11];
-	ld.param.b32 	%r1, [im2col_param_8];
-	ld.param.b64 	%rd25, [im2col_param_0];
-	cvta.to.global.u64 	%rd1, %rd25;
-	ld.param.b64 	%rd26, [im2col_param_2];
-	cvta.to.global.u64 	%rd2, %rd26;
-	ld.param.b32 	%rd27, [im2col_param_4];
-	ld.param.b32 	%rd4, [im2col_param_5];
+	ld.param.b32 	%r4, [im2col_param_12];
+	ld.param.b32 	%r3, [im2col_param_11];
+	ld.param.b32 	%r2, [im2col_param_8];
+	ld.param.b32 	%r1, [im2col_param_5];
+	ld.param.b64 	%rd43, [im2col_param_2];
+	ld.param.b64 	%rd45, [im2col_param_0];
+	cvta.to.global.u64 	%rd1, %rd45;
+	cvta.to.global.u64 	%rd2, %rd43;
+	ld.param.b32 	%rd46, [im2col_param_4];
+	cvt.u64.u32 	%rd6, %r2;
+	cvt.u64.u32 	%rd9, %r3;
+	cvt.u64.u32 	%rd10, %r4;
 	// begin inline asm
-	mov.u32 %r5, %ctaid.x;
+	mov.u32 %r6, %ctaid.x;
 	// end inline asm
-	mul.wide.u32 	%rd28, %r5, 256;
 	// begin inline asm
-	mov.u32 %r6, %tid.x;
+	mov.u32 %r7, %tid.x;
 	// end inline asm
-	cvt.u64.u32 	%rd29, %r6;
-	add.s64 	%rd3, %rd28, %rd29;
-	mul.wide.u32 	%rd12, %r1, %r1;
-	mul.lo.s64 	%rd13, %rd12, %rd4;
-	mul.wide.u32 	%rd14, %r3, %r2;
-	mul.lo.s64 	%rd30, %rd13, %rd27;
-	mul.lo.s64 	%rd31, %rd30, %rd14;
-	setp.ge.u64 	%p1, %rd3, %rd31;
-	@%p1 bra 	$L__BB16_35;
+	mul.wide.u32 	%rd47, %r6, 2048;
+	mul.wide.u32 	%rd48, %r7, 8;
+	add.s64 	%rd36, %rd48, %rd47;
+	mul.wide.u32 	%rd11, %r2, %r1;
+	mul.lo.s64 	%rd12, %rd11, %rd6;
+	mul.lo.s64 	%rd49, %rd12, %rd46;
+	mul.lo.s64 	%rd50, %rd49, %rd9;
+	mul.lo.s64 	%rd13, %rd50, %rd10;
+	setp.ge.u64 	%p1, %rd36, %rd13;
+	@%p1 bra 	$L__BB16_137;
 // %bb.1:
-	setp.eq.b64 	%p2, %rd13, 0;
-	@%p2 bra 	$L__BB16_36;
-// %bb.2:
-	or.b64 	%rd32, %rd3, %rd13;
-	and.b64 	%rd33, %rd32, -4294967296;
-	setp.ne.b64 	%p3, %rd33, 0;
-	@!%p3 bra 	$L__BB16_3;
-// %bb.4:
-	div.u64 	%rd15, %rd3, %rd13;
-	bra.uni 	$L__BB16_5;
-$L__BB16_3:
-	cvt.u32.u64 	%r7, %rd13;
-	cvt.u32.u64 	%r8, %rd3;
-	div.u32 	%r9, %r8, %r7;
-	cvt.u64.u32 	%rd15, %r9;
-$L__BB16_5:                             // %.split
-	setp.eq.b32 	%p4, %r1, 0;
-	@%p4 bra 	$L__BB16_37;
-// %bb.6:
-	mul.lo.s64 	%rd34, %rd15, %rd13;
-	sub.s64 	%rd16, %rd3, %rd34;
-	or.b64 	%rd35, %rd16, %rd12;
-	and.b64 	%rd36, %rd35, -4294967296;
-	setp.ne.b64 	%p5, %rd36, 0;
-	@!%p5 bra 	$L__BB16_7;
-// %bb.8:
-	div.u64 	%rd17, %rd16, %rd12;
-	bra.uni 	$L__BB16_9;
-$L__BB16_7:
-	cvt.u32.u64 	%r10, %rd12;
-	cvt.u32.u64 	%r11, %rd16;
-	div.u32 	%r12, %r11, %r10;
-	cvt.u64.u32 	%rd17, %r12;
-$L__BB16_9:                             // %.split1
-	cvt.u64.u32 	%rd7, %r1;
-	and.b64 	%rd37, %rd16, -4294967296;
-	setp.ne.b64 	%p6, %rd37, 0;
-	@!%p6 bra 	$L__BB16_10;
-// %bb.11:
-	div.u64 	%rd18, %rd16, %rd7;
-	bra.uni 	$L__BB16_12;
-$L__BB16_10:
-	cvt.u32.u64 	%r13, %rd7;
-	cvt.u32.u64 	%r14, %rd16;
-	div.u32 	%r15, %r14, %r13;
-	cvt.u64.u32 	%rd18, %r15;
-$L__BB16_12:                            // %.split1.split
-	and.b64 	%rd38, %rd18, -4294967296;
-	setp.ne.b64 	%p7, %rd38, 0;
-	@!%p7 bra 	$L__BB16_13;
-// %bb.14:
-	rem.u64 	%rd19, %rd18, %rd7;
-	bra.uni 	$L__BB16_15;
-$L__BB16_13:
-	cvt.u32.u64 	%r16, %rd7;
-	cvt.u32.u64 	%r17, %rd18;
-	rem.u32 	%r18, %r17, %r16;
-	cvt.u64.u32 	%rd19, %r18;
-$L__BB16_15:                            // %.split1.split.split
-	setp.eq.b64 	%p8, %rd14, 0;
-	@%p8 bra 	$L__BB16_38;
-// %bb.16:
-	or.b64 	%rd39, %rd15, %rd14;
-	and.b64 	%rd40, %rd39, -4294967296;
-	setp.ne.b64 	%p9, %rd40, 0;
-	@!%p9 bra 	$L__BB16_17;
-// %bb.18:
-	div.u64 	%rd21, %rd15, %rd14;
-	bra.uni 	$L__BB16_19;
-$L__BB16_17:
-	cvt.u32.u64 	%r19, %rd14;
-	cvt.u32.u64 	%r20, %rd15;
-	div.u32 	%r21, %r20, %r19;
-	cvt.u64.u32 	%rd21, %r21;
-$L__BB16_19:                            // %.split2
-	setp.eq.b32 	%p10, %r3, 0;
-	@%p10 bra 	$L__BB16_39;
-// %bb.20:
-	setp.eq.b32 	%p11, %r2, 0;
-	@%p11 bra 	$L__BB16_40;
-// %bb.21:
-	cvt.u64.u32 	%rd11, %r3;
-	and.b64 	%rd41, %rd15, -4294967296;
-	setp.ne.b64 	%p12, %rd41, 0;
-	@!%p12 bra 	$L__BB16_22;
-// %bb.23:
-	div.u64 	%rd58, %rd15, %rd11;
-	bra.uni 	$L__BB16_24;
-$L__BB16_22:
-	cvt.u32.u64 	%r22, %rd11;
-	cvt.u32.u64 	%r23, %rd15;
-	div.u32 	%r24, %r23, %r22;
-	cvt.u64.u32 	%rd58, %r24;
-$L__BB16_24:                            // %.split3
-	ld.param.b32 	%rd5, [im2col_param_6];
-	ld.param.b32 	%rd6, [im2col_param_7];
-	ld.param.b32 	%rd8, [im2col_param_9];
-	ld.param.b32 	%rd9, [im2col_param_10];
-	cvt.u64.u32 	%rd10, %r2;
-	mul.lo.s64 	%rd20, %rd18, %rd7;
-	and.b64 	%rd42, %rd58, -4294967296;
-	setp.ne.b64 	%p13, %rd42, 0;
-	@!%p13 bra 	$L__BB16_25;
-// %bb.26:
-	rem.u64 	%rd59, %rd58, %rd10;
-	bra.uni 	$L__BB16_27;
-$L__BB16_25:
-	cvt.u32.u64 	%r25, %rd10;
-	cvt.u32.u64 	%r26, %rd58;
-	rem.u32 	%r27, %r26, %r25;
-	cvt.u64.u32 	%rd59, %r27;
-$L__BB16_27:                            // %.split3.split
-	mul.lo.s64 	%rd43, %rd58, %rd11;
-	sub.s64 	%rd44, %rd15, %rd43;
-	sub.s64 	%rd45, %rd19, %rd9;
-	mad.lo.s64 	%rd22, %rd59, %rd8, %rd45;
-	add.s64 	%rd46, %rd20, %rd9;
-	sub.s64 	%rd47, %rd16, %rd46;
-	mad.lo.s64 	%rd48, %rd44, %rd8, %rd47;
-	or.b64 	%rd49, %rd22, %rd48;
-	setp.lt.s64 	%p14, %rd49, 0;
-	setp.ge.u64 	%p15, %rd22, %rd5;
-	or.pred 	%p16, %p15, %p14;
-	setp.ge.u64 	%p17, %rd48, %rd6;
-	mov.b32 	%r32, 0;
+	ld.param.b32 	%r5, [im2col_param_13];
+	ld.param.b64 	%rd44, [im2col_param_3];
+	ld.param.b64 	%rd42, [im2col_param_1];
+	cvt.u64.u32 	%rd3, %r1;
+	ld.param.b32 	%rd4, [im2col_param_6];
+	ld.param.b32 	%rd5, [im2col_param_7];
+	ld.param.b32 	%rd7, [im2col_param_9];
+	ld.param.b32 	%rd8, [im2col_param_10];
+	setp.eq.b32 	%p2, %r5, 0;
+	selp.b64 	%rd51, %rd6, %rd3, %p2;
+	and.b64 	%rd52, %rd51, 7;
+	setp.ne.b64 	%p3, %rd52, 0;
+	setp.eq.b32 	%p63, %r1, 0;
+	cvt.u32.u64 	%r102, %rd11;
+	cvt.u32.u64 	%r103, %rd3;
+	setp.eq.b32 	%p64, %r4, 0;
+	setp.eq.b32 	%p65, %r3, 0;
+	@!%p3 bra 	$L__BB16_2;
+// %bb.90:
+	setp.eq.b64 	%p4, %rd12, 0;
+	@%p4 bra 	$L__BB16_144;
+// %bb.91:
+	add.s64 	%rd53, %rd36, 8;
+	min.u64 	%rd29, %rd53, %rd13;
+	mul.lo.s64 	%rd30, %rd6, %rd6;
+	mul.lo.s64 	%rd31, %rd10, %rd9;
+	selp.b64 	%rd32, %rd3, %rd4, %p2;
+	selp.b64 	%rd33, %rd4, %rd5, %p2;
+	selp.b64 	%rd34, %rd5, %rd3, %p2;
+	or.b64 	%rd194, %rd36, 1;
+	cvt.u32.u64 	%r8, %rd12;
+	setp.eq.b32 	%p8, %r2, 0;
+	cvt.u32.u64 	%r15, %rd30;
+	cvt.u32.u64 	%r18, %rd6;
+	setp.eq.b64 	%p12, %rd31, 0;
+	cvt.u32.u64 	%r23, %rd10;
+	cvt.u32.u64 	%r26, %rd9;
+$L__BB16_92:                            // =>This Inner Loop Header: Depth=1
+	mov.b64 	%rd35, %rd194;
+	or.b64 	%rd54, %rd36, %rd12;
+	and.b64 	%rd55, %rd54, -4294967296;
+	setp.ne.b64 	%p5, %rd55, 0;
+	@!%p5 bra 	$L__BB16_93;
+// %bb.94:                              //   in Loop: Header=BB16_92 Depth=1
+	div.u64 	%rd37, %rd36, %rd12;
+	bra.uni 	$L__BB16_95;
+$L__BB16_93:                            //   in Loop: Header=BB16_92 Depth=1
+	cvt.u32.u64 	%r9, %rd36;
+	div.u32 	%r10, %r9, %r8;
+	cvt.u64.u32 	%rd37, %r10;
+$L__BB16_95:                            // %.split4
+                                        //   in Loop: Header=BB16_92 Depth=1
+	mul.lo.s64 	%rd56, %rd37, %rd12;
+	sub.s64 	%rd38, %rd36, %rd56;
+	@%p2 bra 	$L__BB16_96;
+// %bb.110:                             //   in Loop: Header=BB16_92 Depth=1
+	@%p63 bra 	$L__BB16_146;
+// %bb.111:                             //   in Loop: Header=BB16_92 Depth=1
+	@%p8 bra 	$L__BB16_147;
+// %bb.112:                             //   in Loop: Header=BB16_92 Depth=1
+	and.b64 	%rd57, %rd38, -4294967296;
+	setp.ne.b64 	%p6, %rd57, 0;
+	@!%p6 bra 	$L__BB16_113;
+// %bb.114:                             //   in Loop: Header=BB16_92 Depth=1
+	div.u64 	%rd198, %rd38, %rd3;
+	bra.uni 	$L__BB16_115;
+$L__BB16_96:                            //   in Loop: Header=BB16_92 Depth=1
+	@%p8 bra 	$L__BB16_145;
+// %bb.97:                              //   in Loop: Header=BB16_92 Depth=1
+	or.b64 	%rd61, %rd38, %rd30;
+	and.b64 	%rd62, %rd61, -4294967296;
+	setp.ne.b64 	%p9, %rd62, 0;
+	@!%p9 bra 	$L__BB16_98;
+// %bb.99:                              //   in Loop: Header=BB16_92 Depth=1
+	div.u64 	%rd197, %rd38, %rd30;
+	bra.uni 	$L__BB16_100;
+$L__BB16_113:                           //   in Loop: Header=BB16_92 Depth=1
+	cvt.u32.u64 	%r11, %rd38;
+	div.u32 	%r12, %r11, %r103;
+	cvt.u64.u32 	%rd198, %r12;
+$L__BB16_115:                           // %.split6
+                                        //   in Loop: Header=BB16_92 Depth=1
+	mul.lo.s64 	%rd58, %rd198, %rd3;
+	sub.s64 	%rd197, %rd38, %rd58;
+	or.b64 	%rd59, %rd38, %rd11;
+	and.b64 	%rd60, %rd59, -4294967296;
+	setp.ne.b64 	%p7, %rd60, 0;
+	@!%p7 bra 	$L__BB16_116;
+// %bb.117:                             //   in Loop: Header=BB16_92 Depth=1
+	div.u64 	%rd196, %rd38, %rd11;
+	mov.b64 	%rd38, %rd198;
+	bra.uni 	$L__BB16_106;
+$L__BB16_116:                           //   in Loop: Header=BB16_92 Depth=1
+	cvt.u32.u64 	%r13, %rd38;
+	div.u32 	%r14, %r13, %r102;
+	cvt.u64.u32 	%rd196, %r14;
+	mov.b64 	%rd38, %rd198;
+	bra.uni 	$L__BB16_106;
+$L__BB16_98:                            //   in Loop: Header=BB16_92 Depth=1
+	cvt.u32.u64 	%r16, %rd38;
+	div.u32 	%r17, %r16, %r15;
+	cvt.u64.u32 	%rd197, %r17;
+$L__BB16_100:                           // %.split5
+                                        //   in Loop: Header=BB16_92 Depth=1
+	and.b64 	%rd63, %rd38, -4294967296;
+	setp.ne.b64 	%p10, %rd63, 0;
+	@!%p10 bra 	$L__BB16_101;
+// %bb.102:                             //   in Loop: Header=BB16_92 Depth=1
+	div.u64 	%rd195, %rd38, %rd6;
+	bra.uni 	$L__BB16_103;
+$L__BB16_101:                           //   in Loop: Header=BB16_92 Depth=1
+	cvt.u32.u64 	%r19, %rd38;
+	div.u32 	%r20, %r19, %r18;
+	cvt.u64.u32 	%rd195, %r20;
+$L__BB16_103:                           // %.split5.split
+                                        //   in Loop: Header=BB16_92 Depth=1
+	and.b64 	%rd64, %rd195, -4294967296;
+	setp.ne.b64 	%p11, %rd64, 0;
+	@!%p11 bra 	$L__BB16_104;
+// %bb.105:                             //   in Loop: Header=BB16_92 Depth=1
+	rem.u64 	%rd196, %rd195, %rd6;
+	bra.uni 	$L__BB16_106;
+$L__BB16_104:                           //   in Loop: Header=BB16_92 Depth=1
+	cvt.u32.u64 	%r21, %rd195;
+	rem.u32 	%r22, %r21, %r18;
+	cvt.u64.u32 	%rd196, %r22;
+$L__BB16_106:                           //   in Loop: Header=BB16_92 Depth=1
+	@%p12 bra 	$L__BB16_118;
+// %bb.107:                             //   in Loop: Header=BB16_92 Depth=1
+	@%p64 bra 	$L__BB16_119;
+// %bb.108:                             //   in Loop: Header=BB16_92 Depth=1
+	@%p65 bra 	$L__BB16_109;
+// %bb.120:                             //   in Loop: Header=BB16_92 Depth=1
+	and.b64 	%rd65, %rd37, -4294967296;
+	setp.ne.b64 	%p13, %rd65, 0;
+	@!%p13 bra 	$L__BB16_121;
+// %bb.122:                             //   in Loop: Header=BB16_92 Depth=1
+	div.u64 	%rd199, %rd37, %rd10;
+	bra.uni 	$L__BB16_123;
+$L__BB16_121:                           //   in Loop: Header=BB16_92 Depth=1
+	cvt.u32.u64 	%r24, %rd37;
+	div.u32 	%r25, %r24, %r23;
+	cvt.u64.u32 	%rd199, %r25;
+$L__BB16_123:                           // %.split7
+                                        //   in Loop: Header=BB16_92 Depth=1
+	and.b64 	%rd66, %rd199, -4294967296;
+	setp.ne.b64 	%p14, %rd66, 0;
+	@!%p14 bra 	$L__BB16_124;
+// %bb.125:                             //   in Loop: Header=BB16_92 Depth=1
+	rem.u64 	%rd200, %rd199, %rd9;
+	bra.uni 	$L__BB16_126;
+$L__BB16_124:                           //   in Loop: Header=BB16_92 Depth=1
+	cvt.u32.u64 	%r27, %rd199;
+	rem.u32 	%r28, %r27, %r26;
+	cvt.u64.u32 	%rd200, %r28;
+$L__BB16_126:                           // %.split7.split
+                                        //   in Loop: Header=BB16_92 Depth=1
+	and.b64 	%rd67, %rd38, -4294967296;
+	setp.ne.b64 	%p15, %rd67, 0;
+	@!%p15 bra 	$L__BB16_127;
+// %bb.128:                             //   in Loop: Header=BB16_92 Depth=1
+	rem.u64 	%rd201, %rd38, %rd6;
+	bra.uni 	$L__BB16_129;
+$L__BB16_127:                           //   in Loop: Header=BB16_92 Depth=1
+	cvt.u32.u64 	%r29, %rd38;
+	rem.u32 	%r30, %r29, %r18;
+	cvt.u64.u32 	%rd201, %r30;
+$L__BB16_129:                           // %.split7.split.split
+                                        //   in Loop: Header=BB16_92 Depth=1
+	mul.lo.s64 	%rd68, %rd199, %rd10;
+	sub.s64 	%rd69, %rd37, %rd68;
+	sub.s64 	%rd70, %rd196, %rd8;
+	mad.lo.s64 	%rd39, %rd200, %rd7, %rd70;
+	sub.s64 	%rd71, %rd201, %rd8;
+	mad.lo.s64 	%rd40, %rd69, %rd7, %rd71;
+	setp.ge.u64 	%p16, %rd39, %rd4;
+	setp.ge.u64 	%p17, %rd40, %rd5;
+	mov.b32 	%r112, 0;
 	or.pred 	%p18, %p16, %p17;
-	@%p18 bra 	$L__BB16_33;
+	@%p18 bra 	$L__BB16_135;
+// %bb.130:                             //   in Loop: Header=BB16_92 Depth=1
+	or.b64 	%rd72, %rd37, %rd31;
+	and.b64 	%rd73, %rd72, -4294967296;
+	setp.ne.b64 	%p19, %rd73, 0;
+	@!%p19 bra 	$L__BB16_131;
+// %bb.132:                             //   in Loop: Header=BB16_92 Depth=1
+	div.u64 	%rd202, %rd37, %rd31;
+	bra.uni 	$L__BB16_133;
+$L__BB16_131:                           //   in Loop: Header=BB16_92 Depth=1
+	cvt.u32.u64 	%r31, %rd31;
+	cvt.u32.u64 	%r32, %rd37;
+	div.u32 	%r33, %r32, %r31;
+	cvt.u64.u32 	%rd202, %r33;
+$L__BB16_133:                           // %.split8
+                                        //   in Loop: Header=BB16_92 Depth=1
+	selp.b64 	%rd74, %rd197, %rd39, %p2;
+	selp.b64 	%rd75, %rd39, %rd40, %p2;
+	selp.b64 	%rd76, %rd40, %rd197, %p2;
+	mad.lo.s64 	%rd77, %rd202, %rd32, %rd74;
+	mad.lo.s64 	%rd78, %rd77, %rd33, %rd75;
+	mad.lo.s64 	%rd41, %rd78, %rd34, %rd76;
+	setp.ge.u64 	%p20, %rd41, %rd42;
+	@%p20 bra 	$L__BB16_148;
+// %bb.134:                             //   in Loop: Header=BB16_92 Depth=1
+	shl.b64 	%rd79, %rd41, 2;
+	add.s64 	%rd80, %rd1, %rd79;
+	ld.global.b32 	%r112, [%rd80];
+$L__BB16_135:                           //   in Loop: Header=BB16_92 Depth=1
+	setp.lt.u64 	%p21, %rd36, %rd44;
+	@!%p21 bra 	$L__BB16_149;
+// %bb.136:                             //   in Loop: Header=BB16_92 Depth=1
+	bfe.u32 	%r34, %r112, 16, 1;
+	add.s32 	%r35, %r112, %r34;
+	add.s32 	%r36, %r35, 32767;
+	shr.u32 	%r37, %r36, 16;
+	shl.b64 	%rd81, %rd36, 1;
+	add.s64 	%rd82, %rd2, %rd81;
+	st.global.b16 	[%rd82], %r37;
+	add.s64 	%rd194, %rd35, 1;
+	setp.lt.u64 	%p22, %rd35, %rd29;
+	mov.b64 	%rd36, %rd35;
+	@%p22 bra 	$L__BB16_92;
+	bra.uni 	$L__BB16_137;
+$L__BB16_2:
+	setp.eq.b64 	%p23, %rd12, 0;
+	@%p23 bra 	$L__BB16_138;
+// %bb.3:
+	or.b64 	%rd83, %rd36, %rd12;
+	and.b64 	%rd84, %rd83, -4294967296;
+	setp.ne.b64 	%p24, %rd84, 0;
+	@!%p24 bra 	$L__BB16_4;
+// %bb.5:
+	div.u64 	%rd14, %rd36, %rd12;
+	bra.uni 	$L__BB16_6;
+$L__BB16_4:
+	cvt.u32.u64 	%r38, %rd12;
+	cvt.u32.u64 	%r39, %rd36;
+	div.u32 	%r40, %r39, %r38;
+	cvt.u64.u32 	%rd14, %r40;
+$L__BB16_6:                             // %.split
+	mul.lo.s64 	%rd85, %rd14, %rd12;
+	sub.s64 	%rd16, %rd36, %rd85;
+	@%p2 bra 	$L__BB16_7;
+// %bb.21:
+	@%p63 bra 	$L__BB16_140;
+// %bb.22:
+	setp.eq.b32 	%p25, %r2, 0;
+	@%p25 bra 	$L__BB16_141;
+// %bb.23:
+	and.b64 	%rd86, %rd16, -4294967296;
+	setp.ne.b64 	%p26, %rd86, 0;
+	@!%p26 bra 	$L__BB16_24;
+// %bb.25:
+	div.u64 	%rd162, %rd16, %rd3;
+	bra.uni 	$L__BB16_26;
+$L__BB16_7:
+	setp.eq.b32 	%p28, %r2, 0;
+	@%p28 bra 	$L__BB16_139;
+// %bb.8:
+	mul.lo.s64 	%rd15, %rd6, %rd6;
+	or.b64 	%rd90, %rd16, %rd15;
+	and.b64 	%rd91, %rd90, -4294967296;
+	setp.ne.b64 	%p29, %rd91, 0;
+	@!%p29 bra 	$L__BB16_9;
+// %bb.10:
+	div.u64 	%rd17, %rd16, %rd15;
+	bra.uni 	$L__BB16_11;
+$L__BB16_24:
+	cvt.u32.u64 	%r41, %rd16;
+	div.u32 	%r42, %r41, %r103;
+	cvt.u64.u32 	%rd162, %r42;
+$L__BB16_26:                            // %.split2
+	mul.lo.s64 	%rd87, %rd162, %rd3;
+	sub.s64 	%rd17, %rd16, %rd87;
+	or.b64 	%rd88, %rd16, %rd11;
+	and.b64 	%rd89, %rd88, -4294967296;
+	setp.ne.b64 	%p27, %rd89, 0;
+	@!%p27 bra 	$L__BB16_27;
 // %bb.28:
-	ld.param.b32 	%r4, [im2col_param_13];
-	ld.param.b64 	%rd23, [im2col_param_1];
-	setp.eq.b32 	%p19, %r4, 0;
-	@%p19 bra 	$L__BB16_29;
-// %bb.30:
-	mad.lo.s64 	%rd50, %rd21, %rd5, %rd22;
-	mad.lo.s64 	%rd51, %rd50, %rd6, %rd48;
-	mad.lo.s64 	%rd60, %rd51, %rd4, %rd17;
-	bra.uni 	$L__BB16_31;
-$L__BB16_29:
-	mad.lo.s64 	%rd52, %rd21, %rd4, %rd17;
-	mad.lo.s64 	%rd53, %rd52, %rd5, %rd22;
-	mad.lo.s64 	%rd60, %rd53, %rd6, %rd48;
-$L__BB16_31:
-	setp.ge.u64 	%p20, %rd60, %rd23;
-	@%p20 bra 	$L__BB16_41;
-// %bb.32:
-	shl.b64 	%rd54, %rd60, 2;
-	add.s64 	%rd55, %rd1, %rd54;
-	ld.global.b32 	%r32, [%rd55];
-$L__BB16_33:
-	ld.param.b64 	%rd24, [im2col_param_3];
-	setp.lt.u64 	%p21, %rd3, %rd24;
-	@!%p21 bra 	$L__BB16_42;
-// %bb.34:
-	bfe.u32 	%r28, %r32, 16, 1;
-	add.s32 	%r29, %r32, %r28;
-	add.s32 	%r30, %r29, 32767;
-	shr.u32 	%r31, %r30, 16;
-	shl.b64 	%rd56, %rd3, 1;
-	add.s64 	%rd57, %rd2, %rd56;
-	st.global.b16 	[%rd57], %r31;
+	div.u64 	%rd161, %rd16, %rd11;
+	mov.b64 	%rd16, %rd162;
+	bra.uni 	$L__BB16_17;
+$L__BB16_27:
+	cvt.u32.u64 	%r43, %rd16;
+	div.u32 	%r44, %r43, %r102;
+	cvt.u64.u32 	%rd161, %r44;
+	mov.b64 	%rd16, %rd162;
+	bra.uni 	$L__BB16_17;
+$L__BB16_9:
+	cvt.u32.u64 	%r45, %rd15;
+	cvt.u32.u64 	%r46, %rd16;
+	div.u32 	%r47, %r46, %r45;
+	cvt.u64.u32 	%rd17, %r47;
+$L__BB16_11:                            // %.split1
+	and.b64 	%rd92, %rd16, -4294967296;
+	setp.ne.b64 	%p30, %rd92, 0;
+	@!%p30 bra 	$L__BB16_12;
+// %bb.13:
+	div.u64 	%rd160, %rd16, %rd6;
+	bra.uni 	$L__BB16_14;
+$L__BB16_12:
+	cvt.u32.u64 	%r48, %rd6;
+	cvt.u32.u64 	%r49, %rd16;
+	div.u32 	%r50, %r49, %r48;
+	cvt.u64.u32 	%rd160, %r50;
+$L__BB16_14:                            // %.split1.split
+	and.b64 	%rd93, %rd160, -4294967296;
+	setp.ne.b64 	%p31, %rd93, 0;
+	@!%p31 bra 	$L__BB16_15;
+// %bb.16:
+	rem.u64 	%rd161, %rd160, %rd6;
+	bra.uni 	$L__BB16_17;
+$L__BB16_15:
+	cvt.u32.u64 	%r51, %rd6;
+	cvt.u32.u64 	%r52, %rd160;
+	rem.u32 	%r53, %r52, %r51;
+	cvt.u64.u32 	%rd161, %r53;
+$L__BB16_17:
+	mul.lo.s64 	%rd18, %rd10, %rd9;
+	setp.eq.b64 	%p32, %rd18, 0;
+	@%p32 bra 	$L__BB16_29;
+// %bb.18:
+	@%p64 bra 	$L__BB16_30;
+// %bb.19:
+	@%p65 bra 	$L__BB16_20;
+// %bb.31:
+	and.b64 	%rd94, %rd14, -4294967296;
+	setp.ne.b64 	%p33, %rd94, 0;
+	@!%p33 bra 	$L__BB16_32;
+// %bb.33:
+	div.u64 	%rd163, %rd14, %rd10;
+	bra.uni 	$L__BB16_34;
+$L__BB16_32:
+	cvt.u32.u64 	%r54, %rd10;
+	cvt.u32.u64 	%r55, %rd14;
+	div.u32 	%r56, %r55, %r54;
+	cvt.u64.u32 	%rd163, %r56;
+$L__BB16_34:                            // %.split3
+	and.b64 	%rd95, %rd163, -4294967296;
+	setp.ne.b64 	%p34, %rd95, 0;
+	@!%p34 bra 	$L__BB16_35;
+// %bb.36:
+	rem.u64 	%rd164, %rd163, %rd9;
+	bra.uni 	$L__BB16_37;
 $L__BB16_35:
+	cvt.u32.u64 	%r57, %rd9;
+	cvt.u32.u64 	%r58, %rd163;
+	rem.u32 	%r59, %r58, %r57;
+	cvt.u64.u32 	%rd164, %r59;
+$L__BB16_37:                            // %.split3.split
+	or.b64 	%rd96, %rd14, %rd18;
+	and.b64 	%rd97, %rd96, -4294967296;
+	setp.ne.b64 	%p35, %rd97, 0;
+	@!%p35 bra 	$L__BB16_38;
+// %bb.39:
+	div.u64 	%rd165, %rd14, %rd18;
+	bra.uni 	$L__BB16_40;
+$L__BB16_38:
+	cvt.u32.u64 	%r60, %rd18;
+	cvt.u32.u64 	%r61, %rd14;
+	div.u32 	%r62, %r61, %r60;
+	cvt.u64.u32 	%rd165, %r62;
+$L__BB16_40:                            // %.split3.split.split
+	and.b64 	%rd98, %rd16, -4294967296;
+	setp.ne.b64 	%p36, %rd98, 0;
+	@!%p36 bra 	$L__BB16_41;
+// %bb.42:
+	rem.u64 	%rd166, %rd16, %rd6;
+	bra.uni 	$L__BB16_43;
+$L__BB16_41:
+	cvt.u32.u64 	%r63, %rd6;
+	cvt.u32.u64 	%r64, %rd16;
+	rem.u32 	%r65, %r64, %r63;
+	cvt.u64.u32 	%rd166, %r65;
+$L__BB16_43:                            // %.split3.split.split.split
+	mul.lo.s64 	%rd99, %rd163, %rd10;
+	sub.s64 	%rd100, %rd14, %rd99;
+	sub.s64 	%rd101, %rd161, %rd8;
+	mad.lo.s64 	%rd19, %rd164, %rd7, %rd101;
+	sub.s64 	%rd102, %rd166, %rd8;
+	mad.lo.s64 	%rd191, %rd100, %rd7, %rd102;
+	setp.ge.u64 	%p37, %rd19, %rd4;
+	selp.b64 	%rd20, %rd4, %rd5, %p2;
+	setp.ge.u64 	%p38, %rd191, %rd5;
+	mov.b32 	%r104, 0;
+	or.pred 	%p39, %p37, %p38;
+	@%p39 bra 	$L__BB16_46;
+// %bb.44:
+	selp.b64 	%rd103, %rd191, %rd17, %p2;
+	selp.b64 	%rd104, %rd17, %rd19, %p2;
+	selp.b64 	%rd105, %rd19, %rd191, %p2;
+	selp.b64 	%rd106, %rd3, %rd4, %p2;
+	selp.b64 	%rd107, %rd5, %rd3, %p2;
+	mad.lo.s64 	%rd108, %rd165, %rd106, %rd104;
+	mad.lo.s64 	%rd109, %rd108, %rd20, %rd105;
+	mad.lo.s64 	%rd21, %rd109, %rd107, %rd103;
+	setp.ge.u64 	%p40, %rd21, %rd42;
+	@%p40 bra 	$L__BB16_142;
+// %bb.45:
+	shl.b64 	%rd110, %rd21, 2;
+	add.s64 	%rd111, %rd1, %rd110;
+	ld.global.b32 	%r104, [%rd111];
+$L__BB16_46:
+	@%p2 bra 	$L__BB16_47;
+// %bb.48:
+	add.s64 	%rd169, %rd17, 1;
+	mov.b64 	%rd167, %rd191;
+	mov.b64 	%rd168, %rd19;
+	mov.b64 	%rd170, %rd191;
+	bra.uni 	$L__BB16_49;
+$L__BB16_47:
+	add.s64 	%rd169, %rd191, 1;
+	mov.b64 	%rd167, %rd19;
+	mov.b64 	%rd168, %rd17;
+	mov.b64 	%rd170, %rd169;
+$L__BB16_49:
+	setp.ge.u64 	%p41, %rd170, %rd5;
+	mov.b32 	%r105, 0;
+	or.pred 	%p42, %p37, %p41;
+	@%p42 bra 	$L__BB16_52;
+// %bb.50:
+	selp.b64 	%rd112, %rd3, %rd4, %p2;
+	selp.b64 	%rd113, %rd5, %rd3, %p2;
+	mad.lo.s64 	%rd114, %rd165, %rd112, %rd168;
+	mad.lo.s64 	%rd115, %rd114, %rd20, %rd167;
+	mad.lo.s64 	%rd22, %rd115, %rd113, %rd169;
+	setp.ge.u64 	%p43, %rd22, %rd42;
+	@%p43 bra 	$L__BB16_142;
+// %bb.51:
+	shl.b64 	%rd116, %rd22, 2;
+	add.s64 	%rd117, %rd1, %rd116;
+	ld.global.b32 	%r105, [%rd117];
+$L__BB16_52:
+	@%p2 bra 	$L__BB16_53;
+// %bb.54:
+	add.s64 	%rd173, %rd17, 2;
+	mov.b64 	%rd171, %rd191;
+	mov.b64 	%rd172, %rd19;
+	mov.b64 	%rd174, %rd191;
+	bra.uni 	$L__BB16_55;
+$L__BB16_53:
+	add.s64 	%rd173, %rd191, 2;
+	mov.b64 	%rd171, %rd19;
+	mov.b64 	%rd172, %rd17;
+	mov.b64 	%rd174, %rd173;
+$L__BB16_55:
+	setp.ge.u64 	%p44, %rd174, %rd5;
+	mov.b32 	%r106, 0;
+	or.pred 	%p45, %p37, %p44;
+	@%p45 bra 	$L__BB16_58;
+// %bb.56:
+	selp.b64 	%rd118, %rd3, %rd4, %p2;
+	selp.b64 	%rd119, %rd5, %rd3, %p2;
+	mad.lo.s64 	%rd120, %rd165, %rd118, %rd172;
+	mad.lo.s64 	%rd121, %rd120, %rd20, %rd171;
+	mad.lo.s64 	%rd23, %rd121, %rd119, %rd173;
+	setp.ge.u64 	%p46, %rd23, %rd42;
+	@%p46 bra 	$L__BB16_142;
+// %bb.57:
+	shl.b64 	%rd122, %rd23, 2;
+	add.s64 	%rd123, %rd1, %rd122;
+	ld.global.b32 	%r106, [%rd123];
+$L__BB16_58:
+	@%p2 bra 	$L__BB16_59;
+// %bb.60:
+	add.s64 	%rd177, %rd17, 3;
+	mov.b64 	%rd175, %rd191;
+	mov.b64 	%rd176, %rd19;
+	mov.b64 	%rd178, %rd191;
+	bra.uni 	$L__BB16_61;
+$L__BB16_59:
+	add.s64 	%rd177, %rd191, 3;
+	mov.b64 	%rd175, %rd19;
+	mov.b64 	%rd176, %rd17;
+	mov.b64 	%rd178, %rd177;
+$L__BB16_61:
+	setp.ge.u64 	%p47, %rd178, %rd5;
+	mov.b32 	%r107, 0;
+	or.pred 	%p48, %p37, %p47;
+	@%p48 bra 	$L__BB16_64;
+// %bb.62:
+	selp.b64 	%rd124, %rd3, %rd4, %p2;
+	selp.b64 	%rd125, %rd5, %rd3, %p2;
+	mad.lo.s64 	%rd126, %rd165, %rd124, %rd176;
+	mad.lo.s64 	%rd127, %rd126, %rd20, %rd175;
+	mad.lo.s64 	%rd24, %rd127, %rd125, %rd177;
+	setp.ge.u64 	%p49, %rd24, %rd42;
+	@%p49 bra 	$L__BB16_142;
+// %bb.63:
+	shl.b64 	%rd128, %rd24, 2;
+	add.s64 	%rd129, %rd1, %rd128;
+	ld.global.b32 	%r107, [%rd129];
+$L__BB16_64:
+	@%p2 bra 	$L__BB16_65;
+// %bb.66:
+	add.s64 	%rd181, %rd17, 4;
+	mov.b64 	%rd179, %rd191;
+	mov.b64 	%rd180, %rd19;
+	mov.b64 	%rd182, %rd191;
+	bra.uni 	$L__BB16_67;
+$L__BB16_65:
+	add.s64 	%rd181, %rd191, 4;
+	mov.b64 	%rd179, %rd19;
+	mov.b64 	%rd180, %rd17;
+	mov.b64 	%rd182, %rd181;
+$L__BB16_67:
+	setp.ge.u64 	%p50, %rd182, %rd5;
+	mov.b32 	%r108, 0;
+	or.pred 	%p51, %p37, %p50;
+	@%p51 bra 	$L__BB16_70;
+// %bb.68:
+	selp.b64 	%rd130, %rd3, %rd4, %p2;
+	selp.b64 	%rd131, %rd5, %rd3, %p2;
+	mad.lo.s64 	%rd132, %rd165, %rd130, %rd180;
+	mad.lo.s64 	%rd133, %rd132, %rd20, %rd179;
+	mad.lo.s64 	%rd25, %rd133, %rd131, %rd181;
+	setp.ge.u64 	%p52, %rd25, %rd42;
+	@%p52 bra 	$L__BB16_142;
+// %bb.69:
+	shl.b64 	%rd134, %rd25, 2;
+	add.s64 	%rd135, %rd1, %rd134;
+	ld.global.b32 	%r108, [%rd135];
+$L__BB16_70:
+	@%p2 bra 	$L__BB16_71;
+// %bb.72:
+	add.s64 	%rd185, %rd17, 5;
+	mov.b64 	%rd183, %rd191;
+	mov.b64 	%rd184, %rd19;
+	mov.b64 	%rd186, %rd191;
+	bra.uni 	$L__BB16_73;
+$L__BB16_71:
+	add.s64 	%rd185, %rd191, 5;
+	mov.b64 	%rd183, %rd19;
+	mov.b64 	%rd184, %rd17;
+	mov.b64 	%rd186, %rd185;
+$L__BB16_73:
+	setp.ge.u64 	%p53, %rd186, %rd5;
+	mov.b32 	%r109, 0;
+	or.pred 	%p54, %p37, %p53;
+	@%p54 bra 	$L__BB16_76;
+// %bb.74:
+	selp.b64 	%rd136, %rd3, %rd4, %p2;
+	selp.b64 	%rd137, %rd5, %rd3, %p2;
+	mad.lo.s64 	%rd138, %rd165, %rd136, %rd184;
+	mad.lo.s64 	%rd139, %rd138, %rd20, %rd183;
+	mad.lo.s64 	%rd26, %rd139, %rd137, %rd185;
+	setp.ge.u64 	%p55, %rd26, %rd42;
+	@%p55 bra 	$L__BB16_142;
+// %bb.75:
+	shl.b64 	%rd140, %rd26, 2;
+	add.s64 	%rd141, %rd1, %rd140;
+	ld.global.b32 	%r109, [%rd141];
+$L__BB16_76:
+	@%p2 bra 	$L__BB16_77;
+// %bb.78:
+	add.s64 	%rd189, %rd17, 6;
+	mov.b64 	%rd187, %rd191;
+	mov.b64 	%rd188, %rd19;
+	mov.b64 	%rd190, %rd191;
+	bra.uni 	$L__BB16_79;
+$L__BB16_77:
+	add.s64 	%rd189, %rd191, 6;
+	mov.b64 	%rd187, %rd19;
+	mov.b64 	%rd188, %rd17;
+	mov.b64 	%rd190, %rd189;
+$L__BB16_79:
+	setp.ge.u64 	%p56, %rd190, %rd5;
+	mov.b32 	%r110, 0;
+	or.pred 	%p57, %p37, %p56;
+	@%p57 bra 	$L__BB16_82;
+// %bb.80:
+	selp.b64 	%rd142, %rd3, %rd4, %p2;
+	selp.b64 	%rd143, %rd5, %rd3, %p2;
+	mad.lo.s64 	%rd144, %rd165, %rd142, %rd188;
+	mad.lo.s64 	%rd145, %rd144, %rd20, %rd187;
+	mad.lo.s64 	%rd27, %rd145, %rd143, %rd189;
+	setp.ge.u64 	%p58, %rd27, %rd42;
+	@%p58 bra 	$L__BB16_142;
+// %bb.81:
+	shl.b64 	%rd146, %rd27, 2;
+	add.s64 	%rd147, %rd1, %rd146;
+	ld.global.b32 	%r110, [%rd147];
+$L__BB16_82:
+	@%p2 bra 	$L__BB16_83;
+// %bb.84:
+	add.s64 	%rd192, %rd17, 7;
+	mov.b64 	%rd17, %rd19;
+	mov.b64 	%rd193, %rd191;
+	bra.uni 	$L__BB16_85;
+$L__BB16_83:
+	add.s64 	%rd192, %rd191, 7;
+	mov.b64 	%rd191, %rd19;
+	mov.b64 	%rd193, %rd192;
+$L__BB16_85:
+	setp.ge.u64 	%p59, %rd193, %rd5;
+	mov.b32 	%r111, 0;
+	or.pred 	%p60, %p37, %p59;
+	@%p60 bra 	$L__BB16_88;
+// %bb.86:
+	selp.b64 	%rd148, %rd3, %rd4, %p2;
+	selp.b64 	%rd149, %rd5, %rd3, %p2;
+	mad.lo.s64 	%rd150, %rd165, %rd148, %rd17;
+	mad.lo.s64 	%rd151, %rd150, %rd20, %rd191;
+	mad.lo.s64 	%rd28, %rd151, %rd149, %rd192;
+	setp.ge.u64 	%p61, %rd28, %rd42;
+	@%p61 bra 	$L__BB16_142;
+// %bb.87:
+	shl.b64 	%rd152, %rd28, 2;
+	add.s64 	%rd153, %rd1, %rd152;
+	ld.global.b32 	%r111, [%rd153];
+$L__BB16_88:
+	setp.lt.u64 	%p62, %rd36, %rd44;
+	@!%p62 bra 	$L__BB16_143;
+// %bb.89:
+	bfe.u32 	%r70, %r111, 16, 1;
+	add.s32 	%r71, %r111, %r70;
+	add.s32 	%r72, %r71, 32767;
+	and.b32 	%r73, %r72, -65536;
+	bfe.u32 	%r74, %r110, 16, 1;
+	add.s32 	%r75, %r110, %r74;
+	add.s32 	%r76, %r75, 32767;
+	shr.u32 	%r77, %r76, 16;
+	or.b32 	%r69, %r73, %r77;
+	bfe.u32 	%r78, %r109, 16, 1;
+	add.s32 	%r79, %r109, %r78;
+	add.s32 	%r80, %r79, 32767;
+	and.b32 	%r81, %r80, -65536;
+	bfe.u32 	%r82, %r108, 16, 1;
+	add.s32 	%r83, %r108, %r82;
+	add.s32 	%r84, %r83, 32767;
+	shr.u32 	%r85, %r84, 16;
+	or.b32 	%r68, %r81, %r85;
+	bfe.u32 	%r86, %r107, 16, 1;
+	add.s32 	%r87, %r107, %r86;
+	add.s32 	%r88, %r87, 32767;
+	and.b32 	%r89, %r88, -65536;
+	bfe.u32 	%r90, %r106, 16, 1;
+	add.s32 	%r91, %r106, %r90;
+	add.s32 	%r92, %r91, 32767;
+	shr.u32 	%r93, %r92, 16;
+	or.b32 	%r67, %r89, %r93;
+	bfe.u32 	%r94, %r105, 16, 1;
+	add.s32 	%r95, %r105, %r94;
+	add.s32 	%r96, %r95, 32767;
+	and.b32 	%r97, %r96, -65536;
+	bfe.u32 	%r98, %r104, 16, 1;
+	add.s32 	%r99, %r104, %r98;
+	add.s32 	%r100, %r99, 32767;
+	shr.u32 	%r101, %r100, 16;
+	or.b32 	%r66, %r97, %r101;
+	shl.b64 	%rd159, %rd36, 1;
+	add.s64 	%rd158, %rd159, %rd43;
+	// begin inline asm
+	st.global.v4.u32 [%rd158], {%r66, %r67, %r68, %r69};
+	// end inline asm
+$L__BB16_137:                           // %.loopexit
 	ret;
-$L__BB16_36:
+$L__BB16_143:
+	{ // callseq 86, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	mov.b64 	%rd154, anon_$_0cb7a8d285785f3700824b3a646dccf7_$_2;
+	cvta.global.u64 	%rd155, %rd154;
+	st.param.b64 	[param2], %rd155;
+	mov.b64 	%rd156, anon_$_0cb7a8d285785f3700824b3a646dccf7_$_0;
+	cvta.global.u64 	%rd157, %rd156;
+	st.param.b64 	[param0], %rd157;
+	st.param.b64 	[param1], 38;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	} // callseq 86
+$L__BB16_118:
 	{ // callseq 80, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 80
-$L__BB16_37:
+$L__BB16_119:
 	{ // callseq 79, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 79
-$L__BB16_38:
+$L__BB16_109:
 	{ // callseq 78, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 78
-$L__BB16_39:
+$L__BB16_149:
 	{ // callseq 77, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 77
-$L__BB16_40:
-	{ // callseq 76, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 76
-$L__BB16_42:
-	{ // callseq 75, 0
-	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 75
-$L__BB16_41:
+	} // callseq 77
+$L__BB16_147:
 	{ // callseq 74, 0
 	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 74
+$L__BB16_146:
+	{ // callseq 75, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 75
+$L__BB16_148:
+	{ // callseq 76, 0
+	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 74
+	} // callseq 76
+$L__BB16_145:
+	{ // callseq 81, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 81
+$L__BB16_142:
+	{ // callseq 85, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 85
+$L__BB16_144:
+	{ // callseq 82, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 82
+$L__BB16_138:
+	{ // callseq 91, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 91
+$L__BB16_29:
+	{ // callseq 89, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 89
+$L__BB16_30:
+	{ // callseq 88, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 88
+$L__BB16_20:
+	{ // callseq 87, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 87
+$L__BB16_140:
+	{ // callseq 84, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 84
+$L__BB16_141:
+	{ // callseq 83, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 83
+$L__BB16_139:
+	{ // callseq 90, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 90
                                         // -- End function
 }
 	// .globl	layer_norm              // -- Begin function layer_norm
@@ -3127,47 +3691,47 @@ $L__BB17_11:                            // %.preheader
 $L__BB17_16:                            // %.loopexit
 	ret;
 $L__BB17_17:
-	{ // callseq 81, 0
+	{ // callseq 92, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 81
+	} // callseq 92
 $L__BB17_18:
-	{ // callseq 82, 0
+	{ // callseq 93, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 82
+	} // callseq 93
 $L__BB17_22:
-	{ // callseq 86, 0
+	{ // callseq 97, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 86
+	} // callseq 97
 $L__BB17_21:
-	{ // callseq 85, 0
+	{ // callseq 96, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 85
+	} // callseq 96
 $L__BB17_20:
-	{ // callseq 84, 0
+	{ // callseq 95, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 84
+	} // callseq 95
 $L__BB17_19:
-	{ // callseq 83, 0
+	{ // callseq 94, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 83
+	} // callseq 94
                                         // -- End function
 }
 	// .globl	layer_norm_f32          // -- Begin function layer_norm_f32
@@ -3355,47 +3919,47 @@ $L__BB18_11:                            // %.preheader
 $L__BB18_16:                            // %.loopexit
 	ret;
 $L__BB18_17:
-	{ // callseq 87, 0
+	{ // callseq 98, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 87
+	} // callseq 98
 $L__BB18_18:
-	{ // callseq 88, 0
+	{ // callseq 99, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 88
+	} // callseq 99
 $L__BB18_22:
-	{ // callseq 92, 0
+	{ // callseq 103, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 92
+	} // callseq 103
 $L__BB18_21:
-	{ // callseq 91, 0
+	{ // callseq 102, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 91
+	} // callseq 102
 $L__BB18_20:
-	{ // callseq 90, 0
+	{ // callseq 101, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 90
+	} // callseq 101
 $L__BB18_19:
-	{ // callseq 89, 0
+	{ // callseq 100, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 89
+	} // callseq 100
                                         // -- End function
 }
 	// .globl	merge                   // -- Begin function merge
@@ -3770,7 +4334,7 @@ $L__BB19_40:
 $L__BB19_47:
 	ret;
 $L__BB19_58:
-	{ // callseq 96, 0
+	{ // callseq 107, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -3782,9 +4346,9 @@ $L__BB19_58:
 	st.param.b64 	[param0], %rd85;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 96
+	} // callseq 107
 $L__BB19_59:
-	{ // callseq 97, 0
+	{ // callseq 108, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -3796,9 +4360,9 @@ $L__BB19_59:
 	st.param.b64 	[param0], %rd92;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 97
+	} // callseq 108
 $L__BB19_61:
-	{ // callseq 98, 0
+	{ // callseq 109, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -3810,66 +4374,66 @@ $L__BB19_61:
 	st.param.b64 	[param0], %rd99;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 98
+	} // callseq 109
 $L__BB19_48:
-	{ // callseq 106, 0
+	{ // callseq 117, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 106
+	} // callseq 117
 $L__BB19_49:
+	{ // callseq 116, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 116
+$L__BB19_50:
+	{ // callseq 115, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 115
+$L__BB19_51:
+	{ // callseq 114, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 114
+$L__BB19_52:
+	{ // callseq 113, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 113
+$L__BB19_53:
+	{ // callseq 112, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 112
+$L__BB19_54:
+	{ // callseq 111, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 111
+$L__BB19_55:
+	{ // callseq 110, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 110
+$L__BB19_60:
+	{ // callseq 106, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 106
+$L__BB19_56:
 	{ // callseq 105, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 105
-$L__BB19_50:
+$L__BB19_57:
 	{ // callseq 104, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 104
-$L__BB19_51:
-	{ // callseq 103, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 103
-$L__BB19_52:
-	{ // callseq 102, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 102
-$L__BB19_53:
-	{ // callseq 101, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 101
-$L__BB19_54:
-	{ // callseq 100, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 100
-$L__BB19_55:
-	{ // callseq 99, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 99
-$L__BB19_60:
-	{ // callseq 95, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 95
-$L__BB19_56:
-	{ // callseq 94, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 94
-$L__BB19_57:
-	{ // callseq 93, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 93
                                         // -- End function
 }
 	// .globl	norm_mod                // -- Begin function norm_mod
@@ -4053,52 +4617,52 @@ $L__BB20_8:                             // =>This Inner Loop Header: Depth=1
 $L__BB20_14:                            // %.loopexit
 	ret;
 $L__BB20_15:
-	{ // callseq 107, 0
+	{ // callseq 118, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 107
+	} // callseq 118
 $L__BB20_20:
-	{ // callseq 112, 0
+	{ // callseq 123, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 112
+	} // callseq 123
 $L__BB20_19:
-	{ // callseq 111, 0
+	{ // callseq 122, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 111
+	} // callseq 122
 $L__BB20_18:
-	{ // callseq 110, 0
+	{ // callseq 121, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 110
+	} // callseq 121
 $L__BB20_17:
-	{ // callseq 109, 0
+	{ // callseq 120, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 109
+	} // callseq 120
 $L__BB20_16:
-	{ // callseq 108, 0
+	{ // callseq 119, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 108
+	} // callseq 119
 $L__BB20_21:
-	{ // callseq 113, 0
+	{ // callseq 124, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 113
+	} // callseq 124
                                         // -- End function
 }
 	// .globl	place                   // -- Begin function place
@@ -4181,24 +4745,24 @@ $L__BB21_5:                             // %.split
 $L__BB21_8:
 	ret;
 $L__BB21_9:
-	{ // callseq 116, 0
+	{ // callseq 127, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 116
+	} // callseq 127
 $L__BB21_10:
-	{ // callseq 114, 0
+	{ // callseq 125, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 114
+	} // callseq 125
 $L__BB21_11:
-	{ // callseq 115, 0
+	{ // callseq 126, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 115
+	} // callseq 126
                                         // -- End function
 }
 	// .globl	planar                  // -- Begin function planar
@@ -4317,34 +4881,34 @@ $L__BB22_13:                            // %.split1.split
 $L__BB22_16:
 	ret;
 $L__BB22_17:
-	{ // callseq 121, 0
+	{ // callseq 132, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 121
+	} // callseq 132
 $L__BB22_18:
-	{ // callseq 120, 0
+	{ // callseq 131, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 120
+	} // callseq 131
 $L__BB22_19:
-	{ // callseq 119, 0
+	{ // callseq 130, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 119
+	} // callseq 130
 $L__BB22_20:
-	{ // callseq 117, 0
+	{ // callseq 128, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 117
+	} // callseq 128
 $L__BB22_21:
-	{ // callseq 118, 0
+	{ // callseq 129, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 118
+	} // callseq 129
                                         // -- End function
 }
 	// .globl	prep                    // -- Begin function prep
@@ -4578,29 +5142,29 @@ $L__BB23_25:
 $L__BB23_27:
 	ret;
 $L__BB23_28:
-	{ // callseq 125, 0
+	{ // callseq 136, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 125
+	} // callseq 136
 $L__BB23_29:
-	{ // callseq 124, 0
+	{ // callseq 135, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 124
+	} // callseq 135
 $L__BB23_31:
-	{ // callseq 122, 0
+	{ // callseq 133, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 122
+	} // callseq 133
 $L__BB23_32:
-	{ // callseq 123, 0
+	{ // callseq 134, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 123
+	} // callseq 134
                                         // -- End function
 }
 	// .globl	prep_f32                // -- Begin function prep_f32
@@ -4848,29 +5412,29 @@ $L__BB24_27:
 $L__BB24_29:
 	ret;
 $L__BB24_30:
-	{ // callseq 129, 0
+	{ // callseq 140, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 129
+	} // callseq 140
 $L__BB24_31:
-	{ // callseq 128, 0
+	{ // callseq 139, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 128
+	} // callseq 139
 $L__BB24_32:
-	{ // callseq 126, 0
+	{ // callseq 137, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 126
+	} // callseq 137
 $L__BB24_34:
-	{ // callseq 127, 0
+	{ // callseq 138, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 127
+	} // callseq 138
                                         // -- End function
 }
 	// .globl	render                  // -- Begin function render
@@ -5388,38 +5952,38 @@ $L__BB25_53:
 $L__BB25_59:
 	ret;
 $L__BB25_67:
-	{ // callseq 131, 0
+	{ // callseq 142, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 131
+	} // callseq 142
 $L__BB25_68:
-	{ // callseq 132, 0
+	{ // callseq 143, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 132
+	} // callseq 143
 $L__BB25_66:
-	{ // callseq 134, 0
+	{ // callseq 145, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 134
+	} // callseq 145
 $L__BB25_28:
-	{ // callseq 130, 0
+	{ // callseq 141, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 130
+	} // callseq 141
 $L__BB25_69:
-	{ // callseq 133, 0
+	{ // callseq 144, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 133
+	} // callseq 144
                                         // -- End function
 }
 	// .globl	render_exr              // -- Begin function render_exr
@@ -5786,12 +6350,12 @@ $L__BB26_48:
 	setp.lt.u64 	%p37, %rd3, %rd26;
 	@%p37 bra 	$L__BB26_49;
 // %bb.55:
-	{ // callseq 138, 0
+	{ // callseq 149, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 138
+	} // callseq 149
 $L__BB26_32:
 	setp.eq.b32 	%p38, %r8, 0;
 	@%p38 bra 	$L__BB26_34;
@@ -5813,38 +6377,38 @@ $L__BB26_49:
 $L__BB26_50:
 	ret;
 $L__BB26_52:
-	{ // callseq 136, 0
+	{ // callseq 147, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 136
+	} // callseq 147
 $L__BB26_54:
-	{ // callseq 137, 0
+	{ // callseq 148, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 137
+	} // callseq 148
 $L__BB26_51:
-	{ // callseq 140, 0
+	{ // callseq 151, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 140
+	} // callseq 151
 $L__BB26_53:
-	{ // callseq 135, 0
+	{ // callseq 146, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 135
+	} // callseq 146
 $L__BB26_35:
-	{ // callseq 139, 0
+	{ // callseq 150, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 139
+	} // callseq 150
                                         // -- End function
 }
 	// .globl	resize                  // -- Begin function resize
@@ -6895,139 +7459,139 @@ $L__BB27_115:                           // %.split5
 $L__BB27_120:
 	ret;
 $L__BB27_132:
-	{ // callseq 157, 0
+	{ // callseq 168, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 157
+	} // callseq 168
 $L__BB27_124:
-	{ // callseq 144, 0
+	{ // callseq 155, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 144
+	} // callseq 155
 $L__BB27_93:
-	{ // callseq 141, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 141
-$L__BB27_52:
-	{ // callseq 151, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 151
-$L__BB27_125:
-	{ // callseq 145, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 145
-$L__BB27_94:
-	{ // callseq 142, 0
-	.param .b64 	param0;
-	.param .b64 	param1;
-	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 142
-$L__BB27_53:
 	{ // callseq 152, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 152
-$L__BB27_123:
-	{ // callseq 150, 0
+$L__BB27_52:
+	{ // callseq 162, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 150
-$L__BB27_51:
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	} // callseq 162
+$L__BB27_125:
+	{ // callseq 156, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	} // callseq 156
+$L__BB27_94:
 	{ // callseq 153, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 153
-$L__BB27_92:
-	{ // callseq 143, 0
+$L__BB27_53:
+	{ // callseq 163, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	} // callseq 163
+$L__BB27_123:
+	{ // callseq 161, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 143
-$L__BB27_121:
-	{ // callseq 160, 0
+	} // callseq 161
+$L__BB27_51:
+	{ // callseq 164, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 160
-$L__BB27_122:
-	{ // callseq 159, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 159
-$L__BB27_130:
-	{ // callseq 158, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 158
-$L__BB27_131:
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 164
+$L__BB27_92:
 	{ // callseq 154, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 154
+$L__BB27_121:
+	{ // callseq 171, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 171
+$L__BB27_122:
+	{ // callseq 170, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 170
+$L__BB27_130:
+	{ // callseq 169, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	} // callseq 169
+$L__BB27_131:
+	{ // callseq 165, 0
+	.param .b64 	param0;
+	.param .b64 	param1;
+	.param .b64 	param2;
+	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	} // callseq 165
 $L__BB27_133:
-	{ // callseq 155, 0
+	{ // callseq 166, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 155
+	} // callseq 166
 $L__BB27_134:
-	{ // callseq 156, 0
+	{ // callseq 167, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 156
+	} // callseq 167
 $L__BB27_126:
-	{ // callseq 146, 0
+	{ // callseq 157, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 146
+	} // callseq 157
 $L__BB27_127:
-	{ // callseq 147, 0
+	{ // callseq 158, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 147
+	} // callseq 158
 $L__BB27_128:
-	{ // callseq 148, 0
+	{ // callseq 159, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 148
+	} // callseq 159
 $L__BB27_129:
-	{ // callseq 149, 0
+	{ // callseq 160, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 149
+	} // callseq 160
                                         // -- End function
 }
 	// .globl	shuffle                 // -- Begin function shuffle
@@ -7216,49 +7780,49 @@ $L__BB28_28:                            // %.split3.split.split
 $L__BB28_31:
 	ret;
 $L__BB28_32:
-	{ // callseq 168, 0
+	{ // callseq 179, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 168
+	} // callseq 179
 $L__BB28_33:
-	{ // callseq 167, 0
+	{ // callseq 178, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 167
+	} // callseq 178
 $L__BB28_34:
-	{ // callseq 166, 0
+	{ // callseq 177, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 166
+	} // callseq 177
 $L__BB28_35:
-	{ // callseq 165, 0
+	{ // callseq 176, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 165
+	} // callseq 176
 $L__BB28_36:
-	{ // callseq 164, 0
+	{ // callseq 175, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 164
+	} // callseq 175
 $L__BB28_37:
-	{ // callseq 163, 0
+	{ // callseq 174, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 163
+	} // callseq 174
 $L__BB28_38:
-	{ // callseq 161, 0
+	{ // callseq 172, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 161
+	} // callseq 172
 $L__BB28_39:
-	{ // callseq 162, 0
+	{ // callseq 173, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 162
+	} // callseq 173
                                         // -- End function
 }
 	// .globl	split                   // -- Begin function split
@@ -8313,7 +8877,7 @@ $L__BB29_98:
 $L__BB29_100:
 	ret;
 $L__BB29_116:
-	{ // callseq 174, 0
+	{ // callseq 185, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8325,9 +8889,9 @@ $L__BB29_116:
 	st.param.b64 	[param0], %rd129;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 174
+	} // callseq 185
 $L__BB29_117:
-	{ // callseq 175, 0
+	{ // callseq 186, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8339,9 +8903,9 @@ $L__BB29_117:
 	st.param.b64 	[param0], %rd134;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 175
+	} // callseq 186
 $L__BB29_121:
-	{ // callseq 179, 0
+	{ // callseq 190, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8353,9 +8917,9 @@ $L__BB29_121:
 	st.param.b64 	[param0], %rd160;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 179
+	} // callseq 190
 $L__BB29_122:
-	{ // callseq 180, 0
+	{ // callseq 191, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8367,9 +8931,9 @@ $L__BB29_122:
 	st.param.b64 	[param0], %rd165;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 180
+	} // callseq 191
 $L__BB29_113:
-	{ // callseq 171, 0
+	{ // callseq 182, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8381,9 +8945,9 @@ $L__BB29_113:
 	st.param.b64 	[param0], %rd108;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 171
+	} // callseq 182
 $L__BB29_114:
-	{ // callseq 172, 0
+	{ // callseq 183, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8395,9 +8959,9 @@ $L__BB29_114:
 	st.param.b64 	[param0], %rd115;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 172
+	} // callseq 183
 $L__BB29_115:
-	{ // callseq 173, 0
+	{ // callseq 184, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8409,9 +8973,9 @@ $L__BB29_115:
 	st.param.b64 	[param0], %rd122;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 173
+	} // callseq 184
 $L__BB29_118:
-	{ // callseq 176, 0
+	{ // callseq 187, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8423,9 +8987,9 @@ $L__BB29_118:
 	st.param.b64 	[param0], %rd139;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 176
+	} // callseq 187
 $L__BB29_119:
-	{ // callseq 177, 0
+	{ // callseq 188, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8437,9 +9001,9 @@ $L__BB29_119:
 	st.param.b64 	[param0], %rd147;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 177
+	} // callseq 188
 $L__BB29_120:
-	{ // callseq 178, 0
+	{ // callseq 189, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8451,9 +9015,9 @@ $L__BB29_120:
 	st.param.b64 	[param0], %rd154;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 178
+	} // callseq 189
 $L__BB29_123:
-	{ // callseq 181, 0
+	{ // callseq 192, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8465,9 +9029,9 @@ $L__BB29_123:
 	st.param.b64 	[param0], %rd170;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 181
+	} // callseq 192
 $L__BB29_124:
-	{ // callseq 182, 0
+	{ // callseq 193, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8479,9 +9043,9 @@ $L__BB29_124:
 	st.param.b64 	[param0], %rd175;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 182
+	} // callseq 193
 $L__BB29_126:
-	{ // callseq 184, 0
+	{ // callseq 195, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8493,9 +9057,9 @@ $L__BB29_126:
 	st.param.b64 	[param0], %rd186;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 184
+	} // callseq 195
 $L__BB29_125:
-	{ // callseq 183, 0
+	{ // callseq 194, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
@@ -8507,74 +9071,74 @@ $L__BB29_125:
 	st.param.b64 	[param0], %rd180;
 	st.param.b64 	[param1], 38;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
-	} // callseq 183
-$L__BB29_101:
-	{ // callseq 195, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 195
-$L__BB29_102:
-	{ // callseq 194, 0
-	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 194
+$L__BB29_101:
+	{ // callseq 206, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 206
+$L__BB29_102:
+	{ // callseq 205, 0
+	.param .b64 	param0;
+	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	} // callseq 205
 $L__BB29_103:
-	{ // callseq 193, 0
+	{ // callseq 204, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 193
+	} // callseq 204
 $L__BB29_104:
-	{ // callseq 192, 0
+	{ // callseq 203, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 192
+	} // callseq 203
 $L__BB29_105:
-	{ // callseq 191, 0
+	{ // callseq 202, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 191
+	} // callseq 202
 $L__BB29_106:
-	{ // callseq 190, 0
+	{ // callseq 201, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 190
+	} // callseq 201
 $L__BB29_108:
-	{ // callseq 189, 0
+	{ // callseq 200, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 189
+	} // callseq 200
 $L__BB29_109:
-	{ // callseq 188, 0
+	{ // callseq 199, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 188
+	} // callseq 199
 $L__BB29_110:
-	{ // callseq 187, 0
+	{ // callseq 198, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 187
+	} // callseq 198
 $L__BB29_111:
-	{ // callseq 186, 0
+	{ // callseq 197, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 186
+	} // callseq 197
 $L__BB29_112:
-	{ // callseq 185, 0
+	{ // callseq 196, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 185
+	} // callseq 196
 $L__BB29_107:
-	{ // callseq 170, 0
+	{ // callseq 181, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 170
+	} // callseq 181
 $L__BB29_29:
-	{ // callseq 169, 0
+	{ // callseq 180, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 169
+	} // callseq 180
                                         // -- End function
 }
 	// .globl	standardise             // -- Begin function standardise
@@ -8722,43 +9286,43 @@ $L__BB30_17:
 $L__BB30_19:
 	ret;
 $L__BB30_20:
-	{ // callseq 201, 0
+	{ // callseq 212, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 201
+	} // callseq 212
 $L__BB30_21:
-	{ // callseq 200, 0
+	{ // callseq 211, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 200
+	} // callseq 211
 $L__BB30_22:
-	{ // callseq 196, 0
+	{ // callseq 207, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 196
+	} // callseq 207
 $L__BB30_23:
-	{ // callseq 197, 0
+	{ // callseq 208, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 197
+	} // callseq 208
 $L__BB30_24:
-	{ // callseq 198, 0
+	{ // callseq 209, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 198
+	} // callseq 209
 $L__BB30_25:
-	{ // callseq 199, 0
+	{ // callseq 210, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 199
+	} // callseq 210
                                         // -- End function
 }
 	// .globl	to_bf16                 // -- Begin function to_bf16
@@ -8815,19 +9379,19 @@ $L__BB30_25:
 $L__BB31_4:
 	ret;
 $L__BB31_5:
-	{ // callseq 202, 0
+	{ // callseq 213, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 202
+	} // callseq 213
 $L__BB31_6:
-	{ // callseq 203, 0
+	{ // callseq 214, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 203
+	} // callseq 214
                                         // -- End function
 }
 	// .globl	to_nhwc                 // -- Begin function to_nhwc
@@ -8942,29 +9506,29 @@ $L__BB32_12:                            // %.split.split.split
 $L__BB32_15:
 	ret;
 $L__BB32_16:
-	{ // callseq 207, 0
+	{ // callseq 218, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 207
+	} // callseq 218
 $L__BB32_17:
-	{ // callseq 206, 0
+	{ // callseq 217, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 206
+	} // callseq 217
 $L__BB32_18:
-	{ // callseq 204, 0
+	{ // callseq 215, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 204
+	} // callseq 215
 $L__BB32_19:
-	{ // callseq 205, 0
+	{ // callseq 216, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 205
+	} // callseq 216
                                         // -- End function
 }
 	// .globl	unheads                 // -- Begin function unheads
@@ -9166,46 +9730,46 @@ $L__BB33_20:                            // %.split2.split.split
 $L__BB33_32:
 	ret;
 $L__BB33_39:
-	{ // callseq 210, 0
+	{ // callseq 221, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 210
+	} // callseq 221
 $L__BB33_33:
-	{ // callseq 214, 0
+	{ // callseq 225, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 214
+	} // callseq 225
 $L__BB33_34:
-	{ // callseq 213, 0
+	{ // callseq 224, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 213
+	} // callseq 224
 $L__BB33_35:
-	{ // callseq 212, 0
+	{ // callseq 223, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
-	} // callseq 212
+	} // callseq 223
 $L__BB33_36:
-	{ // callseq 211, 0
+	{ // callseq 222, 0
 	.param .b64 	param0;
 	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
-	} // callseq 211
+	} // callseq 222
 $L__BB33_37:
-	{ // callseq 208, 0
+	{ // callseq 219, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 208
+	} // callseq 219
 $L__BB33_38:
-	{ // callseq 209, 0
+	{ // callseq 220, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
-	} // callseq 209
+	} // callseq 220
                                         // -- End function
 }
 .func _RNvNtCscc5udagl66P_4core9panicking5panic(
@@ -9219,12 +9783,12 @@ $L__BB33_38:
 
 
 // %bb.0:
-	{ // callseq 215, 0
+	{ // callseq 226, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 215
+	} // callseq 226
                                         // -- End function
 }
 .func _RNvNtCscc5udagl66P_4core9panicking9panic_fmt(
@@ -9254,12 +9818,12 @@ $L__BB33_38:
 
 
 // %bb.0:
-	{ // callseq 216, 0
+	{ // callseq 227, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 216
+	} // callseq 227
                                         // -- End function
 }
 .func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero(
@@ -9271,12 +9835,12 @@ $L__BB33_38:
 
 
 // %bb.0:
-	{ // callseq 217, 0
+	{ // callseq 228, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 217
+	} // callseq 228
                                         // -- End function
 }
 .func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero(
@@ -9288,11 +9852,11 @@ $L__BB33_38:
 
 
 // %bb.0:
-	{ // callseq 218, 0
+	{ // callseq 229, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
 	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
-	} // callseq 218
+	} // callseq 229
                                         // -- End function
 }
