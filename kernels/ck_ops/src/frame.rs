@@ -1,10 +1,3 @@
-//! Frames in. `prep`: u16 RGB `[n, h0, w0, 3]` reflect-padded about `(top, left)` into f32 planes `[n, 3, h, w]`
-//! (`ld` floats per frame): `mode` 0 display sRGB (or the tone-limited adjusted linear), 1 the model's asinh-encoded
-//! linear. `prep_f32`: the same from f32 G, B, R planes `[n, 3, h0, w0]`, scene-linear if `linear`, else display
-//! clipped to `[0, 1]`. `hint`: f32 grey `[n, h0, w0]` the same way, clipped to `[0, 1]`. `planar`: u16
-//! `[n, h, w, c]` → f32 `[n, c, h, w] / 65535`, planes G, B, R when `c = 3`. `crop`: `[planes, h, w]` →
-//! `[planes, h0, w0]` from `(top, left)`. `axpy`: `x += a · y`. `place`: `out[r, off + j] = x[r, j] · s`, `ld`-wide
-//! rows.
 
 use crate::gid;
 use ptx::kernel;
@@ -69,7 +62,6 @@ fn reflect(i: isize, n: usize) -> usize {
     (if i >= n { 2 * (n - 1) - i } else { i }) as usize
 }
 
-/// Frame, channel, padded and source coordinates of output `i`, if in range.
 fn texel(i: usize, dims: [usize; 7], c: usize) -> Option<[usize; 5]> {
     let [frames, h0, w0, rows, cols, top, left] = dims;
     if i >= frames * c * rows * cols {

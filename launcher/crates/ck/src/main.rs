@@ -1,4 +1,3 @@
-//! `ck`: key a clip on the GPU.
 
 use std::path::PathBuf;
 
@@ -10,100 +9,100 @@ use ck::write::{Encoder, Exr};
 use ck_gpu::Gpu;
 use eyre::{Result, bail, ensure};
 
-/// Key a video or frame directory with `CorridorKey` v2.
 #[derive(FromArgs)]
+#[argh(description = "Key a video or frame directory with `CorridorKey` v2.")]
 struct Args {
-    /// input videos or frame directories
+#[argh(description = "input videos or frame directories")]
     #[argh(positional)]
     inputs: Vec<PathBuf>,
-    /// output directory
+#[argh(description = "output directory")]
     #[argh(option, short = 'o', default = "PathBuf::from(\"output\")")]
     output: PathBuf,
-    /// comma-separated outputs: alpha, fg, cutout, checker
+#[argh(description = "comma-separated outputs: alpha, fg, cutout, checker")]
     #[argh(option, default = "String::from(\"alpha,fg\")")]
     outputs: String,
-    /// CUDA devices to use, e.g. `0` or `0,1` (default: every device)
+#[argh(description = "CUDA devices to use, e.g. `0` or `0,1` (default: every device)")]
     #[argh(option, from_str_fn(devices))]
     device: Vec<Vec<usize>>,
-    /// model weights
+#[argh(description = "model weights")]
     #[argh(option, default = "PathBuf::from(\"weights/corridorkey_v2.safetensors\")")]
     weights: PathBuf,
-    /// foundation-model weights (`launcher/parity/export.py`)
+#[argh(description = "foundation-model weights (`launcher/parity/export.py`)")]
     #[argh(option, default = "PathBuf::from(\"weights/vfms.safetensors\")")]
     vfms: PathBuf,
-    /// PTX directory
+#[argh(description = "PTX directory")]
     #[argh(option, default = "PathBuf::from(\"corridorkey/ptx/bin\")")]
     ptx: PathBuf,
-    /// scale of the frames the model sees, by Lanczos-4 (outputs stay native)
+#[argh(description = "scale of the frames the model sees, by Lanczos-4 (outputs stay native)")]
     #[argh(option, default = "1.0")]
     model_scale: f64,
-    /// frames per stage-1 window, or `auto` to pick it (and the stride) per clip from free GPU memory
+#[argh(description = "frames per stage-1 window, or `auto` to pick it (and the stride) per clip from free GPU memory")]
     #[argh(option, default = "Some(80)", from_str_fn(window))]
     chunk: Option<usize>,
-    /// frames between window starts
+#[argh(description = "frames between window starts")]
     #[argh(option, default = "40")]
     stride: usize,
-    /// model frames are padded to multiples of this
+#[argh(description = "model frames are padded to multiples of this")]
     #[argh(option, default = "128")]
     quantum: usize,
-    /// frames per foundation-model batch
+#[argh(description = "frames per foundation-model batch")]
     #[argh(option, default = "8")]
     vfm_batch: usize,
-    /// do not carry each window's alpha into the next as a hint
+#[argh(description = "do not carry each window's alpha into the next as a hint")]
     #[argh(switch)]
     no_carry: bool,
-    /// first-frame alpha hint (image)
+#[argh(description = "first-frame alpha hint (image)")]
     #[argh(option)]
     hint: Option<PathBuf>,
-    /// alpha hint video or frame directory for every frame
+#[argh(description = "alpha hint video or frame directory for every frame")]
     #[argh(option)]
     hint_video: Option<PathBuf>,
-    /// trust in user hints
+#[argh(description = "trust in user hints")]
     #[argh(option, default = "0.95")]
     hint_quality: f32,
-    /// trust in carried hints
+#[argh(description = "trust in carried hints")]
     #[argh(option, default = "0.95")]
     carry_quality: f32,
-    /// key only the first N frames
+#[argh(description = "key only the first N frames")]
     #[argh(option)]
     frames: Option<usize>,
-    /// frame rate of a frame directory
+#[argh(description = "frame rate of a frame directory")]
     #[argh(option, default = "24.0")]
     fps: f64,
-    /// despill strength in [0, 1]
+#[argh(description = "despill strength in [0, 1]")]
     #[argh(option, default = "0.5")]
     despill: f32,
-    /// write the cutout in linear light
+#[argh(description = "write the cutout in linear light")]
     #[argh(switch)]
     cutout_linear: bool,
-    /// float (EXR) input frames are scene-linear
+#[argh(description = "float (EXR) input frames are scene-linear")]
     #[argh(switch)]
     linear: bool,
-    /// write EXR sequences: half or float
+#[argh(description = "write EXR sequences: half or float")]
     #[argh(option)]
     exr: Option<String>,
-    /// scene-linear gain
+#[argh(description = "scene-linear gain")]
     #[argh(option, default = "1.0")]
     brightness: f32,
-    /// scene-linear contrast
+#[argh(description = "scene-linear contrast")]
     #[argh(option, default = "1.0")]
     contrast: f32,
-    /// contrast pivot
+#[argh(description = "contrast pivot")]
     #[argh(option, default = "0.18")]
     pivot: f32,
-    /// encoder for 3-channel outputs (`hevc_nvenc` encodes on the GPU, far faster at 4K)
+#[argh(description = "encoder for 3-channel outputs (`hevc_nvenc` encodes on the GPU, far faster at 4K)")]
     #[argh(option, default = "String::from(\"libx264\")")]
     codec: String,
-    /// encoder quality (`-crf`, or `-cq` for NVENC)
+#[argh(description = "encoder quality (`-crf`, or `-cq` for NVENC)")]
     #[argh(option, default = "12")]
     crf: u32,
-    /// encoder preset
+#[argh(description = "encoder preset")]
     #[argh(option, default = "String::from(\"medium\")")]
     preset: String,
-    /// encoder threads per output (0: ffmpeg decides, which at 4K can take over 13 GB of RAM per encoder)
+#[argh(description = "encoder threads per output (0: ffmpeg decides, which at 4K can take over 13 GB of RAM per encoder)")]
     #[argh(option, default = "8")]
     threads: usize,
-    /// encoder pixel format
+#[argh(description = "encoder pixel format")]
     #[argh(option, default = "String::from(\"yuv444p10le\")")]
     pix_fmt: String,
 }

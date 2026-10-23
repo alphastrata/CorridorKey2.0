@@ -1,8 +1,3 @@
-//! Plain vision transformers. `layer_norm*`: affine LN of f32 rows `[rows, c]` to bf16 or f32, one warp a row.
-//! `heads`: bf16 `qkv [b · n, 3, heads, d]` → `q`, `k`, `v [b, heads, n, dp]`, zero past `d`. `unheads`: bf16
-//! `o [b, heads, n, dp]` → `[b · n, heads · d]`. `embed`: `out[b, i] = (prefix[i] or patches[b, i − p]) + pos[i]`.
-//! `standardise`: f32 tokens `[b, skip + hw, c]` → NCHW `(x − mean) / max(std, 1e−6)`, via f16 if `half`.
-//! `gru_kv`: `sigmoid(r) · LN(s)` with `gates [rows, 2c] = [u | r]`, bf16. `gru_mix`: `(1 − σ(u)) · s + σ(u) · h`.
 
 use crate::{gid, rn, sigmoid};
 use ptx::kernel;
@@ -17,13 +12,11 @@ fn warp_sum(v: f32) -> f32 {
     })
 }
 
-/// This warp's row and lane, unless past `rows`.
 fn row(rows: u32) -> Option<(usize, usize)> {
     let r = (block_idx_x() * 8 + thread_idx_x() / 32) as usize;
     (r < rows as usize).then_some((r, thread_idx_x() as usize % 32))
 }
 
-/// Mean and `1 / σ` of `x[base..base + c]`, two passes.
 fn moments(x: GpuSlice<f32>, base: usize, c: usize, lane: usize, eps: f32) -> (f32, f32) {
     let mean = warp_sum((lane..c).step_by(32).fold(0.0, |a, j| a + x[base + j])) / c as f32;
     let var = warp_sum((lane..c).step_by(32).fold(0.0f32, |a, j| {

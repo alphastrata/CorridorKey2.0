@@ -1,5 +1,3 @@
-//! Windowed attention over a token grid: split heads (qk-norm, `RoPE`), `ck_attn` (Swin regions as masks), merge with
-//! the per-head gate. Tables and region ids are built once per shape and kept in [`Cache`].
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -10,7 +8,6 @@ use eyre::Result;
 
 use crate::rope;
 
-/// Where a grid's windows sit: the stored grid `[b, t, gh, gw]`, padded to `ph × pw`, cut into `wh × ww`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Layout {
     pub b: usize,
@@ -33,7 +30,6 @@ impl Layout {
     }
 }
 
-/// Region ids `[windows of one image, N]`: Swin's shifted regions (`shift`) and/or padding (−1).
 fn regions(l: Layout, (sh, sw): (usize, usize), (h, w): (usize, usize)) -> Option<Vec<i32>> {
     let (hp, wp, k) = (l.ph, l.pw, l.wh);
     if sh == 0 && sw == 0 && hp == h && wp == w {
@@ -66,7 +62,6 @@ fn regions(l: Layout, (sh, sw): (usize, usize), (h, w): (usize, usize)) -> Optio
     )
 }
 
-/// `[windows, ⌈N / 64⌉, 2]` (min, max) region of each 64-key tile, the last token repeating past `N`.
 fn spans(rid: &[i32], n: usize) -> Vec<i32> {
     rid.chunks(n)
         .flat_map(|row| {
@@ -143,7 +138,6 @@ fn constant(gpu: &Gpu, slot: &RefCell<Option<Tensor>>, v: &[f32]) -> Result<Tens
     slot.borrow().clone().ok_or_else(|| eyre::eyre!("constant"))
 }
 
-/// One head group's attention: which heads, the window layout, the `RoPE` block and Swin's shift.
 #[derive(Clone, Copy)]
 pub struct Group {
     pub head0: usize,
@@ -155,7 +149,6 @@ pub struct Group {
     pub real: (usize, usize),
 }
 
-/// Per-block attention weights.
 pub struct Qk<'a> {
     pub q_norm: &'a Tensor,
     pub k_norm: &'a Tensor,
@@ -163,14 +156,8 @@ pub struct Qk<'a> {
     pub head: usize,
 }
 
-/// Bytes of split heads (`q`, `k`, `v`, `o`) one [`attend`] pass may hold; more heads go in turns.
 const HEAD_BYTES: usize = 512 << 20;
 
-/// Attends `qkv [tokens, 3, heads, D]` for `group`, writing gated heads into `out [tokens, heads · D]` (bf16), as many
-/// heads at a time as fit [`HEAD_BYTES`].
-///
-/// # Errors
-/// On a launch failure.
 pub fn attend(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk: &Qk, g: Group) -> Result<()> {
     let per_head = g.layout.windows() * g.layout.tokens() * qk.head * 2 * 4;
     let step = (HEAD_BYTES / per_head).clamp(1, g.heads);

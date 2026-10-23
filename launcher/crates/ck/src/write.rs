@@ -1,4 +1,3 @@
-//! ffmpeg encode pipes: u16 BGR(A) frames to video, f32 planes to an EXR sequence.
 
 use std::io::Write;
 use std::path::Path;
@@ -7,7 +6,6 @@ use std::thread::JoinHandle;
 
 use eyre::{OptionExt, Result, WrapErr, bail};
 
-/// Encoder settings for the 3-channel outputs (4-channel ones are `ProRes` 4444).
 #[derive(Clone, Debug)]
 pub struct Encoder {
     pub codec: String,
@@ -17,19 +15,15 @@ pub struct Encoder {
     pub threads: usize,
 }
 
-/// EXR pixel type.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Exr {
     Half,
     Float,
 }
 
-/// Where a [`Writer`] sends frames.
 #[derive(Clone, Copy, Debug)]
 pub enum Format<'a> {
-    /// u16 BGR(A); 4 channels go to `ProRes` 4444, else to `enc`. `linear` tags the transfer as linear.
     Video { enc: &'a Encoder, linear: bool },
-    /// f32 planes: alpha (1), G, B, R (3) or G, B, R, A (4), ZIP16-compressed, numbered from 0.
     Exr(Exr),
 }
 
@@ -39,15 +33,12 @@ fn tags(cmd: &mut Command, linear: bool) {
         .args(["-movflags", "+write_colr"]);
 }
 
-/// An ffmpeg encoder fed frames on a thread.
 pub struct Writer {
     tx: Option<flume::Sender<Vec<u8>>>,
     join: Option<JoinHandle<Result<()>>>,
 }
 
 impl Writer {
-    /// # Errors
-    /// When ffmpeg cannot start.
     pub fn spawn(path: &Path, fps: f64, (w, h): (usize, usize), channels: usize, format: Format) -> Result<Self> {
         let pix = match (format, channels) {
             (Format::Video { .. }, 4) => "bgra64le",
@@ -129,8 +120,6 @@ impl Writer {
         })
     }
 
-    /// # Errors
-    /// When the encoder has stopped.
     pub fn write(&self, frame: Vec<u8>) -> Result<()> {
         self.tx
             .as_ref()
@@ -139,10 +128,6 @@ impl Writer {
             .map_err(|_| eyre::eyre!("encoder stopped"))
     }
 
-    /// Closes the pipe and waits for ffmpeg.
-    ///
-    /// # Errors
-    /// When ffmpeg failed.
     pub fn finish(mut self) -> Result<()> {
         drop(self.tx.take());
         self.join

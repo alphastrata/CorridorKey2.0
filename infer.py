@@ -5,7 +5,6 @@ import argparse
 import os
 import tempfile
 
-# Before torch loads: avoids allocator fragmentation that defeats VRAM auto-sizing.
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
@@ -32,6 +31,7 @@ def _parse_outputs(values):
         "raw_fg": "fg",
         "foreground": "fg",
     }
+
     for value in values:
         for part in str(value).split(","):
             part = part.strip().lower()
@@ -60,6 +60,7 @@ def main():
                     help="Optional full-frame hint video or frame directory.")
     ap.add_argument("--hint_quality", type=float, default=0.95)
     ap.add_argument("--carry_hint_quality", type=float, default=0.95)
+
     ap.add_argument("--no_carry_hint", action="store_true")
     ap.add_argument("--hann_chunk", type=int, default=None,
                     help="Frames per stage-1 window. Default: chosen "
@@ -74,6 +75,7 @@ def main():
                          "--hann_chunk turns off automatic selection.")
     ap.add_argument("--temp_dir",
                     default=str(Path(tempfile.gettempdir()) / "corridorkey_v2"))
+
     ap.add_argument("--outputs", nargs="*", default=None,
                     help=("Any of: alpha fg/raw_fg checker cutout. "
                           "Default: alpha fg."))
@@ -83,6 +85,7 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--model_scale", type=float, default=1.0,
                     help="Lanczos scale before model inference; 1.0 is native.")
+
     ap.add_argument("--frame_dir_fps", type=float, default=24.0)
     ap.add_argument("--frame_dir_linear", action="store_true",
                     help="Treat frame-directory inputs as scene-linear RGB.")
@@ -90,6 +93,7 @@ def main():
                     help="Export cutout as straight linear RGB instead of straight sRGB.")
     ap.add_argument("--despill_strength", type=float, default=0.5,
                     help="Despill strength from 0.0 (none) to 1.0 (full). Default: 0.5.")
+
     ap.add_argument("--linear_brightness", type=float, default=1.0)
     ap.add_argument("--linear_contrast", type=float, default=1.0)
     ap.add_argument("--linear_contrast_pivot", type=float, default=0.18)
@@ -100,6 +104,7 @@ def main():
                           "linear OpenEXR image sequences (full HDR float)."))
     ap.add_argument("--exr_dtype", choices=("half", "float"), default="half",
                     help="EXR pixel type for --output_format exr. Default: half.")
+
     ap.add_argument("--ffmpeg_bin", default="ffmpeg")
     ap.add_argument("--ffmpeg_codec", default="libx264")
     ap.add_argument("--crf", type=int, default=12)
@@ -107,6 +112,7 @@ def main():
     ap.add_argument("--pix_fmt", default="yuv444p10le",
                     help="Pixel format for x264 preview outputs. Default is "
                          "10-bit; pass yuv444p for 8-bit compatibility.")
+
     ap.add_argument("--bitrate", default=None)
     ap.add_argument("--ffmpeg_threads", type=int, default=2)
     ap.add_argument("--stage2_batch", type=int, default=1,
@@ -117,6 +123,7 @@ def main():
     ap.add_argument("--low_vram_swin_window_batch", type=int, default=16)
     ap.add_argument("--low_vram_full_attn_query_chunk_tokens", type=int,
                     default=2048)
+
     args = ap.parse_args()
 
     if not torch.cuda.is_available():
@@ -124,6 +131,7 @@ def main():
     require_ffmpeg(args.ffmpeg_bin)
     package_root = Path(__file__).resolve().parent
     paths = RuntimePaths.from_package(package_root, args.weights)
+
     writer_cfg = WriterConfig(
         ffmpeg_bin=args.ffmpeg_bin,
         codec=args.ffmpeg_codec,
@@ -133,6 +141,7 @@ def main():
         bitrate=args.bitrate,
         threads=args.ffmpeg_threads,
     )
+
     # With no explicit memory settings, pick them per clip from free GPU memory.
     auto_vram = args.hann_chunk is None and args.hann_stride is None and not args.low_vram
     hann_chunk = args.hann_chunk if args.hann_chunk is not None else 80
@@ -148,6 +157,7 @@ def main():
         num_frames=args.num_frames,
         start_mode=args.start_mode,
         seed=args.seed,
+
         low_vram=args.low_vram,
         low_vram_foundation_chunk=args.low_vram_foundation_chunk,
         low_vram_mlp_chunk_tokens=args.low_vram_mlp_chunk_tokens,
@@ -157,6 +167,7 @@ def main():
             args.low_vram_full_attn_query_chunk_tokens),
         stage2_batch=args.stage2_batch,
         outputs=_parse_outputs(args.outputs),
+
         temp_dir=Path(args.temp_dir),
         linear_brightness=args.linear_brightness,
         linear_contrast=args.linear_contrast,
@@ -168,6 +179,7 @@ def main():
         output_format=args.output_format,
         exr_dtype=args.exr_dtype,
     )
+
     model = load_model(paths, device="cuda")
     run_inference(
         model,

@@ -1,7 +1,3 @@
-//! `resize`: f32 planes `[planes, h, w]` → `[planes, oh, ow]`, as `F.interpolate` without antialias and
-//! `align_corners = False`: `mode` 0 area (adaptive average), 1 bilinear, 2 bicubic (`A = −0.75`), 3 Lanczos-4 as
-//! `cv2.INTER_LANCZOS4` (8 taps, clamped borders), source coordinate `(o + ½) · scale − ½`. Then `(v − mean[ch]) / std[ch]` with `ch = plane % c`,
-//! clamped to `[lo, hi]`.
 
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_4};
 
@@ -19,7 +15,6 @@ fn cubic(t: f32) -> [f32; 4] {
     [far(t + 1.0), near(t), near(1.0 - t), far(2.0 - t)]
 }
 
-/// cv2's `interpolateLanczos4`: `sinc(d) · sinc(d / 4)` at `d = t + 3 − i`, normalised, one sine and cosine.
 fn lanczos4(t: f32) -> [f32; 8] {
     const S: f32 = FRAC_1_SQRT_2;
     const CS: [[f32; 2]; 8] = [

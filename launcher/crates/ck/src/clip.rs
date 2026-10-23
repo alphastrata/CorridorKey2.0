@@ -1,5 +1,3 @@
-//! A clip's lead: Hann-windowed stage 1 on one GPU (the aux alpha carried as the next window's hint), foundation
-//! features once per frame (RVM recurrent over the clip), batons blended per frame and handed on as stage-2 jobs.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -45,10 +43,6 @@ pub(crate) fn upload(gpu: &Gpu, parts: &[&[u8]], shape: &[usize], dtype: Dtype) 
 }
 
 impl<'a> Clip<'a> {
-    /// Opens `src` (and any hints) for keying on `gpu`; finished frames go to `meta`.
-    ///
-    /// # Errors
-    /// When a hint cannot be opened or does not match the clip.
     pub fn open(
         (gpu, m, cfg): (&'a Gpu, &'a Models, &'a Config),
         src: &Source,
@@ -145,7 +139,6 @@ impl<'a> Clip<'a> {
         Ok(())
     }
 
-    /// Hints into channel 3 of `x`, and each frame's quality (−1 throughout when no frame has one).
     fn hints(&self, x: &Tensor, t0: usize, t: usize) -> Result<Tensor> {
         let (g, plane) = (self.meta.g, self.meta.g.h * self.meta.g.w);
         let mut quality = vec![None; t];
@@ -174,7 +167,6 @@ impl<'a> Clip<'a> {
         self.gpu.upload_f32(&q, &[t], Dtype::F32)
     }
 
-    /// The aux alpha of window frame `j` at full size, clamped to `[0, 1]`.
     fn carry(&self, aux: &Tensor, j: usize) -> Result<Tensor> {
         let (h, w) = (self.meta.g.h, self.meta.g.w);
         let (hh, hw) = (h / 2, w / 2);
@@ -253,7 +245,6 @@ impl<'a> Clip<'a> {
         Ok(())
     }
 
-    /// Frames before `limit`, fully blended, as stage-2 jobs.
     fn flush(&mut self, limit: usize, submit: &mut impl FnMut(Job<Tensor>) -> Result<()>) -> Result<()> {
         let ready: Vec<usize> = self.frames.range(..limit).map(|(k, _)| *k).collect();
         let g = self.meta.g;
@@ -270,10 +261,6 @@ impl<'a> Clip<'a> {
         })
     }
 
-    /// Every window in turn, each flushing what it completes through `submit`.
-    ///
-    /// # Errors
-    /// On decode or GPU failure, or when `submit` fails.
     pub fn run(mut self, total: usize, mut submit: impl FnMut(Job<Tensor>) -> Result<()>) -> Result<()> {
         let (chunk, stride) = (self.cfg.chunk, self.cfg.stride);
         let s = starts(total, chunk, stride);

@@ -1,4 +1,3 @@
-//! Shared by the parity tests.
 
 use std::path::{Path, PathBuf};
 
@@ -22,7 +21,6 @@ pub fn upload(gpu: &Gpu, w: &Weights, name: &str) -> Result<Tensor> {
     gpu.upload_f32(&v, &shape, Dtype::F32)
 }
 
-/// Mean and max absolute difference.
 pub fn diff(a: &[f32], b: &[f32]) -> (f64, f64) {
     let d = a.iter().zip(b).map(|(x, y)| f64::from((x - y).abs()));
     let (sum, max) = d.fold((0.0, 0.0f64), |(s, m), v| (s + v, m.max(v)));

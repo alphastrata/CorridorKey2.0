@@ -1,4 +1,3 @@
-//! Stage 2: per-frame refinement of the baton plus RGB at /16, depatchified to /1 logits.
 
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::Result;
@@ -10,7 +9,6 @@ use crate::weights::Loader;
 
 const PATCH: Conv = Conv { k: 32, s: 16, p: 8 };
 
-/// Stage 2's baton: f32 NCHW `[n, 512, H / 16, W / 16]`, or an f32 NHWC sum `[n, H / 16, W / 16, 512]` scaled by `s`.
 #[derive(Clone, Copy)]
 pub enum Baton<'a> {
     Nchw(&'a Tensor),
@@ -29,8 +27,6 @@ pub struct Stage2 {
 }
 
 impl Stage2 {
-    /// # Errors
-    /// When a weight is missing.
     pub fn load(ld: &Loader) -> Result<Self> {
         let (w, hw) = (16, 8);
         let swin = |shift| Kind::Swin { window: w, shift };
@@ -66,15 +62,10 @@ impl Stage2 {
         })
     }
 
-    /// The blocks in order.
     pub fn blocks(&self) -> impl Iterator<Item = &Block> {
         self.pre.iter().chain(&self.last)
     }
 
-    /// `rgb` f32 `[n, 3, H, W]` and the baton → logits f32 `[n, 4, H, W]`.
-    ///
-    /// # Errors
-    /// On a launch or GEMM failure.
     pub fn forward(&self, gpu: &Gpu, cache: &Cache, rgb: &Tensor, baton: Baton) -> Result<Tensor> {
         let [n, _, hh, ww] = rgb.shape[..] else {
             eyre::bail!("rgb wants [n, 3, H, W]")

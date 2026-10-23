@@ -1,4 +1,3 @@
-//! Safetensors files mapped once; tensors uploaded in the layouts the kernels want.
 
 use std::path::Path;
 
@@ -17,8 +16,6 @@ pub struct Weights {
 }
 
 impl Weights {
-    /// # Errors
-    /// When the file cannot be mapped or its header parsed.
     pub fn open(path: &Path) -> Result<Self> {
         let file = std::fs::File::open(path).wrap_err_with(|| path.display().to_string())?;
         let map = unsafe { Mmap::map(&file) }?;
@@ -35,20 +32,12 @@ impl Weights {
         self.meta.info(name).is_some()
     }
 
-    /// Shape, type and raw bytes of `name`.
-    ///
-    /// # Errors
-    /// When `name` is missing.
     pub fn view(&self, name: &str) -> Result<(Vec<usize>, St, &[u8])> {
         let info = self.meta.info(name).ok_or_eyre(format!("no weight {name}"))?;
         let bytes = &self.map[self.start + info.data_offsets.0..self.start + info.data_offsets.1];
         Ok((info.shape.clone(), info.dtype, bytes))
     }
 
-    /// Shape and values (as f32) of `name`.
-    ///
-    /// # Errors
-    /// When `name` is missing or not a float tensor.
     pub fn get(&self, name: &str) -> Result<(Vec<usize>, Vec<f32>)> {
         let (shape, dtype, bytes) = self.view(name)?;
         let mut v = vec![0.0f32; bytes.len() * 8 / dtype.bitsize().max(8)];
@@ -57,7 +46,6 @@ impl Weights {
     }
 }
 
-/// `dst[i] = to(i, src[i])` from a float tensor's raw bytes, in parallel.
 fn fill<T: Send>(src: &[u8], dtype: St, dst: &mut [T], to: impl Fn(usize, f32) -> T + Sync) -> Result<()> {
     let read: fn(&[u8]) -> f32 = match dtype {
         St::F32 => |b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]),
@@ -78,7 +66,6 @@ fn fill<T: Send>(src: &[u8], dtype: St, dst: &mut [T], to: impl Fn(usize, f32) -
     Ok(())
 }
 
-/// Uploads weights under `prefix` to one GPU; GEMM operands in `half`, everything else f32.
 #[derive(Clone, Copy)]
 pub struct Loader<'a> {
     pub gpu: &'a Gpu,
@@ -97,39 +84,23 @@ impl Loader<'_> {
         self.weights.has(&self.name(n))
     }
 
-    /// # Errors
-    /// When the weight is missing.
     pub fn get(&self, n: &str) -> Result<(Vec<usize>, Vec<f32>)> {
         self.weights.get(&self.name(n))
     }
 
-    /// # Errors
-    /// When the weight is missing or the upload fails.
     pub fn f32(&self, n: &str) -> Result<Tensor> {
         let (shape, v) = self.get(n)?;
         self.gpu.upload_f32(&v, &shape, Dtype::F32)
     }
 
-    /// A linear or convolution weight as a GEMM operand `[out, in · kh · kw]`.
-    ///
-    /// # Errors
-    /// When the weight is missing or the upload fails.
     pub fn mat(&self, n: &str) -> Result<Tensor> {
         self.rows(&[n])
     }
 
-    /// Several weights stacked along `out`, converted straight into the half type.
-    ///
-    /// # Errors
-    /// When a weight is missing or widths differ.
     pub fn rows(&self, names: &[&str]) -> Result<Tensor> {
         self.stack(names, None)
     }
 
-    /// [`Loader::rows`] with row `r` scaled by `gamma[r]` in f32 before rounding.
-    ///
-    /// # Errors
-    /// When a weight is missing or widths differ.
     pub fn scaled(&self, names: &[&str], gamma: &[f32]) -> Result<Tensor> {
         self.stack(names, Some(gamma))
     }
@@ -162,10 +133,6 @@ impl Loader<'_> {
             .upload(bytemuck::cast_slice(&out), &[total / width, width], self.half)
     }
 
-    /// Biases (or any vectors) concatenated, f32.
-    ///
-    /// # Errors
-    /// When a weight is missing.
     pub fn cat(&self, names: &[&str]) -> Result<Tensor> {
         let v: Vec<f32> = names
             .iter()
@@ -175,10 +142,6 @@ impl Loader<'_> {
         self.gpu.upload_f32(&v, &[v.len()], Dtype::F32)
     }
 
-    /// A transposed convolution's `[in, out, k, k]` as the GEMM operand `[out · k · k, in]`.
-    ///
-    /// # Errors
-    /// When the weight is missing.
     pub fn deconv(&self, n: &str) -> Result<Tensor> {
         let (shape, v) = self.get(n)?;
         let (rows, cols) = (shape[0], shape[1..].iter().product::<usize>());
@@ -186,10 +149,6 @@ impl Loader<'_> {
         self.gpu.upload_f32(&t, &[cols, rows], self.half)
     }
 
-    /// Depthwise 7×7 filters `[c, 1, 7, 7]` as f32 taps `[filters, 49, c]`.
-    ///
-    /// # Errors
-    /// When a weight is missing.
     pub fn taps(&self, names: &[&str]) -> Result<Tensor> {
         let parts = names.iter().map(|n| self.get(n)).collect::<Result<Vec<_>>>()?;
         let c = parts[0].0[0];

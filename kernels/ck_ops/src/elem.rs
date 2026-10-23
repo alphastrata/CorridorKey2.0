@@ -1,10 +1,3 @@
-//! Pointwise maps on rows of `c` channels. `act_*`: `act(x)` (0 `SiLU`, 1 exact GELU, 2 tanh GELU) to f32 or bf16.
-//! `to_bf16`: cast. `bf16_f16`: bf16 → f16 (exact in f16's range, saturating outside it), for GEMMs on GPUs without
-//! bf16 tensor cores. `f32_bf16`: `out[r · ld + off + j] = bf16(x[r, j])`, `n` a row. `to_nhwc`: f32 NCHW
-//! `[n, c, hw]` into channels `off..off + c` of an `ld`-wide NHWC f32 grid.
-//! `add_scaled`: `x += scale[c] · y`. `add_gated`: `x[r, off + j] += y[r, j] · g` with `g = silu(gate[r, j])`
-//! (`per = 0`) or `gate[r / per, j]` (one gate row, `gld` apart, per frame of `per` pixels). `norm_mod`: AdaLN-modulated
-//! RMS norm, `rms(x) · w · (1 + scale) + shift` with `scale`, `shift` the frame's rows, one warp per pixel.
 
 use crate::{bf, gelu, gelu_tanh, gid, rn, silu};
 use ptx::kernel;

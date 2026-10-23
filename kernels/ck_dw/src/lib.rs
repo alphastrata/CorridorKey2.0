@@ -1,8 +1,5 @@
 #![no_std]
 #![feature(abi_ptx)]
-//! 7×7 depthwise convs on NHWC activations with reflect (or replicate) padding read in place, f32 arithmetic.
-//! `mix_*` is `DepthwiseSwiGLU2D`: `γ · v · silu(g)` over `rms_norm(x)` (plus `x` when `add`), in x's dtype; `dw_bf16` is
-//! `QKVDepthwiseSpatial`. Weights are f32 `[F][49][C]`. Dynamic shared `TILE` bytes, plus `49 · 128` for `dw_bf16`'s staged weights. Grid `(⌈W / 16⌉, ⌈H / 8⌉, N · C / 32)`, block 256.
 
 use ptx::kernel;
 use ptx::prelude::*;
@@ -18,7 +15,6 @@ const TW: usize = 16;
 const SH: usize = TH + K - 1;
 const SW: usize = TW + K - 1;
 const THREADS: usize = CG * TH;
-/// Bytes of the f32 input tile; the `[F][49][32]` f32 weights follow it in dynamic shared memory.
 pub const TILE: usize = SH * SW * CG * 4;
 
 #[derive(Clone, Copy)]
@@ -39,8 +35,6 @@ impl Dims {
         }
     }
 
-    /// Source index of padded position `i`; a tile's overhang past one reflection only feeds discarded outputs, so
-    /// it is clamped in bounds.
     fn edge(self, i: usize, n: usize) -> usize {
         let i = i as isize - (K / 2) as isize;
         let n = n as isize;
@@ -53,7 +47,6 @@ impl Dims {
     }
 }
 
-/// `s[i]` unchecked: the host sizes every operand to the launch.
 fn ld<T: Copy>(s: &[T], i: usize) -> T {
     unsafe { *s.get_unchecked(i) }
 }
@@ -67,7 +60,6 @@ fn rn(x: f32) -> u16 {
     ((b + 0x7fff + ((b >> 16) & 1)) >> 16) as u16
 }
 
-/// Block origin: `(n, channel base, y0, x0)`.
 fn origin(d: Dims) -> (usize, usize, usize, usize) {
     let groups = d.c / CG;
     let z = block_idx_z() as usize;
@@ -79,8 +71,6 @@ fn origin(d: Dims) -> (usize, usize, usize, usize) {
     )
 }
 
-/// Stage the haloed tile as f32 (`load(pixel, channel)`), then each thread convolves one channel over one
-/// output row of `TW` pixels with `F` filters. Returns `(channel, row, acc)`.
 #[inline(always)]
 fn conv<const F: usize>(
     dims: Dims,
@@ -133,8 +123,6 @@ fn conv<const F: usize>(
     (ch, line, acc)
 }
 
-/// Calls `f(o, pixel)` for each in-bounds column `o` of this thread's output row `j`, unrolled so the
-/// accumulators stay in registers.
 #[allow(clippy::many_single_char_names)]
 #[inline(always)]
 fn outputs(d: Dims, j: usize, mut f: impl FnMut(usize, usize)) {
@@ -146,7 +134,6 @@ fn outputs(d: Dims, j: usize, mut f: impl FnMut(usize, usize)) {
     });
 }
 
-/// `r[p] = rsqrt(mean(x[p]²) + eps)`: one warp per pixel, block 256.
 #[inline(always)]
 fn rms(get: impl Fn(usize) -> f32, mut r: GpuSliceMut<f32>, pixels: u32, c: u32, eps: f32) {
     let p = (block_idx_x() * 8 + thread_idx_x() / 32) as usize;

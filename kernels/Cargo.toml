@@ -12,12 +12,10 @@ ptx        = {path = "/home/jer/code/rust/PETRA/ptx"}
 [workspace.lints.clippy]
 pedantic          = {level = "warn", priority = -1}
 too_many_arguments = "allow"
-# GPU indices are u32 by construction (grid/block dims); usize/i32/f32 conversions are inherent.
 cast_possible_truncation = "allow"
 cast_possible_wrap       = "allow"
 cast_precision_loss      = "allow"
 cast_sign_loss           = "allow"
-# Device helpers holding register arrays must inline, or the arrays fall to local memory (the stack).
 inline_always            = "allow"
 
 [profile.release]

@@ -1,6 +1,3 @@
-//! Per-head ops on bf16 rows `[rows, D]` (input rows in blocks of `inner`, `stride` pairs apart; output
-//! contiguous), one thread per row, f32 arithmetic: `MODE` bit 0 RMS-norms by
-//! f32 `weight [D]`; bit 1 applies interleaved `RoPE` with f32 `cos`/`sin` `[n, D / 2]` of token `row % n`.
 
 use crate::{high, low, pack};
 use ptx::kernel;
@@ -25,8 +22,6 @@ fn chunk(src: GpuSlice<u32>, at: usize) -> [f32; 8] {
     })
 }
 
-/// Streams the row in chunks of 8 (a sum-of-squares pass, then normalise, rotate and store), so no
-/// `D`-wide array is held.
 #[inline(always)]
 fn head<const D: usize>(
     src: GpuSlice<u32>,
@@ -74,7 +69,6 @@ fn head<const D: usize>(
 
 macro_rules! entry {
     ($name:ident, $d:literal) => {
-        /// `x`, `out` bf16 pairs `[rows, D / 2]`; grid `⌈rows / 256⌉`, block 256.
         #[kernel]
         pub fn $name(
             x: &[u32],

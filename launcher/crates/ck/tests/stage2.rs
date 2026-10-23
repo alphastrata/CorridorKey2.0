@@ -1,4 +1,3 @@
-//! Stage 2 against Python's stock bf16 and fp32 reference on real footage (`launcher/parity/dump.py`).
 
 mod common;
 

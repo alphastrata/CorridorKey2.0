@@ -1,4 +1,3 @@
-//! The models, run settings, and the window schedule shared by [`crate::clip`] and [`crate::farm`].
 
 use std::path::{Path, PathBuf};
 
@@ -22,8 +21,6 @@ pub struct Models {
 }
 
 impl Models {
-    /// # Errors
-    /// When a file or weight is missing.
     pub fn load(gpu: &Gpu, model: &Path, vfms: &Path) -> Result<Self> {
         let weights = Weights::open(model)?;
         let ld = |prefix| Loader {
@@ -45,34 +42,28 @@ impl Models {
 pub struct Config {
     pub chunk: usize,
     pub stride: usize,
-    /// Pick `chunk` and `stride` per clip from the leading GPU's free memory.
     pub auto: bool,
     pub carry: bool,
     pub hint_quality: f32,
     pub carry_quality: f32,
     pub quantum: usize,
-    /// Lanczos scale of the frames the model sees; outputs stay native.
     pub scale: f64,
     pub frames: Option<usize>,
     pub dir_fps: f64,
     pub outputs: Vec<Output>,
     pub look: Look,
-    /// Float frames are scene-linear (else display-coded, clipped to `[0, 1]`).
     pub linear_input: bool,
     pub encoder: Encoder,
-    /// EXR sequences in place of videos.
     pub exr: Option<Exr>,
     pub vfm_batch: usize,
 }
 
-/// Optional user hints: a first-frame matte, or a matte video for every frame.
 #[derive(Default)]
 pub struct Hints {
     pub first: Option<PathBuf>,
     pub video: Option<PathBuf>,
 }
 
-/// Window starts covering `total` frames, the last flush with the end.
 #[must_use]
 pub fn starts(total: usize, chunk: usize, stride: usize) -> Vec<usize> {
     if total <= chunk {
@@ -85,7 +76,6 @@ pub fn starts(total: usize, chunk: usize, stride: usize) -> Vec<usize> {
     s
 }
 
-/// Raised-cosine ramps over `overlap` frames at a window's shared ends.
 #[must_use]
 pub fn taper(t: usize, overlap: usize, first: bool, last: bool) -> Vec<f32> {
     let mut w = vec![1.0f32; t];
@@ -114,7 +104,6 @@ pub(crate) fn clip_name(input: &Path) -> String {
     }
 }
 
-/// Output names for `inputs`, unique: a repeated name takes its parent directory's, then its position.
 pub(crate) fn clip_names(inputs: &[PathBuf]) -> Vec<String> {
     let dupes = |names: &[String], n: &String| names.iter().filter(|m| *m == n).count() > 1;
     let base: Vec<String> = inputs.iter().map(|p| clip_name(p)).collect();

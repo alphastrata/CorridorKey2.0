@@ -1,5 +1,3 @@
-//! The pre-norm transformer blocks of both stages on f32 NHWC `x [b, t, h, w, c]`: attention (full, Swin or `CSwin`,
-//! spatial or spatio-temporal), optional AdaLN-Zero, local depthwise mix and `SwiGLU`.
 
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::Result;
@@ -8,10 +6,8 @@ use crate::attn::{Cache, Group, Layout, Qk, attend};
 use crate::ops::{self, Act, Gate, Mix, Shift};
 use crate::weights::Loader;
 
-/// Bytes of undepthwised `qkv` one pass may hold; more frames go in turns.
 const DW_BYTES: usize = 256 << 20;
 
-/// Bytes of `SwiGLU` hidden (`gate | up` and their product) one MLP pass may hold; more frames go in turns.
 const MLP_BYTES: usize = 512 << 20;
 
 #[derive(Clone, Copy, Debug)]
@@ -21,8 +17,6 @@ pub enum Kind {
     CSwin,
 }
 
-/// `per_frame`: attention within each frame with 2-D `RoPE` (stage 1's encoder); `temporal`: windows span all `t`
-/// with 3-D `RoPE`; neither: plain 2-D (stage 2).
 #[derive(Clone, Copy, Debug)]
 pub struct Spec {
     pub kind: Kind,
@@ -57,7 +51,6 @@ pub struct Block {
     adaln: Option<AdaLn>,
 }
 
-/// `AdaLN`-Zero rows `[b · t, 6c]` from per-frame `cond [b · t]`.
 fn modulation(gpu: &Gpu, a: &AdaLn, cond: &Tensor) -> Result<Tensor> {
     let frames = cond.numel();
     let hidden = gpu.empty(&[frames, a.in_w.shape[0]], Dtype::F32)?;
@@ -69,8 +62,6 @@ fn modulation(gpu: &Gpu, a: &AdaLn, cond: &Tensor) -> Result<Tensor> {
 }
 
 impl Block {
-    /// # Errors
-    /// When a weight is missing.
     pub fn load(ld: &Loader, spec: Spec) -> Result<Self> {
         let mix = ld
             .has("local_mix.gamma")
@@ -188,10 +179,6 @@ impl Block {
         }
     }
 
-    /// `x` f32 `[b, t, h, w, c]` through the block (its buffer is updated in place); `cond [b · t]` for `AdaLN` blocks.
-    ///
-    /// # Errors
-    /// On a launch or GEMM failure.
     pub fn forward(&self, gpu: &Gpu, cache: &Cache, x: &Tensor, cond: Option<&Tensor>) -> Result<Tensor> {
         let [b, t, h, w, c] = x.shape[..] else {
             eyre::bail!("block wants [b, t, h, w, c], got {:?}", x.shape)
@@ -276,7 +263,6 @@ impl Block {
 }
 
 impl Block {
-    /// The `SwiGLU` half on `frames [n, h, w, c]` (updated in place), frame `f0` onwards of the `AdaLN` rows.
     fn mlp(&self, gpu: &Gpu, frames: &Tensor, params: Option<&Tensor>, f0: usize) -> Result<()> {
         let [n, h, w, c] = frames.shape[..] else {
             eyre::bail!("mlp wants [n, h, w, c]")
@@ -313,10 +299,6 @@ impl Block {
     }
 }
 
-/// Blocks `{prefix}.{i}.` of `kinds`.
-///
-/// # Errors
-/// When a weight is missing.
 pub fn load_blocks(ld: &Loader, prefix: &str, kinds: &[Kind], temporal: bool, heads: usize) -> Result<Vec<Block>> {
     kinds
         .iter()

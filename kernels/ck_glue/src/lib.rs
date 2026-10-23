@@ -1,7 +1,5 @@
 #![no_std]
 #![feature(abi_ptx)]
-//! Pointwise glue between the GEMMs: f32 arithmetic, one rounding to bf16. Block 256; widths are
-//! multiples of 8. `swiglu_bf16`: `silu(g) · u` of rows `[g | u]`, eight outputs per thread.
 
 use ptx::kernel;
 use ptx::mem::{ld_global_nc_v4_u32, st_global_v4_u32};

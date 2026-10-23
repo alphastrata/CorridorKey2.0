@@ -1,4 +1,3 @@
-//! ffmpeg decode pipes: probing a video or frame directory, decoding to u16 or f32 frames.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -7,7 +6,6 @@ use std::process::{Command, Stdio};
 use ck_gpu::Dtype;
 use eyre::{OptionExt, Result, WrapErr, ensure};
 
-/// A clip ffmpeg can read: its `-i` arguments, size, rate and length.
 #[derive(Clone, Debug)]
 pub struct Source {
     pub args: Vec<String>,
@@ -18,7 +16,6 @@ pub struct Source {
     pub pix_fmt: String,
 }
 
-/// What [`Source::decode`] extracts.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Plane {
     Rgb,
@@ -59,8 +56,6 @@ fn size(path: &str) -> Result<(usize, usize, String)> {
 }
 
 impl Source {
-    /// # Errors
-    /// When ffprobe fails or the directory holds no frames.
     pub fn open(path: &Path, dir_fps: f64) -> Result<Self> {
         if path.is_dir() {
             let ext = ["png", "jpg", "jpeg", "exr"]
@@ -120,7 +115,6 @@ impl Source {
         })
     }
 
-    /// More than 8 bits per channel.
     #[must_use]
     pub fn deep(&self) -> bool {
         ["9", "10", "12", "14", "16", "48", "64", "f16", "f32"]
@@ -128,13 +122,11 @@ impl Source {
             .any(|d| self.pix_fmt.contains(d))
     }
 
-    /// Floating-point samples (EXR).
     #[must_use]
     pub fn float(&self) -> bool {
         self.pix_fmt.contains("f16") || self.pix_fmt.contains("f32")
     }
 
-    /// Carries an alpha channel.
     #[must_use]
     pub fn alpha(&self) -> bool {
         ["rgba", "bgra", "argb", "abgr", "ya", "gbrap"]
@@ -142,15 +134,11 @@ impl Source {
             .any(|p| self.pix_fmt.starts_with(p))
     }
 
-    /// The tensor type of decoded [`Plane::Rgb`] frames.
     #[must_use]
     pub fn dtype(&self) -> Dtype {
         if self.float() { Dtype::F32 } else { Dtype::U16 }
     }
 
-    /// The first `limit` frames' bytes, decoded on a thread: RGB as u16 `[h, w, 3]` or, for float sources, f32
-    /// G, B, R planes; grey and alpha as u16 `[h, w]`. 8-bit sources decode at 8 bits and widen exactly (`v · 257`),
-    /// as swscale's 16-bit path rounds differently.
     #[must_use]
     pub fn decode(&self, plane: Plane, limit: usize) -> flume::Receiver<Result<Vec<u8>>> {
         let (tx, rx) = flume::bounded(4);
@@ -203,7 +191,6 @@ impl Source {
     }
 }
 
-/// Image files with extension `ext` in `dir`, sorted.
 #[must_use]
 pub fn frame_files(dir: &Path, ext: &str) -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir)

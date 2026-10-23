@@ -1,6 +1,3 @@
-//! The frozen foundation models (`weights/vfms.safetensors`, from `launcher/parity/export.py`): C-RADIOv4-SO400M at
-//! `H/4`, MoGe-2's `DINOv2` ViT-B/14 at `7H/32` (layers 5 and 11, projected and summed), and RVM-S at `H/4`, recurrent
-//! over frames. Each yields standardised NCHW features on the `/64` grid.
 
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::Result;
@@ -9,13 +6,11 @@ use crate::ops::{Conv, Into, conv, to_half, to_nhwc};
 use crate::vit::{Attn, Block, Mlp, Norm, Resize, embed, gru_kv, gru_mix, resize, rvm_attn, rvm_mlp, standardise};
 use crate::weights::{Loader, Weights};
 
-/// `[h · w, c]` rows → `[1, c, h, w]`.
 fn planes(gpu: &Gpu, v: &[f32], (h, w, c): (usize, usize, usize)) -> Result<Tensor> {
     let t: Vec<f32> = (0..v.len()).map(|i| v[i % (h * w) * c + i / (h * w)]).collect();
     gpu.upload_f32(&t, &[1, c, h, w], Dtype::F32)
 }
 
-/// Prefix tokens and the patch grid's positions, resampled from `[1, c, h, w]` to `grid`.
 struct Tokens {
     prefix: Tensor,
     pos: Tensor,
@@ -40,7 +35,6 @@ impl Tokens {
     }
 }
 
-/// Patch embedding of NCHW `x` by `w [c, 3 · k · k]`, then prefix and positions.
 fn tokenise(
     gpu: &Gpu,
     x: &Tensor,
@@ -272,7 +266,6 @@ impl Rvm {
         })
     }
 
-    /// One recurrent step: `prev` state `[n, c]` and this frame's encoding → the new state in `out`.
     fn step(
         &self,
         gpu: &Gpu,
@@ -330,7 +323,6 @@ impl Rvm {
     }
 }
 
-/// Per-frame features `[t, c, H/64, W/64]` and RVM's state after the last frame.
 pub struct Features {
     pub cradio: Tensor,
     pub moge: Tensor,
@@ -347,8 +339,6 @@ pub struct Vfms {
 }
 
 impl Vfms {
-    /// # Errors
-    /// When a weight is missing or an upload fails.
     pub fn load(gpu: &Gpu, weights: &Weights) -> Result<Self> {
         let ld = Loader {
             gpu,
@@ -365,7 +355,6 @@ impl Vfms {
         })
     }
 
-    /// Each model's transformer blocks, and the attention's unit scales.
     #[must_use]
     pub fn blocks(&self) -> ([(&'static str, &[Block]); 3], &Tensor) {
         let blocks = [
@@ -376,10 +365,6 @@ impl Vfms {
         (blocks, &self.ones)
     }
 
-    /// Features of display frames `[t, 3, H, W]` in `[0, 1]` (`H`, `W` multiples of 64), RVM continuing from `state`.
-    ///
-    /// # Errors
-    /// On a launch or GEMM failure.
     pub fn forward(&self, gpu: &Gpu, display: &Tensor, state: Option<&Tensor>) -> Result<Features> {
         let one = self.ones.rows(0, 1)?;
         let unit = (&self.zero, &one);
