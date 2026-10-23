@@ -65,7 +65,6 @@ class RuntimePaths:
 
     @staticmethod
     def _prefer_safetensors(root: Path, stem: str) -> str:
-        # Legacy pickle .pt files are still accepted if that is all that is present.
         if not (root / f"{stem}.safetensors").exists() and (root / f"{stem}.pt").exists():
             return f"{stem}.pt"
         return f"{stem}.safetensors"
@@ -113,7 +112,6 @@ class InferenceConfig:
     seed: int = 0
 
     low_vram: bool = False
-    # Pick hann_chunk/hann_stride/low_vram per clip from free GPU memory.
     auto_vram: bool = False
     vram_estimate_gb: float | None = None
     vram_ceiling_gb: float | None = None
@@ -137,8 +135,6 @@ class InferenceConfig:
     exr_dtype: str = "half"
 
 
-# Peak GPU memory in GiB by megapixels of model input, measured at each Hann
-# chunk size. Keys are low_vram False/True.
 _VRAM_PEAK_GB = {
     False: ((8, 24, 48, 80), (
         (0.98, (6.19, 7.52, 9.77, 12.89)),
@@ -489,7 +485,6 @@ def precompute_foundations_to_memmap(model, source, meta, prefix: Path,
 
 def _phase1_setup(model, *, stage1_on_gpu: bool = True):
     model.foundations.cuda()
-    # Low-VRAM mode precomputes foundation features first, so stage 1 waits on CPU.
     if stage1_on_gpu:
         model.stage1.cuda()
     else:
@@ -923,7 +918,6 @@ def _run_inference_once(model, input_path: str, output_dir: str, cfg: InferenceC
                     os.path.join(output_dir, f"{clip_name}_{suffix[name]}{ext}"),
                     fps, (W_out, H_out), writer_cfg, channels=channels, color_trc=color_trc)
 
-        # Write settings log file in the output folder
         settings_path = os.path.join(output_dir, f"{clip_name}_settings.txt")
 
         try:
