@@ -1,13 +1,15 @@
 #![no_std]
 #![feature(abi_ptx, adt_const_params)]
 
-use ck_arch::{bf16x2, commit, fetch16, mma16, put16, wait};
+use ck_arch::{bf16x2, commit, fetch16, mma16, put16, wait, widen};
 use ptx::kernel;
 use ptx::mma::ldmatrix_x4_b16_u32;
 use ptx::prelude::*;
-use ptx::mem::{ld_global_cs_v4_u32, ld_global_nc_v2_u32, st_global_v4_u32};
+use ptx::mem::{
+    ld_global_cs_u32, ld_global_cs_v4_u32, ld_global_nc_u16, ld_global_nc_u32, ld_global_nc_v2_u32, st_global_u32, st_global_v4_u32,
+};
 use ptx::warp_ops::warp_sync;
-use ptx::sync::shared::{shared_window, shld_v4_f32, shst_v2_f32};
+use ptx::sync::shared::{shared_window, shld_v4_f32, shst_f32, shst_v2_f32};
 use tune::{SQUARE, THIN, WIDE};
 
 #[cfg_attr(feature = "sm_120", path = "tune/sm120.rs")]
@@ -51,6 +53,10 @@ impl Tile {
         (self.bm + self.bn) as u32 * ROW
     }
 
+    const fn ragged(self) -> bool {
+        (self.bm + self.bn) % 64 != 0
+    }
+
     const fn feeds(self) -> usize {
         (self.bm + self.bn).div_ceil(64)
     }
@@ -89,8 +95,8 @@ impl Feed {
             kc,
         };
         ptx::unroll!(8, |it| if it < T.feeds() {
-            let r = (tid / 4 + it * 64).min(T.bm + T.bn - 1);
-            f.dst[it] = if tid / 4 + it * 64 < T.bm + T.bn { r as u32 * ROW + chunk(r, kc / 8) } else { u32::MAX };
+            let r = if T.ragged() { (tid / 4 + it * 64).min(T.bm + T.bn - 1) } else { tid / 4 + it * 64 };
+            f.dst[it] = if !T.ragged() || tid / 4 + it * 64 < T.bm + T.bn { r as u32 * ROW + chunk(r, kc / 8) } else { u32::MAX };
             f.src[it] = if r < T.bm {
                 input + 2 * ((r0 + r).min(shape.rows - 1) * shape.k + kc)
             } else {
@@ -101,15 +107,15 @@ impl Feed {
     }
 
     #[inline(always)]
-    fn used(&self, it: usize) -> bool {
-        self.dst[it] != u32::MAX
+    fn used<const T: Tile>(&self, it: usize) -> bool {
+        !T.ragged() || self.dst[it] != u32::MAX
     }
 
     #[inline(always)]
     fn fetch<const T: Tile>(&self, k: usize, kb: usize, slot: u32) -> [[u32; 4]; 8] {
         let edge = kb + BK > k;
         let mut w = [[0u32; 4]; 8];
-        ptx::unroll!(8, |it| if it < T.feeds() && self.used(it) {
+        ptx::unroll!(8, |it| if it < T.feeds() && self.used::<T>(it) {
             w[it] = fetch16(slot + self.dst[it], self.src[it] + 2 * kb, !edge || kb + self.kc < k);
         });
         w
@@ -117,7 +123,7 @@ impl Feed {
 
     #[inline(always)]
     fn put<const T: Tile, const CONVERT: bool>(&self, w: &[[u32; 4]; 8], slot: u32) {
-        ptx::unroll!(8, |it| if it < T.feeds() && self.used(it) {
+        ptx::unroll!(8, |it| if it < T.feeds() && self.used::<T>(it) {
             put16(slot + self.dst[it], w[it], CONVERT && it < T.bm / 64);
         });
     }
@@ -272,7 +278,74 @@ fn drain<const T: Tile, const F32: bool, const FLAGS: u32>(stage: u32, out: u64,
     });
 }
 
+const AT: usize = 64;
+const AK: usize = 16;
+const AROW: u32 = ((AT + 4) * 4) as u32;
+
+#[inline(always)]
+fn element<const F32: bool, const HALF_IS_BF16: bool>(base: u64, at: usize) -> f32 {
+    unsafe {
+        if F32 {
+            f32::from_bits(ld_global_nc_u32(base + 4 * at as u64))
+        } else if HALF_IS_BF16 {
+            f32::from_bits(u32::from(ld_global_nc_u16(base + 2 * at as u64)) << 16)
+        } else {
+            widen(ld_global_nc_u16(base + 2 * at as u64))
+        }
+    }
+}
+
+#[inline(always)]
+fn any<const IN32: bool, const FLAGS: u32>((input, weight, bias, out): (u64, u64, u64, u64), shape: Shape) {
+    let smem = shared_window();
+    let tid = thread_idx_x() as usize;
+    let (r0, c0) = (block_idx_y() as usize * AT, block_idx_x() as usize * AT);
+    let (tr, tc) = (tid / 16 * 4, tid % 16 * 4);
+    let (xs, ws) = (smem, smem + AK as u32 * AROW);
+    let acc = (0..shape.k.div_ceil(AK)).fold([[0.0f32; 4]; 4], |mut acc, slab| {
+        ptx::unroll!(4, |e| {
+            let i = tid + e * THREADS;
+            let (r, kk) = (i / AK, slab * AK + i % AK);
+            let xv = if r0 + r < shape.rows && kk < shape.k { element::<IN32, true>(input, (r0 + r) * shape.k + kk) } else { 0.0 };
+            let wv = if c0 + r < shape.n && kk < shape.k { element::<IN32, false>(weight, (c0 + r) * shape.k + kk) } else { 0.0 };
+            unsafe {
+                shst_f32(xs + (i % AK) as u32 * AROW + 4 * r as u32, xv);
+                shst_f32(ws + (i % AK) as u32 * AROW + 4 * r as u32, wv);
+            }
+        });
+        sync_threads();
+        ptx::unroll!(16, |kk| {
+            let (av, bv) = unsafe {
+                (shld_v4_f32(xs + kk as u32 * AROW + 4 * tr as u32), shld_v4_f32(ws + kk as u32 * AROW + 4 * tc as u32))
+            };
+            let (av, bv) = ([av.0, av.1, av.2, av.3], [bv.0, bv.1, bv.2, bv.3]);
+            ptx::unroll!(4, |i| ptx::unroll!(4, |j| acc[i][j] = av[i].fma_rn(bv[j], acc[i][j])));
+        });
+        sync_threads();
+        acc
+    });
+    ptx::unroll!(4, |i| ptx::unroll!(4, |j| {
+        let (row, col) = (r0 + tr + i, c0 + tc + j);
+        if row < shape.rows && col < shape.n {
+            let mut val = acc[i][j];
+            if FLAGS & BIAS != 0 {
+                val += unsafe { f32::from_bits(ld_global_nc_u32(bias + 4 * col as u64)) };
+            }
+            let at = out + 4 * (row * shape.ld + shape.off + col) as u64;
+            unsafe {
+                if FLAGS & ACCUMULATE != 0 {
+                    val += f32::from_bits(ld_global_cs_u32(at));
+                }
+                st_global_u32(at, val.to_bits());
+            }
+        }
+    }));
+}
+
 macro_rules! entry {
+    ($name:ident, any, $in32:literal, $flags:expr) => {
+        entry!(@ $name, |at, s| any::<$in32, { $flags }>(at, s), $flags);
+    };
     ($name:ident, $tile:expr, $f32:literal, $flags:expr, $convert:literal) => {
         entry!(@ $name, |at, s| gemm::<{ $tile }, $f32, { $flags }, $convert>(at, s), $flags);
     };
@@ -311,6 +384,14 @@ entry!(gemm_wide_bf16, WIDE, false, 0, true);
 entry!(gemm_wide_bf16_acc, WIDE, false, ACCUMULATE, true);
 entry!(gemm_wide_bf16_bias, WIDE, false, BIAS, true);
 entry!(gemm_wide_bf16_acc_bias, WIDE, false, ACCUMULATE | BIAS, true);
+entry!(any_f32in_f32, any, true, 0);
+entry!(any_f32in_f32_acc, any, true, ACCUMULATE);
+entry!(any_f32in_f32_bias, any, true, BIAS);
+entry!(any_f32in_f32_acc_bias, any, true, ACCUMULATE | BIAS);
+entry!(any_f32, any, false, 0);
+entry!(any_f32_acc, any, false, ACCUMULATE);
+entry!(any_f32_bias, any, false, BIAS);
+entry!(any_f32_acc_bias, any, false, ACCUMULATE | BIAS);
 entry!(gemm_square_f32, SQUARE, true, 0, true);
 entry!(gemm_square_f32_acc, SQUARE, true, ACCUMULATE, true);
 entry!(gemm_square_f32_bias, SQUARE, true, BIAS, true);

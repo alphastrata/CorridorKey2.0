@@ -71,3 +71,9 @@ pub fn put16(dst: u32, w: [u32; 4], convert: bool) {
     unsafe { shst_v4_u32(dst, (w[0], w[1], w[2], w[3])) };
 }
 
+
+#[inline]
+#[must_use]
+pub fn widen(half: u16) -> f32 {
+    ptx::num::f16::ptx_cvt_f32_f16(half)
+}
