@@ -1,61 +1,71 @@
 # Contributing
 
-## Setup
+## 1. Set up
+
+You need an NVIDIA GPU, its driver, `ffmpeg` and `curl`. Then run:
 
 ```
 scripts/dev-setup.sh
 ```
 
-This installs uv, nightly Rust, `ck`, the weights and the sample clips. Pipeline overview: [arch.md](arch.md).
+This installs everything else (uv, Rust nightly, the `ck` launcher, the model weights and sample clips).
 
-## Layout
+## 2. Find your way around
 
-| Path | What |
+- `launcher/` — the `ck` program, written in Rust.
+- `kernels/` — the GPU kernels, also in Rust.
+- `corridorkey/ptx/bin/` — the compiled kernels, one folder per GPU generation.
+- `bench/` — benchmarks.
+
+## 3. Change a kernel
+
+After editing anything in `kernels/`, rebuild the compiled kernels:
+
+```
+just ptx
+```
+
+Commit the changed files under `corridorkey/ptx/bin/` together with your source change, so users never need to compile kernels themselves.
+
+Your change must build for all three GPU generations we support:
+
+| Folder | Cards |
 |---|---|
-| `launcher/` | `ck` (Rust launcher) and `ck-gpu` (GPU runtime, GEMM dispatch) |
-| `kernels/` | CUDA kernels in Rust on the [ptx](https://codeberg.org/P-E-T-R-A/ptx) crate |
-| `corridorkey/ptx/bin/sm_{61,75,120}/` | built PTX, committed so users need no toolchain |
-| `corridorkey/`, `infer.py` | Python reference path |
-| `bench/` | benchmarks and profiling |
+| `sm_61` | GTX 10-series |
+| `sm_75` | RTX 20-series, TITAN RTX |
+| `sm_120` | RTX 50-series |
 
-## Kernels
+## 4. Test
 
-- Run `just ptx` after any change to `kernels/`, and commit the PTX alongside the source.
-- Every change must build for sm_61, sm_75 and sm_120.
-  - sm_61 is compiled as sm_70 and then relabelled, because rustc no longer targets Pascal.
-  - Validate it with CUDA 12's `ptxas -arch=sm_61`.
-- Architecture-specific code goes in `ck_arch/src/sm*.rs`, a crate's `tune/` directory, or a `cfg(feature = "sm_*")` module.
-- If a kernel's `ptxas -v` report shows a stack frame, fix that first. It usually means a large closure was not inlined; mark it `#[inline(always)]`.
-
-## Testing
+From `launcher/`, run the tests on each GPU you have (`CK_DEVICE=0`, `1`, …):
 
 ```
 CK_DEVICE=0 cargo nextest run --release -p ck-gpu
-CK_DEVICE=1 cargo nextest run --release -p ck-gpu
+```
+
+No GTX 10-series card? Add `CK_SM=61` and a newer card will run the GTX 10-series kernels instead:
+
+```
 CK_SM=61 CK_DEVICE=0 cargo nextest run --release -p ck-gpu
 ```
 
-- Run these from `launcher/`.
-- `CK_SM` caps the architecture so that a newer card runs older PTX, which makes Pascal testable without a Pascal card.
-- Test on every GPU you have.
-- For end-to-end checks, compare `--exr float` alpha output against the previous build.
+## 5. Lint
 
-## Performance
+```
+just lint
+```
 
-- Benchmark at 720p, 1080p and 2160p, on every architecture you can.
-- A gain of 0.5% or more at any of those sizes, with no regression elsewhere, is worth taking.
-- A simplification is worth taking even if it does not change performance.
+It must pass with no warnings. Don't silence warnings with `#[allow]`; fix the code.
+
+## 6. Commit
+
+- One change per commit.
+- Message format: `type(scope): summary`, e.g. `perf(ck_gemm): faster split-K`.
+- Never commit footage or weights.
 
 ## Style
 
-- `just lint` must pass: clippy pedantic for each kernel architecture, ruff, and typos in `en-gb`.
-- Never use `#[allow]` or `#[expect]`. Fix the code, or set the policy in `[workspace.lints]`.
-- Rust: nightly, edition 2024, iterators over loops. Add crates with `cargo add`.
-- Python: typed, run through uv. Add packages with `uv add`.
-- Keep comments to a minimum; code should be self-documenting.
-- Use British spelling.
-
-## Commits
-
-- Keep commits atomic, in the form `type(scope): summary`, e.g. `perf(ck_gemm): …`.
-- Do not commit footage or weights.
+- British spelling.
+- Few comments; clear names instead.
+- Rust: add crates with `cargo add`. Python: add packages with `uv add`, and use type hints.
+- Speed-ups are welcome if they help 720p, 1080p or 4K by 0.5% or more without slowing anything else.
