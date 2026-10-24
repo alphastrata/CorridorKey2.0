@@ -3,7 +3,7 @@ mod common;
 use ck::attn::Cache;
 use ck::stage1::{Inputs, Stage1};
 use ck::weights::{Loader, Weights};
-use ck_gpu::Gpu;
+use ck_gpu::{Dtype, Gpu};
 use common::{device, diff, repo, upload};
 use eyre::Result;
 
@@ -74,4 +74,39 @@ fn stage1_720() -> Result<()> {
         "stage 1 less precise than stock"
     );
     Ok(())
+}
+
+#[test]
+fn batched_blocks_match_single() -> Result<()> {
+    let root = repo();
+    let fx = Weights::open(&root.join("launcher/fixtures/stage1_720.safetensors"))?;
+    let gpu = Gpu::open(device(), &root.join("corridorkey/ptx/bin"))?;
+    let weights = Weights::open(&root.join("weights/corridorkey_v2.safetensors"))?;
+    let ld = Loader {
+        gpu: &gpu,
+        weights: &weights,
+        prefix: "stage1.",
+        half: gpu.half(),
+    };
+    let s1 = Stage1::load(&ld)?;
+    let cache = Cache::default();
+    let blocks: Vec<_> = s1.blocks().collect();
+    [("mid_161", 13), ("dec_163", 19)]
+        .into_iter()
+        .try_for_each(|(n, i)| -> Result<()> {
+            let (shape, x) = fx.get(&format!("stock.{n}.in"))?;
+            let other: Vec<f32> = x.iter().rev().copied().collect();
+            let single = |v: &[f32]| -> Result<Vec<f32>> {
+                let t = gpu.upload_f32(v, &shape, Dtype::F32)?;
+                gpu.download_f32(&blocks[i].forward(&gpu, &cache, &t, None)?)
+            };
+            let both = [x.as_slice(), &other].concat();
+            let batched = gpu.upload_f32(&both, &[[2].as_slice(), &shape[1..]].concat(), Dtype::F32)?;
+            let got = gpu.download_f32(&blocks[i].forward(&gpu, &cache, &batched, None)?)?;
+            let want = [single(&x)?, single(&other)?].concat();
+            let (mean, max) = diff(&got, &want);
+            println!("{n} batched vs single {mean:.3e}/{max:.3e}");
+            assert!(max < 2e-2, "{n}: batch of two differs from two singles ({max:.3e})");
+            Ok(())
+        })
 }
