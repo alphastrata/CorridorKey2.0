@@ -13,6 +13,8 @@ use tune::{RB, STAGES};
 #[cfg_attr(feature = "sm_120", path = "tune/sm120.rs")]
 #[cfg_attr(not(feature = "sm_120"), path = "tune/sm75.rs")]
 mod tune;
+#[cfg(feature = "sm_61")]
+mod simt;
 
 const BR: usize = 128;
 const BC: usize = 64;
@@ -351,6 +353,9 @@ macro_rules! entry {
                 heads: heads as usize,
                 windows: windows as usize,
             };
+            #[cfg(feature = "sm_61")]
+            simt::attn::<$d, $mask>((q, k, v), (rid, span, mul), out, s, scale);
+            #[cfg(not(feature = "sm_61"))]
             attn::<$d, $mask>((q, k, v), (rid, span, mul), out, s, scale);
         }
     };
