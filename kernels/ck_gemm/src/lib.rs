@@ -11,7 +11,7 @@ use ptx::mem::{
 };
 use ptx::warp_ops::warp_sync;
 use ptx::sync::shared::{shared_window, shld_v4_f32, shst_f32, shst_v2_f32};
-use tune::{SQUARE, THIN, WIDE};
+use tune::{SMALL, SQUARE, THIN, WIDE};
 
 #[cfg_attr(feature = "sm_120", path = "tune/sm120.rs")]
 #[cfg_attr(not(feature = "sm_120"), path = "tune/sm75.rs")]
@@ -454,6 +454,14 @@ entry!(gemm_square_bf16, SQUARE, false, 0, true);
 entry!(gemm_square_bf16_acc, SQUARE, false, ACCUMULATE, true);
 entry!(gemm_square_bf16_bias, SQUARE, false, BIAS, true);
 entry!(gemm_square_bf16_acc_bias, SQUARE, false, ACCUMULATE | BIAS, true);
+entry!(gemm_small_f32, SMALL, true, 0, true);
+entry!(gemm_small_f32_acc, SMALL, true, ACCUMULATE, true);
+entry!(gemm_small_f32_bias, SMALL, true, BIAS, true);
+entry!(gemm_small_f32_acc_bias, SMALL, true, ACCUMULATE | BIAS, true);
+entry!(gemm_small_bf16, SMALL, false, 0, true);
+entry!(gemm_small_bf16_acc, SMALL, false, ACCUMULATE, true);
+entry!(gemm_small_bf16_bias, SMALL, false, BIAS, true);
+entry!(gemm_small_bf16_acc_bias, SMALL, false, ACCUMULATE | BIAS, true);
 entry!(gemm_thin_f32, THIN, true, 0, true);
 entry!(gemm_thin_f32_acc, THIN, true, ACCUMULATE, true);
 entry!(gemm_thin_f32_bias, THIN, true, BIAS, true);
