@@ -109,10 +109,8 @@ impl Feed {
     fn fetch<const T: Tile>(&self, k: usize, kb: usize, slot: u32) -> [[u32; 4]; 8] {
         let edge = kb + BK > k;
         let mut w = [[0u32; 4]; 8];
-        ptx::unroll!(8, |it| if it < T.feeds() {
-            if self.used(it) {
-                w[it] = fetch16(slot + self.dst[it], self.src[it] + 2 * kb, !edge || kb + self.kc < k);
-            }
+        ptx::unroll!(8, |it| if it < T.feeds() && self.used(it) {
+            w[it] = fetch16(slot + self.dst[it], self.src[it] + 2 * kb, !edge || kb + self.kc < k);
         });
         w
     }
@@ -235,39 +233,39 @@ fn gemm<const T: Tile, const F32: bool, const FLAGS: u32, const CONVERT: bool>((
 }
 
 #[inline(always)]
-fn drain<const T: Tile, const F32: bool, const FLAGS: u32>(stage: u32, out: u64, s: Shape, (top, left): (usize, usize)) {
+fn drain<const T: Tile, const F32: bool, const FLAGS: u32>(stage: u32, out: u64, shape: Shape, (top, left): (usize, usize)) {
     let lane = thread_idx_x() as usize % 32;
     let width = T.bn / T.wn;
     let lanes = width / if F32 { 4 } else { 8 };
     ptx::unroll!(16, |i| if i < 16 * lanes / 32 {
-        let (r, c) = ((i * 32 + lane) / lanes, (i * 32 + lane) % lanes);
-        let (row, col) = (top + r, left + c * if F32 { 4 } else { 8 });
-        if row < s.rows && col < s.n {
-            let src = stage + r as u32 * T.stride() + (c * if F32 { 16 } else { 32 }) as u32;
-            let at = out + ((row * s.ld + s.off + col) * if F32 { 4 } else { 2 }) as u64;
+        let (sr, sc) = ((i * 32 + lane) / lanes, (i * 32 + lane) % lanes);
+        let (row, col) = (top + sr, left + sc * if F32 { 4 } else { 8 });
+        if row < shape.rows && col < shape.n {
+            let src = stage + sr as u32 * T.stride() + (sc * if F32 { 16 } else { 32 }) as u32;
+            let at = out + ((row * shape.ld + shape.off + col) * if F32 { 4 } else { 2 }) as u64;
             let old = if FLAGS & ACCUMULATE != 0 { unsafe { ld_global_cs_v4_u32(at) } } else { (0, 0, 0, 0) };
             unsafe {
                 if F32 {
                     let v = shld_v4_f32(src);
-                    let o = if FLAGS & ACCUMULATE != 0 {
+                    let prior = if FLAGS & ACCUMULATE != 0 {
                         [f32::from_bits(old.0), f32::from_bits(old.1), f32::from_bits(old.2), f32::from_bits(old.3)]
                     } else {
                         [0.0; 4]
                     };
-                    st_global_v4_u32(at, (v.0 + o[0]).to_bits(), (v.1 + o[1]).to_bits(), (v.2 + o[2]).to_bits(), (v.3 + o[3]).to_bits());
+                    st_global_v4_u32(at, (v.0 + prior[0]).to_bits(), (v.1 + prior[1]).to_bits(), (v.2 + prior[2]).to_bits(), (v.3 + prior[3]).to_bits());
                 } else {
-                    let (p, q) = (shld_v4_f32(src), shld_v4_f32(src + 16));
-                    let v = [p.0, p.1, p.2, p.3, q.0, q.1, q.2, q.3];
-                    let o = [old.0, old.1, old.2, old.3];
-                    let w: [u32; 4] = core::array::from_fn(|j| {
+                    let (lo4, hi4) = (shld_v4_f32(src), shld_v4_f32(src + 16));
+                    let v = [lo4.0, lo4.1, lo4.2, lo4.3, hi4.0, hi4.1, hi4.2, hi4.3];
+                    let words = [old.0, old.1, old.2, old.3];
+                    let packed: [u32; 4] = core::array::from_fn(|j| {
                         let (lo, hi) = if FLAGS & ACCUMULATE != 0 {
-                            (f32::from_bits(o[j] << 16), f32::from_bits(o[j] & 0xffff_0000))
+                            (f32::from_bits(words[j] << 16), f32::from_bits(words[j] & 0xffff_0000))
                         } else {
                             (0.0, 0.0)
                         };
                         bf16x2(v[2 * j] + lo, v[2 * j + 1] + hi)
                     });
-                    st_global_v4_u32(at, w[0], w[1], w[2], w[3]);
+                    st_global_v4_u32(at, packed[0], packed[1], packed[2], packed[3]);
                 }
             }
         }
