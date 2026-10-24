@@ -1,7 +1,7 @@
 # CorridorKey 2.0 — `ck` pipeline
 
-Rust launcher `launcher/crates/ck/src/*`, kernels from `corridorkey/ptx/bin/sm_{75,120}/*.ptx`, GEMMs on cuBLASLt
-(`launcher/crates/ck-gpu`). The Python path (`infer.py` → `corridorkey/runtime.py`) runs the same model; its
+Rust launcher `launcher/crates/ck/src/*`, kernels from `corridorkey/ptx/bin/sm_{75,120}/*.ptx`, GEMMs on `ck_gemm`
+(`launcher/crates/ck-gpu/src/gemm.rs`: THIN n≤16, SQUARE on sm_120, WIDE/SQUARE on sm_75, `any` for f32 or K%8≠0). The Python path (`infer.py` → `corridorkey/runtime.py`) runs the same model; its
 equivalents are noted in `[py: …]`. Shapes are for 1080p: input padded to 1152×2048 (quantum 64), `/16` = 72×128,
 `/64` = 18×32. `T` = window length (auto, e.g. 80), `S` = stride (T/2).
 
@@ -12,7 +12,7 @@ equivalents are noted in `[py: …]`. Shapes are for 1080p: input padded to 1152
  farm::run ─────────── one thread per GPU (devices from --device / all) ───────────────── farm.rs
  │   Shared: clip queue · stage-2 job queue (≤ QUEUE_BYTES) · abort flag
  │
- ├─► worker(GPU k)   Gpu::open (PTX modules, cuBLASLt)   Models::load (weights.rs: bf16 / f16 on sm_75)
+ ├─► worker(GPU k)   Gpu::open (PTX modules)             Models::load (weights.rs: bf16 / f16 on sm_75)
  │    │
  │    └─ loop ──────────────────────────────────────────────────────────────────────────────────┐
  │        ├─ queued stage-2 job?  → stage2(job)            (any GPU helps the lead)              │
@@ -93,7 +93,7 @@ equivalents are noted in `[py: …]`. Shapes are for 1080p: input padded to 1152
  x [b,t,h,w,c] f32 (residual stream)
  │
  ├─ norm1  RMSNorm → bf16, Swin roll/pad folded in            ck_glue norm_bf16 / norm_mod (AdaLN)
- ├─ QKV    GEMM (cuBLASLt, bias epilogue) → 7×7 depthwise on QKV slice     ck_dw dw_qkv
+ ├─ QKV    GEMM (ck_gemm, bias epilogue) → 7×7 depthwise on QKV slice      ck_dw dw_qkv
  ├─ gate   GEMM → per-head sigmoid gate (f32)
  ├─ attend per head group:                                                  attn.rs
  │    split    qkv → q,k,v per window, qk-norm + RoPE, region-sorted order  ck_ops split
