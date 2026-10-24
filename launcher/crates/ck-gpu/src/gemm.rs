@@ -98,10 +98,8 @@ impl Gpu {
         ];
         let lanes = 16 / y.dtype.size();
         if x.dtype == Dtype::Bf16 && w.dtype == self.half() && k % 8 == 0 && ld % lanes == 0 && off % lanes == 0 {
-            let t = self.tile(rows, n, k);
-            let tiles = rows.div_ceil(t.bm) * n.div_ceil(t.bn);
+            let (t, tiles, splits, span) = self.plan(rows, n, k);
             let shared = (t.stages[usize::from(self.sm >= 80)] * (t.bm + t.bn) as u32 * 64).max(8 * 16 * (4 * t.width + 16));
-            let (splits, span) = self.split(t, tiles, k);
             if splits == 1 {
                 let name = format!("gemm_{}_{suffix}", t.name);
                 return self.launch("ck_gemm", &name, (tiles as u32, 1, 1), 256, shared, &[&args[..], &[k.into()]].concat());
@@ -131,8 +129,21 @@ impl Gpu {
         self.launch("ck_gemm", &name, grid, 256, 2 * 16 * (ANY as u32 + 4) * 4, &[&args[..], &[k.into()]].concat())
     }
 
+    fn plan(&self, rows: usize, n: usize, k: usize) -> (Tile, usize, usize, usize) {
+        let tiles = |t: Tile| rows.div_ceil(t.bm) * n.div_ceil(t.bn);
+        let t = self.tile(rows, n, k);
+        match self.split(t, tiles(t), k) {
+            (1, _) if t.name == SQUARE.name && 2 * tiles(t) < self.slots(t) => (SMALL, tiles(SMALL), 1, k),
+            (splits, span) => (t, tiles(t), splits, span),
+        }
+    }
+
+    fn slots(&self, t: Tile) -> usize {
+        self.sms * t.resident[usize::from(self.sm >= 80)]
+    }
+
     fn split(&self, t: Tile, tiles: usize, k: usize) -> (usize, usize) {
-        let slots = self.sms * t.resident[usize::from(self.sm >= 80)];
+        let slots = self.slots(t);
         let cost = |s: usize| {
             let span = k.div_ceil(s).next_multiple_of(BK);
             ((tiles * k.div_ceil(span)).div_ceil(slots) * span, span)
@@ -151,10 +162,8 @@ impl Gpu {
 
     fn tile(&self, rows: usize, n: usize, k: usize) -> Tile {
         let wide = rows.div_ceil(WIDE.bm) * n.div_ceil(WIDE.bn);
-        let square = rows.div_ceil(SQUARE.bm) * n.div_ceil(SQUARE.bn);
         match () {
             () if n <= THIN.bn => THIN,
-            () if 2 * square < self.sms * SQUARE.resident[usize::from(self.sm >= 80)] => SMALL,
             () if self.sm >= 80 || (wide < 2 * self.sms && k < 8192) => SQUARE,
             () => WIDE,
         }
