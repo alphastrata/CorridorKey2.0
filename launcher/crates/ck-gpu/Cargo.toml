@@ -6,7 +6,7 @@ authors.workspace = true
 
 [dependencies]
 bytemuck = { version = "1.25.2", features = ["extern_crate_alloc"] }
-cudarc = { version = "0.19.10", default-features = false, features = ["std", "driver", "cublaslt", "nvrtc", "f16", "dynamic-loading", "cuda-13000"] }
+cudarc = { version = "0.19.10", default-features = false, features = ["std", "driver", "nvrtc", "f16", "dynamic-loading", "cuda-13000"] }
 eyre = "0.6.14"
 half = { version = "2.7.1", features = ["bytemuck"] }
 rayon = "1.12.0"

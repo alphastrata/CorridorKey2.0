@@ -12,7 +12,6 @@ use cudarc::driver::{CudaContext, CudaFunction, CudaModule, CudaStream, LaunchCo
 use cudarc::nvrtc::Ptx;
 use eyre::{Context, OptionExt, Result};
 
-pub use gemm::{Epilogue, Gemm};
 pub use tensor::{Dtype, Meter, Tensor};
 
 #[derive(Clone, Copy)]
@@ -46,8 +45,7 @@ pub struct Gpu {
     pub sm: u32,
     modules: HashMap<String, Arc<CudaModule>>,
     functions: RefCell<HashMap<(String, String), CudaFunction>>,
-    biases: RefCell<HashMap<(u64, Dtype), Tensor>>,
-    lt: gemm::Lt,
+    pub sms: usize,
     staging: RefCell<staging::Staging>,
     pub meter: Arc<Meter>,
 }
@@ -85,15 +83,14 @@ impl Gpu {
                 Ok((name, ctx.load_module(Ptx::from_src(src))?))
             })
             .collect::<Result<_>>()?;
-        let lt = gemm::Lt::new(&stream)?;
+        let sms = ctx.attribute(sys::CUdevice_attribute::CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)? as usize;
         Ok(Self {
             ctx,
             stream,
             sm,
             modules,
             functions: RefCell::default(),
-            biases: RefCell::default(),
-            lt,
+            sms,
             staging: RefCell::default(),
             meter: Arc::default(),
         })
