@@ -15,7 +15,7 @@ export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH
 (cd "$R/launcher" && rustup toolchain install --no-self-update && cargo build --release -p ck)
 (cd "$R/kernels" && rustup toolchain install --no-self-update)
 command -v just > /dev/null || cargo install --locked just
-command -v cargo-ptx > /dev/null || (cd "$R/kernels" && cargo install --locked --git https://codeberg.org/P-E-T-R-A/cargo-ptx.git --branch develop)
+command -v cargo-ptx > /dev/null || echo "cargo-ptx is not installed."
 (cd "$R" && uv run python scripts/download_weights.py)
 "$R/scripts/download_sample_clips.sh"
 echo "ready: just run <clip> -o out, or scripts/bench.sh"
