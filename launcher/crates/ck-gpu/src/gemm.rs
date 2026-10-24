@@ -99,10 +99,18 @@ impl Gpu {
         let lanes = 16 / y.dtype.size();
         if x.dtype == Dtype::Bf16 && w.dtype == self.half() && k % 8 == 0 && ld % lanes == 0 && off % lanes == 0 {
             let (t, tiles, splits, span) = self.plan(rows, n, k);
-            let shared = (t.stages[usize::from(self.sm >= 80)] * (t.bm + t.bn) as u32 * 64).max(8 * 16 * (4 * t.width + 16));
+            let shared =
+                (t.stages[usize::from(self.sm >= 80)] * (t.bm + t.bn) as u32 * 64).max(8 * 16 * (4 * t.width + 16));
             if splits == 1 {
                 let name = format!("gemm_{}_{suffix}", t.name);
-                return self.launch("ck_gemm", &name, (tiles as u32, 1, 1), 256, shared, &[&args[..], &[k.into()]].concat());
+                return self.launch(
+                    "ck_gemm",
+                    &name,
+                    (tiles as u32, 1, 1),
+                    256,
+                    shared,
+                    &[&args[..], &[k.into()]].concat(),
+                );
             }
             let parts = self.empty(&[splits, rows, n], Dtype::F32)?;
             let mut each = args;
@@ -111,11 +119,25 @@ impl Gpu {
             each[8] = 0.into();
             let name = format!("gemm_{}_f32", t.name);
             let grid = (tiles as u32, splits as u32, 1);
-            self.launch("ck_gemm", &name, grid, 256, shared, &[&each[..], &[span.into()]].concat())?;
+            self.launch(
+                "ck_gemm",
+                &name,
+                grid,
+                256,
+                shared,
+                &[&each[..], &[span.into()]].concat(),
+            )?;
             let mut sum = args;
             sum[1] = words(&parts);
             let grid = ((rows * n / 4).div_ceil(256) as u32, 1, 1);
-            return self.launch("ck_gemm", &format!("reduce_{suffix}"), grid, 256, 0, &[&sum[..], &[splits.into()]].concat());
+            return self.launch(
+                "ck_gemm",
+                &format!("reduce_{suffix}"),
+                grid,
+                256,
+                0,
+                &[&sum[..], &[splits.into()]].concat(),
+            );
         }
         ensure!(
             y.dtype == Dtype::F32 && (x.dtype == Dtype::F32) == (w.dtype == Dtype::F32),
@@ -126,7 +148,14 @@ impl Gpu {
         );
         let name = format!("any_{}{suffix}", if x.dtype == Dtype::F32 { "f32in_" } else { "" });
         let grid = (n.div_ceil(ANY) as u32, rows.div_ceil(ANY) as u32, 1);
-        self.launch("ck_gemm", &name, grid, 256, 2 * 16 * (ANY as u32 + 4) * 4, &[&args[..], &[k.into()]].concat())
+        self.launch(
+            "ck_gemm",
+            &name,
+            grid,
+            256,
+            2 * 16 * (ANY as u32 + 4) * 4,
+            &[&args[..], &[k.into()]].concat(),
+        )
     }
 
     fn plan(&self, rows: usize, n: usize, k: usize) -> (Tile, usize, usize, usize) {
@@ -164,7 +193,11 @@ impl Gpu {
         let wide = rows.div_ceil(WIDE.bm) * n.div_ceil(WIDE.bn);
         match () {
             () if n <= THIN.bn => THIN,
-            () if self.sm >= 80 || (wide < 2 * self.sms && k < 8192) => SQUARE,
+            () if self.sm >= 80
+                || (wide < 2 * self.sms && k < 8192 && wide.next_multiple_of(self.sms) * 9 > wide * 10) =>
+            {
+                SQUARE
+            }
             () => WIDE,
         }
     }
