@@ -46,6 +46,8 @@ fn linear_matches_f64() -> eyre::Result<()> {
         (13, 3072, 512, true),
         (3, 512, 1, true),
         (300, 136, 588, false),
+        (541, 384, 2056, false),
+        (300, 384, 8192, false),
     ];
     cases.iter().try_for_each(|&(rows, n, k, f32in)| {
         let (xd, wd) = if f32in { (Dtype::F32, Dtype::F32) } else { (Dtype::Bf16, gpu.half()) };

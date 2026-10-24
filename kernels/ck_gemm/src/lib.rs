@@ -6,7 +6,8 @@ use ptx::kernel;
 use ptx::mma::ldmatrix_x4_b16_u32;
 use ptx::prelude::*;
 use ptx::mem::{
-    ld_global_cs_u32, ld_global_cs_v4_u32, ld_global_nc_u16, ld_global_nc_u32, ld_global_nc_v2_u32, st_global_u32, st_global_v4_u32,
+    ld_global_cs_u32, ld_global_cs_u64, ld_global_cs_v4_u32, ld_global_nc_u16, ld_global_nc_u32, ld_global_nc_v2_u32, ld_global_nc_v4_f32,
+    st_global_u32, st_global_v2_u32, st_global_v4_u32,
 };
 use ptx::warp_ops::warp_sync;
 use ptx::sync::shared::{shared_window, shld_v4_f32, shst_f32, shst_v2_f32};
@@ -75,6 +76,7 @@ struct Shape {
     k: usize,
     ld: usize,
     off: usize,
+    span: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -184,12 +186,15 @@ fn gemm<const T: Tile, const F32: bool, const FLAGS: u32, const CONVERT: bool>((
     let (lane, warp) = (tid % 32, tid / 32);
     let (wm, wn) = (warp / T.wn, warp % T.wn);
     let (r0, c0) = place::<T>(s);
-    let feed = Feed::new::<T>((input as usize, weight as usize), s, (r0, c0));
-    let tiles = s.k.div_ceil(BK);
+    let (split, k0) = (block_idx_y() as usize, block_idx_y() as usize * s.span);
+    let extent = s.span.min(s.k - k0);
+    let feed = Feed::new::<T>((input as usize + 2 * k0, weight as usize + 2 * k0), s, (r0, c0));
+    let out = out + (split * s.rows * s.ld * if F32 { 4 } else { 2 }) as u64;
+    let tiles = extent.div_ceil(BK);
     let last = smem + (T.stages - 1) as u32 * T.slot();
     let next = |slot: u32| if slot == last { smem } else { slot + T.slot() };
     let fetch = |t: usize, slot: u32| {
-        let w = feed.fetch::<T>(if t < tiles { s.k } else { 0 }, t * BK, slot);
+        let w = feed.fetch::<T>(if t < tiles { extent } else { 0 }, t * BK, slot);
         commit();
         w
     };
@@ -342,9 +347,48 @@ fn any<const IN32: bool, const FLAGS: u32>((input, weight, bias, out): (u64, u64
     }));
 }
 
+#[inline(always)]
+fn reduce<const F32: bool, const FLAGS: u32>((parts, bias, out): (u64, u64, u64), s: Shape, splits: usize) {
+    let at = (block_idx_x() as usize * THREADS + thread_idx_x() as usize) * 4;
+    if at >= s.rows * s.n {
+        return;
+    }
+    let mut v = (0..splits).fold([0.0f32; 4], |v, p| {
+        let w = unsafe { ld_global_cs_v4_u32(parts + 4 * (p * s.rows * s.n + at) as u64) };
+        [v[0] + f32::from_bits(w.0), v[1] + f32::from_bits(w.1), v[2] + f32::from_bits(w.2), v[3] + f32::from_bits(w.3)]
+    });
+    let (row, col) = (at / s.n, at % s.n);
+    if FLAGS & BIAS != 0 {
+        let b = unsafe { ld_global_nc_v4_f32(bias + 4 * col as u64) };
+        v = [v[0] + b.0, v[1] + b.1, v[2] + b.2, v[3] + b.3];
+    }
+    let dst = row * s.ld + s.off + col;
+    unsafe {
+        if F32 {
+            let dst = out + 4 * dst as u64;
+            if FLAGS & ACCUMULATE != 0 {
+                let o = ld_global_cs_v4_u32(dst);
+                v = [v[0] + f32::from_bits(o.0), v[1] + f32::from_bits(o.1), v[2] + f32::from_bits(o.2), v[3] + f32::from_bits(o.3)];
+            }
+            st_global_v4_u32(dst, v[0].to_bits(), v[1].to_bits(), v[2].to_bits(), v[3].to_bits());
+        } else {
+            let dst = out + 2 * dst as u64;
+            if FLAGS & ACCUMULATE != 0 {
+                let o = ld_global_cs_u64(dst);
+                let half = |w: u64| f32::from_bits((w as u32) << 16);
+                v = [v[0] + half(o), v[1] + half(o >> 16), v[2] + half(o >> 32), v[3] + half(o >> 48)];
+            }
+            st_global_v2_u32(dst, bf16x2(v[0], v[1]), bf16x2(v[2], v[3]));
+        }
+    }
+}
+
 macro_rules! entry {
     ($name:ident, any, $in32:literal, $flags:expr) => {
         entry!(@ $name, |at, s| any::<$in32, { $flags }>(at, s), $flags);
+    };
+    ($name:ident, reduce, $f32:literal, $flags:expr) => {
+        entry!(@ $name, |(_, w, b, y), s: Shape| reduce::<$f32, { $flags }>((w, b, y), s, s.span), $flags);
     };
     ($name:ident, $tile:expr, $f32:literal, $flags:expr, $convert:literal) => {
         entry!(@ $name, |at, s| gemm::<{ $tile }, $f32, { $flags }, $convert>(at, s), $flags);
@@ -361,6 +405,7 @@ macro_rules! entry {
             k: u32,
             ld: u32,
             off: u32,
+            span: u32,
         ) {
             let s = Shape {
                 rows: rows as usize,
@@ -368,6 +413,7 @@ macro_rules! entry {
                 k: k as usize,
                 ld: ld as usize,
                 off: off as usize,
+                span: span as usize,
             };
             let b = if $flags & BIAS == 0 { 0 } else { bias.addr_at(0) };
             let at = (x.addr_at(0), w.addr_at(0), b, y.addr_at(0));
@@ -384,6 +430,14 @@ entry!(gemm_wide_bf16, WIDE, false, 0, true);
 entry!(gemm_wide_bf16_acc, WIDE, false, ACCUMULATE, true);
 entry!(gemm_wide_bf16_bias, WIDE, false, BIAS, true);
 entry!(gemm_wide_bf16_acc_bias, WIDE, false, ACCUMULATE | BIAS, true);
+entry!(reduce_f32, reduce, true, 0);
+entry!(reduce_f32_acc, reduce, true, ACCUMULATE);
+entry!(reduce_f32_bias, reduce, true, BIAS);
+entry!(reduce_f32_acc_bias, reduce, true, ACCUMULATE | BIAS);
+entry!(reduce_bf16, reduce, false, 0);
+entry!(reduce_bf16_acc, reduce, false, ACCUMULATE);
+entry!(reduce_bf16_bias, reduce, false, BIAS);
+entry!(reduce_bf16_acc_bias, reduce, false, ACCUMULATE | BIAS);
 entry!(any_f32in_f32, any, true, 0);
 entry!(any_f32in_f32_acc, any, true, ACCUMULATE);
 entry!(any_f32in_f32_bias, any, true, BIAS);
