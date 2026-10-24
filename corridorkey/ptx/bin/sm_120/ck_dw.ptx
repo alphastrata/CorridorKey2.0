@@ -52,15 +52,15 @@
 	.reg .b64 	%rd<595>;
 
 // %bb.0:
-	ld.param.b64 	%rd49, [dw_bf16_param_0];
-	ld.param.b64 	%rd50, [dw_bf16_param_2];
+	ld.param::entry.b64 	%rd49, [dw_bf16_param_0];
+	ld.param::entry.b64 	%rd50, [dw_bf16_param_2];
 	cvta.to.global.u64 	%rd1, %rd50;
 	cvta.to.global.u64 	%rd2, %rd49;
-	ld.param.b64 	%rd51, [dw_bf16_param_4];
+	ld.param::entry.b64 	%rd51, [dw_bf16_param_4];
 	cvta.to.global.u64 	%rd3, %rd51;
-	ld.param.b64 	%rd52, [dw_bf16_param_6];
+	ld.param::entry.b64 	%rd52, [dw_bf16_param_6];
 	cvta.to.global.u64 	%rd4, %rd52;
-	ld.param.b32 	%rd7, [dw_bf16_param_10];
+	ld.param::entry.b32 	%rd7, [dw_bf16_param_10];
 	// begin inline asm
 	cvta.shared.u64 %rd47, __dshmem;
 	// end inline asm
@@ -74,8 +74,8 @@
 	setp.ne.b64 	%p1, %rd8, 0;
 	@!%p1 bra 	$L__BB0_88;
 // %bb.1:
-	ld.param.b32 	%r11, [dw_bf16_param_9];
-	ld.param.b32 	%r10, [dw_bf16_param_8];
+	ld.param::entry.b32 	%r11, [dw_bf16_param_9];
+	ld.param::entry.b32 	%r10, [dw_bf16_param_8];
 	cvt.u32.u64 	%r1, %rd48;
 	cvt.u32.u64 	%r3, %rd8;
 	div.u32 	%r17, %r13, %r3;
@@ -123,7 +123,7 @@ $L__BB0_3:                              // =>This Inner Loop Header: Depth=1
 	setp.ne.b64 	%p3, %rd584, 0;
 	@%p3 bra 	$L__BB0_3;
 $L__BB0_4:                              // %.loopexit
-	ld.param.b32 	%r12, [dw_bf16_param_11];
+	ld.param::entry.b32 	%r12, [dw_bf16_param_11];
 	cvt.u64.u32 	%rd5, %r10;
 	cvt.u64.u32 	%rd6, %r11;
 	cvt.u64.u32 	%rd9, %r17;
@@ -4250,7 +4250,7 @@ $L__BB0_7:
 	setp.lt.u64 	%p108, %rd519, %rd5;
 	@!%p108 bra 	$L__BB0_56;
 // %bb.8:
-	ld.param.b64 	%rd46, [dw_bf16_param_7];
+	ld.param::entry.b64 	%rd46, [dw_bf16_param_7];
 	div.u32 	%r1363, %r1356, %r3;
 	cvt.u64.u32 	%rd517, %r1363;
 	mul.wide.u32 	%rd24, %r1358, 16;
@@ -4704,21 +4704,21 @@ $L__BB0_108:
 	.reg .b64 	%rd<816>;
 
 // %bb.0:
-	ld.param.b64 	%rd51, [mix_bf16_param_0];
+	ld.param::entry.b64 	%rd51, [mix_bf16_param_0];
 	cvta.to.global.u64 	%rd1, %rd51;
-	ld.param.b64 	%rd52, [mix_bf16_param_2];
+	ld.param::entry.b64 	%rd52, [mix_bf16_param_2];
 	cvta.to.global.u64 	%rd2, %rd52;
-	ld.param.b64 	%rd53, [mix_bf16_param_4];
+	ld.param::entry.b64 	%rd53, [mix_bf16_param_4];
 	cvta.to.global.u64 	%rd3, %rd53;
-	ld.param.b64 	%rd54, [mix_bf16_param_8];
+	ld.param::entry.b64 	%rd54, [mix_bf16_param_8];
 	cvta.to.global.u64 	%rd4, %rd54;
-	ld.param.b64 	%rd55, [mix_bf16_param_6];
+	ld.param::entry.b64 	%rd55, [mix_bf16_param_6];
 	cvta.to.global.u64 	%rd5, %rd55;
-	ld.param.b64 	%rd56, [mix_bf16_param_10];
+	ld.param::entry.b64 	%rd56, [mix_bf16_param_10];
 	cvta.to.global.u64 	%rd6, %rd56;
-	ld.param.b64 	%rd57, [mix_bf16_param_12];
+	ld.param::entry.b64 	%rd57, [mix_bf16_param_12];
 	cvta.to.global.u64 	%rd7, %rd57;
-	ld.param.b32 	%rd10, [mix_bf16_param_16];
+	ld.param::entry.b32 	%rd10, [mix_bf16_param_16];
 	// begin inline asm
 	cvta.shared.u64 %rd49, __dshmem;
 	// end inline asm
@@ -4732,9 +4732,9 @@ $L__BB0_108:
 	setp.ne.b64 	%p1, %rd11, 0;
 	@!%p1 bra 	$L__BB1_117;
 // %bb.1:
-	ld.param.b32 	%r11, [mix_bf16_param_17];
-	ld.param.b32 	%r10, [mix_bf16_param_15];
-	ld.param.b32 	%r9, [mix_bf16_param_14];
+	ld.param::entry.b32 	%r11, [mix_bf16_param_17];
+	ld.param::entry.b32 	%r10, [mix_bf16_param_15];
+	ld.param::entry.b32 	%r9, [mix_bf16_param_14];
 	cvt.u64.u32 	%rd8, %r9;
 	cvt.u64.u32 	%rd9, %r10;
 	cvt.u32.u64 	%r1, %rd50;
@@ -11498,8 +11498,8 @@ $L__BB1_4:
 	setp.lt.u64 	%p106, %rd709, %rd8;
 	@!%p106 bra 	$L__BB1_85;
 // %bb.5:
-	ld.param.b32 	%r12, [mix_bf16_param_18];
-	ld.param.b64 	%rd48, [mix_bf16_param_13];
+	ld.param::entry.b32 	%r12, [mix_bf16_param_18];
+	ld.param::entry.b64 	%rd48, [mix_bf16_param_13];
 	div.u32 	%r2316, %r2311, %r2;
 	cvt.u64.u32 	%rd707, %r2316;
 	mul.wide.u32 	%rd25, %r2313, 16;
@@ -12257,21 +12257,21 @@ $L__BB1_137:
 	.reg .b64 	%rd<816>;
 
 // %bb.0:
-	ld.param.b64 	%rd67, [mix_f32_param_0];
+	ld.param::entry.b64 	%rd67, [mix_f32_param_0];
 	cvta.to.global.u64 	%rd1, %rd67;
-	ld.param.b64 	%rd68, [mix_f32_param_2];
+	ld.param::entry.b64 	%rd68, [mix_f32_param_2];
 	cvta.to.global.u64 	%rd2, %rd68;
-	ld.param.b64 	%rd69, [mix_f32_param_4];
+	ld.param::entry.b64 	%rd69, [mix_f32_param_4];
 	cvta.to.global.u64 	%rd3, %rd69;
-	ld.param.b64 	%rd70, [mix_f32_param_8];
+	ld.param::entry.b64 	%rd70, [mix_f32_param_8];
 	cvta.to.global.u64 	%rd4, %rd70;
-	ld.param.b64 	%rd71, [mix_f32_param_6];
+	ld.param::entry.b64 	%rd71, [mix_f32_param_6];
 	cvta.to.global.u64 	%rd5, %rd71;
-	ld.param.b64 	%rd72, [mix_f32_param_10];
+	ld.param::entry.b64 	%rd72, [mix_f32_param_10];
 	cvta.to.global.u64 	%rd6, %rd72;
-	ld.param.b64 	%rd73, [mix_f32_param_12];
+	ld.param::entry.b64 	%rd73, [mix_f32_param_12];
 	cvta.to.global.u64 	%rd7, %rd73;
-	ld.param.b32 	%rd10, [mix_f32_param_16];
+	ld.param::entry.b32 	%rd10, [mix_f32_param_16];
 	// begin inline asm
 	cvta.shared.u64 %rd65, __dshmem;
 	// end inline asm
@@ -12285,9 +12285,9 @@ $L__BB1_137:
 	setp.ne.b64 	%p1, %rd11, 0;
 	@!%p1 bra 	$L__BB2_117;
 // %bb.1:
-	ld.param.b32 	%r11, [mix_f32_param_17];
-	ld.param.b32 	%r10, [mix_f32_param_15];
-	ld.param.b32 	%r9, [mix_f32_param_14];
+	ld.param::entry.b32 	%r11, [mix_f32_param_17];
+	ld.param::entry.b32 	%r10, [mix_f32_param_15];
+	ld.param::entry.b32 	%r9, [mix_f32_param_14];
 	cvt.u64.u32 	%rd8, %r9;
 	cvt.u64.u32 	%rd9, %r10;
 	cvt.u32.u64 	%r1, %rd66;
@@ -19007,8 +19007,8 @@ $L__BB2_4:
 	setp.lt.u64 	%p106, %rd725, %rd8;
 	@!%p106 bra 	$L__BB2_85;
 // %bb.5:
-	ld.param.b32 	%r12, [mix_f32_param_18];
-	ld.param.b64 	%rd64, [mix_f32_param_13];
+	ld.param::entry.b32 	%r12, [mix_f32_param_18];
+	ld.param::entry.b64 	%rd64, [mix_f32_param_13];
 	div.u32 	%r2272, %r2267, %r2;
 	cvt.u64.u32 	%rd723, %r2272;
 	mul.wide.u32 	%rd25, %r2269, 16;
@@ -19674,11 +19674,11 @@ $L__BB2_137:
 	.reg .b64 	%rd<21>;
 
 // %bb.0:
-	ld.param.b64 	%rd9, [rms_bf16_param_0];
+	ld.param::entry.b64 	%rd9, [rms_bf16_param_0];
 	cvta.to.global.u64 	%rd1, %rd9;
-	ld.param.b64 	%rd10, [rms_bf16_param_2];
+	ld.param::entry.b64 	%rd10, [rms_bf16_param_2];
 	cvta.to.global.u64 	%rd2, %rd10;
-	ld.param.b32 	%r7, [rms_bf16_param_4];
+	ld.param::entry.b32 	%r7, [rms_bf16_param_4];
 	// begin inline asm
 	mov.u32 %r5, %ctaid.x;
 	// end inline asm
@@ -19691,7 +19691,7 @@ $L__BB2_137:
 	setp.ge.u32 	%p1, %r10, %r7;
 	@%p1 bra 	$L__BB3_8;
 // %bb.1:
-	ld.param.b32 	%r3, [rms_bf16_param_5];
+	ld.param::entry.b32 	%r3, [rms_bf16_param_5];
 	cvt.u64.u32 	%rd3, %r10;
 	cvt.u64.u32 	%rd4, %r3;
 	// begin inline asm
@@ -19707,7 +19707,7 @@ $L__BB2_137:
 	mov.b32 	%r29, 0f00000000;
 	@%p2 bra 	$L__BB3_5;
 // %bb.2:
-	ld.param.b64 	%rd7, [rms_bf16_param_1];
+	ld.param::entry.b64 	%rd7, [rms_bf16_param_1];
 	mad.lo.s64 	%rd14, %rd3, %rd4, %rd5;
 	shl.b64 	%rd15, %rd14, 1;
 	add.s64 	%rd19, %rd1, %rd15;
@@ -19743,8 +19743,8 @@ $L__BB3_5:                              // %.loopexit
 	setp.ne.b32 	%p5, %r15, 0;
 	@%p5 bra 	$L__BB3_8;
 // %bb.6:
-	ld.param.b32 	%r4, [rms_bf16_param_6];
-	ld.param.b64 	%rd8, [rms_bf16_param_3];
+	ld.param::entry.b32 	%r4, [rms_bf16_param_6];
+	ld.param::entry.b64 	%rd8, [rms_bf16_param_3];
 	add.rn.f32 	%r25, %r1, %r2;
 	cvt.rn.f32.u32 	%r26, %r3;
 	div.rn.f32 	%r27, %r25, %r26;
@@ -19794,11 +19794,11 @@ $L__BB3_10:
 	.reg .b64 	%rd<21>;
 
 // %bb.0:
-	ld.param.b64 	%rd9, [rms_f32_param_0];
+	ld.param::entry.b64 	%rd9, [rms_f32_param_0];
 	cvta.to.global.u64 	%rd1, %rd9;
-	ld.param.b64 	%rd10, [rms_f32_param_2];
+	ld.param::entry.b64 	%rd10, [rms_f32_param_2];
 	cvta.to.global.u64 	%rd2, %rd10;
-	ld.param.b32 	%r7, [rms_f32_param_4];
+	ld.param::entry.b32 	%r7, [rms_f32_param_4];
 	// begin inline asm
 	mov.u32 %r5, %ctaid.x;
 	// end inline asm
@@ -19811,7 +19811,7 @@ $L__BB3_10:
 	setp.ge.u32 	%p1, %r10, %r7;
 	@%p1 bra 	$L__BB4_8;
 // %bb.1:
-	ld.param.b32 	%r3, [rms_f32_param_5];
+	ld.param::entry.b32 	%r3, [rms_f32_param_5];
 	cvt.u64.u32 	%rd3, %r10;
 	cvt.u64.u32 	%rd4, %r3;
 	// begin inline asm
@@ -19827,7 +19827,7 @@ $L__BB3_10:
 	mov.b32 	%r28, 0f00000000;
 	@%p2 bra 	$L__BB4_5;
 // %bb.2:
-	ld.param.b64 	%rd7, [rms_f32_param_1];
+	ld.param::entry.b64 	%rd7, [rms_f32_param_1];
 	mad.lo.s64 	%rd14, %rd3, %rd4, %rd5;
 	shl.b64 	%rd15, %rd14, 2;
 	add.s64 	%rd19, %rd1, %rd15;
@@ -19862,8 +19862,8 @@ $L__BB4_5:                              // %.loopexit
 	setp.ne.b32 	%p5, %r14, 0;
 	@%p5 bra 	$L__BB4_8;
 // %bb.6:
-	ld.param.b32 	%r4, [rms_f32_param_6];
-	ld.param.b64 	%rd8, [rms_f32_param_3];
+	ld.param::entry.b32 	%r4, [rms_f32_param_6];
+	ld.param::entry.b64 	%rd8, [rms_f32_param_3];
 	add.rn.f32 	%r24, %r1, %r2;
 	cvt.rn.f32.u32 	%r25, %r3;
 	div.rn.f32 	%r26, %r24, %r25;

@@ -3,8 +3,7 @@ name              = "ck_glue"
 edition.workspace = true
 version.workspace = true
 
-[package.metadata.ck]
-archs         = [61, 75, 120]
+[package.metadata.ptx]
 launch_bounds = [256, 4]
 
 [lib]
