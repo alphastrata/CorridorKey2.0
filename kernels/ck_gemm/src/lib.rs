@@ -5,8 +5,9 @@ use ck_arch::{bf16x2, commit, fetch16, mma16, put16, wait};
 use ptx::kernel;
 use ptx::mma::ldmatrix_x4_b16_u32;
 use ptx::prelude::*;
-use ptx::mem::{ld_global_b32, ld_global_b64, ld_global_nc_v2_u32, st_global_u32, st_global_v2_u32};
-use ptx::sync::shared::shared_window;
+use ptx::mem::{ld_global_cs_v4_u32, ld_global_nc_v2_u32, st_global_v4_u32};
+use ptx::warp_ops::warp_sync;
+use ptx::sync::shared::{shared_window, shld_v4_f32, shst_v2_f32};
 use tune::STAGES;
 
 #[cfg_attr(feature = "sm_120", path = "tune/sm120.rs")]
@@ -18,6 +19,7 @@ const THREADS: usize = 256;
 const MTS: usize = 4;
 const NTS: usize = 8;
 const ROW: u32 = (BK * 2) as u32;
+const STRIDE: u32 = (64 * 4 + 16) as u32;
 
 const fn chunk(row: usize, c: usize) -> u32 {
     ((c ^ ((row >> 1) & 3)) * 16) as u32
@@ -183,40 +185,69 @@ fn gemm<const T: Tile, const F32: bool, const FLAGS: u32, const CONVERT: bool>((
         let f0 = frag::<T>(after, 0, warp);
         (mma::<T>(acc, &f1), f0, after, next(write))
     });
+    wait::<0>();
+    sync_threads();
+    let stage = smem + (tid / 32) as u32 * 16 * STRIDE;
     let (group, quad) = (lane / 4, lane % 4);
-    let size = if F32 { 4 } else { 2 };
-    let col = |nt: usize| c0 + wn * (T.bn / T.wn) + nt * 8 + quad * 2;
     let mut add = [[0.0f32; 2]; NTS];
-    ptx::unroll!(8, |nt| if FLAGS & BIAS != 0 && nt < T.nt() && col(nt) < s.n {
-        let (lo, hi) = unsafe { ld_global_nc_v2_u32(bias + 4 * col(nt) as u64) };
+    ptx::unroll!(8, |nt| if FLAGS & BIAS != 0 && nt < T.nt() {
+        let col = (c0 + wn * (T.bn / T.wn) + nt * 8 + quad * 2).min(s.n - 2);
+        let (lo, hi) = unsafe { ld_global_nc_v2_u32(bias + 4 * col as u64) };
         add[nt] = [f32::from_bits(lo), f32::from_bits(hi)];
     });
-    ptx::unroll!(8, |nt| if nt < T.nt() {
-        let (col, add) = (col(nt), add[nt]);
-        ptx::unroll!(4, |mt| if mt < T.mt() {
+    ptx::unroll!(4, |mt| if mt < T.mt() {
+        ptx::unroll!(8, |nt| if nt < T.nt() {
             ptx::unroll!(2, |h| {
-                let row = r0 + wm * (T.bm / T.wm()) + mt * 16 + group + 8 * h;
-                if row < s.rows && col < s.n {
-                    let at = out + ((row * s.ld + s.off + col) * size) as u64;
-                    let mut v = [acc[mt][nt][2 * h] + add[0], acc[mt][nt][2 * h + 1] + add[1]];
-                    unsafe {
-                        if F32 {
-                            if FLAGS & ACCUMULATE != 0 {
-                                let old = ld_global_b64(at);
-                                v = [v[0] + f32::from_bits(old as u32), v[1] + f32::from_bits((old >> 32) as u32)];
-                            }
-                            st_global_v2_u32(at, v[0].to_bits(), v[1].to_bits());
-                        } else {
-                            if FLAGS & ACCUMULATE != 0 {
-                                let old = ld_global_b32(at);
-                                v = [v[0] + f32::from_bits(old << 16), v[1] + f32::from_bits(old & 0xffff_0000)];
-                            }
-                            st_global_u32(at, bf16x2(v[0], v[1]));
-                        }
-                    }
-                }
+                let at = stage + (group + 8 * h) as u32 * STRIDE + ((nt * 8 + quad * 2) * 4) as u32;
+                let v = (acc[mt][nt][2 * h] + add[nt][0], acc[mt][nt][2 * h + 1] + add[nt][1]);
+                unsafe { shst_v2_f32(at, v) };
             });
         });
+        warp_sync();
+        let top = r0 + wm * (T.bm / T.wm()) + mt * 16;
+        let left = c0 + wn * (T.bn / T.wn);
+        drain::<T, F32, FLAGS>(stage, out, s, (top, left));
+        warp_sync();
+    });
+}
+
+#[inline(always)]
+fn drain<const T: Tile, const F32: bool, const FLAGS: u32>(stage: u32, out: u64, s: Shape, (top, left): (usize, usize)) {
+    let lane = thread_idx_x() as usize % 32;
+    let width = T.bn / T.wn;
+    let lanes = width / if F32 { 4 } else { 8 };
+    ptx::unroll!(16, |i| if i < 16 * lanes / 32 {
+        let (r, c) = ((i * 32 + lane) / lanes, (i * 32 + lane) % lanes);
+        let (row, col) = (top + r, left + c * if F32 { 4 } else { 8 });
+        if row < s.rows && col < s.n {
+            let src = stage + r as u32 * STRIDE + (c * if F32 { 16 } else { 32 }) as u32;
+            let at = out + ((row * s.ld + s.off + col) * if F32 { 4 } else { 2 }) as u64;
+            let old = if FLAGS & ACCUMULATE != 0 { unsafe { ld_global_cs_v4_u32(at) } } else { (0, 0, 0, 0) };
+            unsafe {
+                if F32 {
+                    let v = shld_v4_f32(src);
+                    let o = if FLAGS & ACCUMULATE != 0 {
+                        [f32::from_bits(old.0), f32::from_bits(old.1), f32::from_bits(old.2), f32::from_bits(old.3)]
+                    } else {
+                        [0.0; 4]
+                    };
+                    st_global_v4_u32(at, (v.0 + o[0]).to_bits(), (v.1 + o[1]).to_bits(), (v.2 + o[2]).to_bits(), (v.3 + o[3]).to_bits());
+                } else {
+                    let (p, q) = (shld_v4_f32(src), shld_v4_f32(src + 16));
+                    let v = [p.0, p.1, p.2, p.3, q.0, q.1, q.2, q.3];
+                    let o = [old.0, old.1, old.2, old.3];
+                    let w: [u32; 4] = core::array::from_fn(|j| {
+                        let (lo, hi) = if FLAGS & ACCUMULATE != 0 {
+                            (f32::from_bits(o[j] << 16), f32::from_bits(o[j] & 0xffff_0000))
+                        } else {
+                            (0.0, 0.0)
+                        };
+                        bf16x2(v[2 * j] + lo, v[2 * j + 1] + hi)
+                    });
+                    st_global_v4_u32(at, w[0], w[1], w[2], w[3]);
+                }
+            }
+        }
     });
 }
 
