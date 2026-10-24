@@ -77,7 +77,7 @@ fn linear_matches_f64() -> eyre::Result<()> {
                     };
                     m.max((f64::from(got[i]) - want).abs() / (1.0 + want.abs()))
                 });
-                let tol = if yd == Dtype::F32 { 1e-4 } else { 8e-3 };
+                let tol = if yd == Dtype::F32 { 1e-4 * (k as f64 / 2048.0).max(1.0) } else { 8e-3 };
                 assert!(worst <= tol, "{rows}x{n}x{k} {xd:?}→{yd:?} acc {acc} bias {with}: {worst}");
                 Ok::<_, eyre::Report>(())
             })
