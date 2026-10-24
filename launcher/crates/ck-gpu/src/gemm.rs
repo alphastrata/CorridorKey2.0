@@ -44,6 +44,14 @@ const SMALL: Tile = Tile {
     resident: [2, 3],
     width: 32,
 };
+const SIMT: Tile = Tile {
+    name: "simt",
+    bm: 128,
+    bn: 128,
+    stages: [2, 2],
+    resident: [2, 2],
+    width: 0,
+};
 const ANY: usize = 64;
 const BK: usize = 32;
 const MIN_SPAN: usize = 256;
@@ -222,6 +230,7 @@ impl Gpu {
     fn tile(&self, rows: usize, n: usize, k: usize) -> Tile {
         let wide = rows.div_ceil(WIDE.bm) * n.div_ceil(WIDE.bn);
         match () {
+            () if self.sm < 70 => SIMT,
             () if n <= THIN.bn => THIN,
             () if self.sm >= 80
                 || (wide < 2 * self.sms && k < 8192 && wide.next_multiple_of(self.sms) * 9 > wide * 10) =>
