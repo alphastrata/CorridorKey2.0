@@ -48,6 +48,7 @@ fn linear_matches_f64() -> eyre::Result<()> {
         (300, 136, 588, false),
         (541, 384, 2056, false),
         (300, 384, 8192, false),
+        (2310, 1280, 1024, false),
     ];
     cases.iter().try_for_each(|&(rows, n, k, f32in)| {
         let (xd, wd) = if f32in {
