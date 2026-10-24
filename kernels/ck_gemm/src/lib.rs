@@ -241,7 +241,8 @@ macro_rules! entry {
                 ld: ld as usize,
                 off: off as usize,
             };
-            let at = (x.addr_at(0), w.addr_at(0), bias.addr_at(0), y.addr_at(0));
+            let b = if $flags & BIAS == 0 { 0 } else { bias.addr_at(0) };
+            let at = (x.addr_at(0), w.addr_at(0), b, y.addr_at(0));
             gemm::<{ $tile }, $f32, { $flags }, $convert>(at, s);
         }
     };
