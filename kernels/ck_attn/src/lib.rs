@@ -1,9 +1,8 @@
 #![no_std]
 #![feature(abi_ptx)]
 
-use ck_arch::{bf16x2, commit, mma16, operand, pack, stage16, wait};
+use ck_arch::{bf16x2, commit, ldsm2, ldsm4, ldsm4t, mma16, operand, pack, stage16, wait};
 use ptx::kernel;
-use ptx::mma::{ldmatrix_x2_b16_u32, ldmatrix_x4_b16_u32, ldmatrix_x4_trans_b16_u32};
 use ptx::num::f32::ptx_exp2_approx;
 use ptx::prelude::*;
 use ptx::slice::{GpuSlice, GpuSliceMut};
@@ -134,13 +133,12 @@ fn step<const D: usize, const MASK: bool>(
         let at = kbuf + (j as u32 * 8 + lane % 8) * row(D);
         let mut kf = [[0u32; 2]; KS];
         ptx::unroll!(3, |p| if p < D / 32 {
-            let r = unsafe { ldmatrix_x4_b16_u32(at + (4 * p as u32 + lane / 8) * 16).0 };
+            let r = ldsm4(at + (4 * p as u32 + lane / 8) * 16);
             kf[2 * p] = [r[0], r[1]];
             kf[2 * p + 1] = [r[2], r[3]];
         });
         if D % 32 != 0 {
-            kf[D / 16 - 1] =
-                unsafe { ldmatrix_x2_b16_u32(at + ((D / 8 - 2) as u32 + (lane / 8) % 2) * 16) };
+            kf[D / 16 - 1] = ldsm2(at + ((D / 8 - 2) as u32 + (lane / 8) % 2) * 16);
         }
         ptx::unroll!(2, |rb| if rb < RB {
             ptx::unroll!(6, |ks| if ks < D / 16 {
@@ -186,9 +184,7 @@ fn step<const D: usize, const MASK: bool>(
         });
         let key = kk as u32 * 16 + (mi % 2) * 8 + lane % 8;
         ptx::unroll!(6, |p| if p < D / 16 {
-            let v = unsafe {
-                ldmatrix_x4_trans_b16_u32(vbuf + key * row(D) + (2 * p as u32 + mi / 2) * 16)
-            };
+            let v = ldsm4t(vbuf + key * row(D) + (2 * p as u32 + mi / 2) * 16);
             ptx::unroll!(2, |rb| if rb < RB {
                 acc.o[rb][2 * p] = mma16(pa[rb], [v[0], v[1]], acc.o[rb][2 * p]);
                 acc.o[rb][2 * p + 1] = mma16(pa[rb], [v[2], v[3]], acc.o[rb][2 * p + 1]);

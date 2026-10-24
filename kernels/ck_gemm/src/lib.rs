@@ -1,9 +1,8 @@
 #![no_std]
 #![feature(abi_ptx, adt_const_params)]
 
-use ck_arch::{bf16x2, commit, fetch16, mma16, put16, wait, widen};
+use ck_arch::{bf16x2, commit, fetch16, ldsm4, mma16, put16, wait, widen};
 use ptx::kernel;
-use ptx::mma::ldmatrix_x4_b16_u32;
 use ptx::prelude::*;
 use ptx::mem::{
     ld_global_cs_u32, ld_global_cs_u64, ld_global_cs_v4_u32, ld_global_nc_u16, ld_global_nc_u32, ld_global_nc_v2_u32, ld_global_nc_v4_f32,
@@ -159,11 +158,11 @@ fn frag<const T: Tile>(slot: u32, ks: usize, (wm, wn): (usize, usize)) -> Frag {
     let mut f = ([[0u32; 4]; MTS], [[0u32; 4]; NTS / 2]);
     ptx::unroll!(4, |mt| if mt < T.mt() {
         let r = wm * (T.bm / T.wm()) + mt * 16 + lane % 16;
-        f.0[mt] = unsafe { ldmatrix_x4_b16_u32(slot + r as u32 * ROW + chunk(r, 2 * ks + lane / 16)).0 };
+        f.0[mt] = ldsm4(slot + r as u32 * ROW + chunk(r, 2 * ks + lane / 16));
     });
     ptx::unroll!(4, |p| if p < T.nt() / 2 {
         let r = T.bm + wn * (T.bn / T.wn) + p * 16 + (lane / 16) * 8 + lane % 8;
-        f.1[p] = unsafe { ldmatrix_x4_b16_u32(slot + r as u32 * ROW + chunk(r, 2 * ks + (lane / 8) % 2)).0 };
+        f.1[p] = ldsm4(slot + r as u32 * ROW + chunk(r, 2 * ks + (lane / 8) % 2));
     });
     f
 }
