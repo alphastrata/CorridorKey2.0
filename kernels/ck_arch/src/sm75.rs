@@ -53,3 +53,20 @@ pub fn commit() {}
 
 #[inline]
 pub fn wait<const N: usize>() {}
+
+#[inline]
+#[must_use]
+pub fn fetch16(_dst: u32, src: usize, live: bool) -> [u32; 4] {
+    if live {
+        let (a, b, c, d) = unsafe { ld_global_nc_v4_u32(src as u64) };
+        [a, b, c, d]
+    } else {
+        [0; 4]
+    }
+}
+
+#[inline]
+pub fn put16(dst: u32, w: [u32; 4], convert: bool) {
+    let w = if convert { w.map(|p| operand(p, 1.0)) } else { w };
+    unsafe { shst_v4_u32(dst, (w[0], w[1], w[2], w[3])) };
+}

@@ -1,0 +1,276 @@
+#![no_std]
+#![feature(abi_ptx, adt_const_params)]
+
+use ck_arch::{bf16x2, commit, fetch16, mma16, put16, wait};
+use ptx::kernel;
+use ptx::mma::ldmatrix_x4_b16_u32;
+use ptx::prelude::*;
+use ptx::mem::{ld_global_b32, ld_global_b64, ld_global_nc_v2_u32, st_global_u32, st_global_v2_u32};
+use ptx::sync::shared::shared_window;
+use tune::STAGES;
+
+#[cfg_attr(feature = "sm_120", path = "tune/sm120.rs")]
+#[cfg_attr(not(feature = "sm_120"), path = "tune/sm75.rs")]
+mod tune;
+
+const BK: usize = 32;
+const THREADS: usize = 256;
+const MTS: usize = 4;
+const NTS: usize = 8;
+const ROW: u32 = (BK * 2) as u32;
+
+const fn chunk(row: usize, c: usize) -> u32 {
+    ((c ^ ((row >> 1) & 3)) * 16) as u32
+}
+
+type Acc = [[[f32; 4]; NTS]; MTS];
+
+#[derive(Clone, Copy, PartialEq, Eq, core::marker::ConstParamTy)]
+struct Tile {
+    bm: usize,
+    bn: usize,
+    wn: usize,
+}
+
+impl Tile {
+    const fn wm(self) -> usize {
+        THREADS / 32 / self.wn
+    }
+
+    const fn mt(self) -> usize {
+        self.bm / self.wm() / 16
+    }
+
+    const fn nt(self) -> usize {
+        self.bn / self.wn / 8
+    }
+
+    const fn slot(self) -> u32 {
+        (self.bm + self.bn) as u32 * ROW
+    }
+}
+const ACCUMULATE: u32 = 1;
+const BIAS: u32 = 2;
+
+#[derive(Clone, Copy)]
+struct Shape {
+    rows: usize,
+    n: usize,
+    k: usize,
+    ld: usize,
+    off: usize,
+}
+
+#[derive(Clone, Copy)]
+struct Feed {
+    src: [usize; 8],
+    dst: [u32; 8],
+    kc: usize,
+}
+
+impl Feed {
+    #[inline(always)]
+    fn new<const T: Tile>((input, weight): (usize, usize), shape: Shape, (r0, c0): (usize, usize)) -> Self {
+        let tid = thread_idx_x() as usize;
+        let kc = tid % 4 * 8;
+        let mut f = Self {
+            src: [0; 8],
+            dst: [0; 8],
+            kc,
+        };
+        ptx::unroll!(8, |it| if it < (T.bm + T.bn) / 64 {
+            let r = tid / 4 + it * 64;
+            f.dst[it] = r as u32 * ROW + chunk(r, kc / 8);
+            f.src[it] = if r < T.bm {
+                input + 2 * ((r0 + r).min(shape.rows - 1) * shape.k + kc)
+            } else {
+                weight + 2 * ((c0 + r - T.bm).min(shape.n - 1) * shape.k + kc)
+            };
+        });
+        f
+    }
+
+    #[inline(always)]
+    fn fetch<const T: Tile>(&self, k: usize, kb: usize, slot: u32) -> [[u32; 4]; 8] {
+        let edge = kb + BK > k;
+        let mut w = [[0u32; 4]; 8];
+        ptx::unroll!(8, |it| if it < (T.bm + T.bn) / 64 {
+            let live = !edge || kb + self.kc < k;
+            w[it] = fetch16(slot + self.dst[it], self.src[it] + 2 * kb, live);
+        });
+        w
+    }
+
+    #[inline(always)]
+    fn put<const T: Tile, const CONVERT: bool>(&self, w: &[[u32; 4]; 8], slot: u32) {
+        ptx::unroll!(8, |it| if it < (T.bm + T.bn) / 64 {
+            put16(slot + self.dst[it], w[it], CONVERT && it < T.bm / 64);
+        });
+    }
+}
+
+const GROUP: usize = 8;
+
+#[inline(always)]
+fn place<const T: Tile>(s: Shape) -> (usize, usize) {
+    let (rows, cols) = (s.rows.div_ceil(T.bm), s.n.div_ceil(T.bn));
+    let id = block_idx_x() as usize;
+    let (group, at) = (id / (GROUP * cols), id % (GROUP * cols));
+    let height = (rows - group * GROUP).min(GROUP);
+    ((group * GROUP + at % height) * T.bm, at / height * T.bn)
+}
+
+type Frag = ([[u32; 4]; MTS], [[u32; 4]; NTS / 2]);
+
+#[inline(always)]
+fn frag<const T: Tile>(slot: u32, ks: usize, (wm, wn): (usize, usize)) -> Frag {
+    let lane = thread_idx_x() as usize % 32;
+    let mut f = ([[0u32; 4]; MTS], [[0u32; 4]; NTS / 2]);
+    ptx::unroll!(4, |mt| if mt < T.mt() {
+        let r = wm * (T.bm / T.wm()) + mt * 16 + lane % 16;
+        f.0[mt] = unsafe { ldmatrix_x4_b16_u32(slot + r as u32 * ROW + chunk(r, 2 * ks + lane / 16)).0 };
+    });
+    ptx::unroll!(4, |p| if p < T.nt() / 2 {
+        let r = T.bm + wn * (T.bn / T.wn) + p * 16 + (lane / 16) * 8 + lane % 8;
+        f.1[p] = unsafe { ldmatrix_x4_b16_u32(slot + r as u32 * ROW + chunk(r, 2 * ks + (lane / 8) % 2)).0 };
+    });
+    f
+}
+
+#[inline(always)]
+fn mma<const T: Tile>(mut acc: Acc, (a, b): &Frag) -> Acc {
+    ptx::unroll!(4, |mt| if mt < T.mt() {
+        ptx::unroll!(8, |nt| if nt < T.nt() {
+            let h = 2 * (nt % 2);
+            acc[mt][nt] = mma16(a[mt], [b[nt / 2][h], b[nt / 2][h + 1]], acc[mt][nt]);
+        });
+    });
+    acc
+}
+
+#[inline(always)]
+fn gemm<const T: Tile, const F32: bool, const FLAGS: u32, const CONVERT: bool>((input, weight, bias, out): (u64, u64, u64, u64), s: Shape) {
+    let smem = shared_window();
+    let tid = thread_idx_x() as usize;
+    let (lane, warp) = (tid % 32, tid / 32);
+    let (wm, wn) = (warp / T.wn, warp % T.wn);
+    let (r0, c0) = place::<T>(s);
+    let feed = Feed::new::<T>((input as usize, weight as usize), s, (r0, c0));
+    let tiles = s.k.div_ceil(BK);
+    let last = smem + (STAGES - 1) as u32 * T.slot();
+    let next = |slot: u32| if slot == last { smem } else { slot + T.slot() };
+    let fetch = |t: usize, slot: u32| {
+        let w = feed.fetch::<T>(if t < tiles { s.k } else { 0 }, t * BK, slot);
+        commit();
+        w
+    };
+    let fill = (0..STAGES - 1).fold(smem, |slot, t| {
+        feed.put::<T, CONVERT>(&fetch(t, slot), slot);
+        next(slot)
+    });
+    let warp = (wm, wn);
+    wait::<{ STAGES - 2 }>();
+    sync_threads();
+    let first = frag::<T>(smem, 0, warp);
+    let (acc, ..) = (0..tiles).fold(([[[0.0f32; 4]; NTS]; MTS], first, smem, fill), |(acc, f0, read, write), t| {
+        let staged = fetch(t + STAGES - 1, write);
+        let f1 = frag::<T>(read, 1, warp);
+        let acc = mma::<T>(acc, &f0);
+        feed.put::<T, CONVERT>(&staged, write);
+        wait::<{ STAGES - 2 }>();
+        sync_threads();
+        let after = next(read);
+        let f0 = frag::<T>(after, 0, warp);
+        (mma::<T>(acc, &f1), f0, after, next(write))
+    });
+    let (group, quad) = (lane / 4, lane % 4);
+    let size = if F32 { 4 } else { 2 };
+    let col = |nt: usize| c0 + wn * (T.bn / T.wn) + nt * 8 + quad * 2;
+    let mut add = [[0.0f32; 2]; NTS];
+    ptx::unroll!(8, |nt| if FLAGS & BIAS != 0 && nt < T.nt() && col(nt) < s.n {
+        let (lo, hi) = unsafe { ld_global_nc_v2_u32(bias + 4 * col(nt) as u64) };
+        add[nt] = [f32::from_bits(lo), f32::from_bits(hi)];
+    });
+    ptx::unroll!(8, |nt| if nt < T.nt() {
+        let (col, add) = (col(nt), add[nt]);
+        ptx::unroll!(4, |mt| if mt < T.mt() {
+            ptx::unroll!(2, |h| {
+                let row = r0 + wm * (T.bm / T.wm()) + mt * 16 + group + 8 * h;
+                if row < s.rows && col < s.n {
+                    let at = out + ((row * s.ld + s.off + col) * size) as u64;
+                    let mut v = [acc[mt][nt][2 * h] + add[0], acc[mt][nt][2 * h + 1] + add[1]];
+                    unsafe {
+                        if F32 {
+                            if FLAGS & ACCUMULATE != 0 {
+                                let old = ld_global_b64(at);
+                                v = [v[0] + f32::from_bits(old as u32), v[1] + f32::from_bits((old >> 32) as u32)];
+                            }
+                            st_global_v2_u32(at, v[0].to_bits(), v[1].to_bits());
+                        } else {
+                            if FLAGS & ACCUMULATE != 0 {
+                                let old = ld_global_b32(at);
+                                v = [v[0] + f32::from_bits(old << 16), v[1] + f32::from_bits(old & 0xffff_0000)];
+                            }
+                            st_global_u32(at, bf16x2(v[0], v[1]));
+                        }
+                    }
+                }
+            });
+        });
+    });
+}
+
+macro_rules! entry {
+    ($name:ident, $tile:expr, $f32:literal, $flags:expr, $convert:literal) => {
+        #[kernel]
+        pub fn $name(
+            x: &[u32],
+            w: &[u32],
+            bias: &[f32],
+            y: &mut [u32],
+            rows: u32,
+            n: u32,
+            k: u32,
+            ld: u32,
+            off: u32,
+        ) {
+            let s = Shape {
+                rows: rows as usize,
+                n: n as usize,
+                k: k as usize,
+                ld: ld as usize,
+                off: off as usize,
+            };
+            let at = (x.addr_at(0), w.addr_at(0), bias.addr_at(0), y.addr_at(0));
+            gemm::<{ $tile }, $f32, { $flags }, $convert>(at, s);
+        }
+    };
+}
+
+const WIDE: Tile = Tile {
+    bm: 256,
+    bn: 128,
+    wn: 2,
+};
+
+entry!(gemm_f32, WIDE, true, 0, true);
+entry!(gemm_f32_acc, WIDE, true, ACCUMULATE, true);
+entry!(gemm_f32_bias, WIDE, true, BIAS, true);
+entry!(gemm_f32_acc_bias, WIDE, true, ACCUMULATE | BIAS, true);
+entry!(gemm_bf16, WIDE, false, 0, true);
+entry!(gemm_bf16_acc, WIDE, false, ACCUMULATE, true);
+entry!(gemm_bf16_bias, WIDE, false, BIAS, true);
+entry!(gemm_bf16_acc_bias, WIDE, false, ACCUMULATE | BIAS, true);
+entry!(gemmh_f32, WIDE, true, 0, false);
+entry!(gemmh_f32_acc, WIDE, true, ACCUMULATE, false);
+entry!(gemmh_f32_bias, WIDE, true, BIAS, false);
+entry!(gemmh_f32_acc_bias, WIDE, true, ACCUMULATE | BIAS, false);
+entry!(gemmh_bf16, WIDE, false, 0, false);
+entry!(gemmh_bf16_acc, WIDE, false, ACCUMULATE, false);
+entry!(gemmh_bf16_bias, WIDE, false, BIAS, false);
+entry!(gemmh_bf16_acc_bias, WIDE, false, ACCUMULATE | BIAS, false);
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    ptx::intrinsics::trap()
+}

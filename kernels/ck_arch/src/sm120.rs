@@ -1,6 +1,6 @@
 use ptx::mma::{FragA16x16Bf16, FragB16x8Bf16, FragC16x8F32, mma_m16n8k16_bf16bf16f32};
 use ptx::num::b16::cvt_rn_bf16x2_f32;
-use ptx::pipe::{cp_async_cg, cp_async_commit_group, cp_async_wait_group};
+use ptx::pipe::{cp_async_cg, cp_async_cg_size, cp_async_commit_group, cp_async_wait_group};
 
 #[inline]
 #[must_use]
@@ -40,3 +40,13 @@ pub fn commit() {
 pub fn wait<const N: usize>() {
     cp_async_wait_group::<N>();
 }
+
+#[inline]
+#[must_use]
+pub fn fetch16(dst: u32, src: usize, live: bool) -> [u32; 4] {
+    unsafe { cp_async_cg_size(dst, src, if live { 16 } else { 0 }) };
+    [0; 4]
+}
+
+#[inline]
+pub fn put16(_dst: u32, _words: [u32; 4], _convert: bool) {}
