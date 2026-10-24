@@ -47,6 +47,7 @@ const SMALL: Tile = Tile {
 const ANY: usize = 64;
 const BK: usize = 32;
 const MIN_SPAN: usize = 256;
+const TAIL: usize = 4;
 
 fn words(t: &Tensor) -> Arg {
     Arg::Buf(t.ptr(), t.numel() * t.dtype.size() / 4)
@@ -63,8 +64,20 @@ impl Gpu {
         w: &Tensor,
         bias: Option<&Tensor>,
         y: &Tensor,
-        (ld, off): (usize, usize),
+        place: (usize, usize),
         accumulate: bool,
+    ) -> Result<()> {
+        self.gemm(x, w, bias, y, place, (accumulate, false))
+    }
+
+    fn gemm(
+        &self,
+        x: &Tensor,
+        w: &Tensor,
+        bias: Option<&Tensor>,
+        y: &Tensor,
+        (ld, off): (usize, usize),
+        (accumulate, tail): (bool, bool),
     ) -> Result<()> {
         let (n, k) = (w.shape[0], w.shape[1]);
         let rows = x.numel() / k;
@@ -98,26 +111,32 @@ impl Gpu {
         ];
         let lanes = 16 / y.dtype.size();
         if x.dtype == Dtype::Bf16 && w.dtype == self.half() && k % 8 == 0 && ld % lanes == 0 && off % lanes == 0 {
-            let (t, tiles, splits, span) = self.plan(rows, n, k);
+            let (t, tiles, splits, span) = self.plan(rows, n, k, tail);
+            if let Some(head) = self.head(t, tiles, splits, n, k) {
+                let (x, y) = (x.reshape(&[rows, k])?, y.reshape(&[rows, ld])?);
+                let part = |start, len, tail| {
+                    self.gemm(
+                        &x.rows(start, len)?,
+                        w,
+                        bias,
+                        &y.rows(start, len)?,
+                        (ld, off),
+                        (accumulate, tail),
+                    )
+                };
+                part(0, head, false)?;
+                return part(head, rows - head, true);
+            }
             let shared =
                 (t.stages[usize::from(self.sm >= 80)] * (t.bm + t.bn) as u32 * 64).max(8 * 16 * (4 * t.width + 16));
-            if splits == 1 {
-                let name = format!("gemm_{}_{suffix}", t.name);
-                return self.launch(
-                    "ck_gemm",
-                    &name,
-                    (tiles as u32, 1, 1),
-                    256,
-                    shared,
-                    &[&args[..], &[k.into()]].concat(),
-                );
-            }
-            let parts = self.empty(&[splits, rows, n], Dtype::F32)?;
+            let parts = (splits > 1)
+                .then(|| self.empty(&[splits, rows, n], Dtype::F32))
+                .transpose()?;
             let mut each = args;
-            each[3] = words(&parts);
-            each[7] = n.into();
-            each[8] = 0.into();
-            let name = format!("gemm_{}_f32", t.name);
+            if let Some(p) = &parts {
+                (each[3], each[7], each[8]) = (words(p), n.into(), 0.into());
+            }
+            let name = format!("gemm_{}_{}", t.name, if parts.is_some() { "f32" } else { &suffix });
             let grid = (tiles as u32, splits as u32, 1);
             self.launch(
                 "ck_gemm",
@@ -127,6 +146,7 @@ impl Gpu {
                 shared,
                 &[&each[..], &[span.into()]].concat(),
             )?;
+            let Some(parts) = parts else { return Ok(()) };
             let mut sum = args;
             sum[1] = words(&parts);
             let grid = ((rows * n / 4).div_ceil(256) as u32, 1, 1);
@@ -158,13 +178,23 @@ impl Gpu {
         )
     }
 
-    fn plan(&self, rows: usize, n: usize, k: usize) -> (Tile, usize, usize, usize) {
+    fn plan(&self, rows: usize, n: usize, k: usize, tail: bool) -> (Tile, usize, usize, usize) {
         let tiles = |t: Tile| rows.div_ceil(t.bm) * n.div_ceil(t.bn);
         let t = self.tile(rows, n, k);
+        if tail {
+            let span = k.div_ceil(TAIL).next_multiple_of(BK);
+            return (t, tiles(t), k.div_ceil(span), span);
+        }
         match self.split(t, tiles(t), k) {
             (1, _) if t.name == SQUARE.name && 2 * tiles(t) < self.slots(t) => (SMALL, tiles(SMALL), 1, k),
             (splits, span) => (t, tiles(t), splits, span),
         }
+    }
+
+    fn head(&self, t: Tile, tiles: usize, splits: usize, n: usize, k: usize) -> Option<usize> {
+        let slots = self.slots(t);
+        (splits == 1 && k >= TAIL * MIN_SPAN && tiles > slots && 4 * tiles <= 7 * slots)
+            .then(|| slots / n.div_ceil(t.bn) * t.bm)
     }
 
     fn slots(&self, t: Tile) -> usize {
