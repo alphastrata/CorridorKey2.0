@@ -149,7 +149,7 @@ impl Gpu {
             ((tiles * k.div_ceil(span)).div_ceil(slots) * span, span)
         };
         let (base, _) = cost(1);
-        if 2 * tiles > slots {
+        if 2 * tiles > slots && k < 8192 {
             return (1, k);
         }
         (2..=8)
