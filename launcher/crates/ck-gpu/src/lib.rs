@@ -71,13 +71,14 @@ impl Gpu {
         unsafe { ctx.disable_event_tracking() };
         let (major, minor) = ctx.compute_capability()?;
         let native = (major * 10 + minor) as u32;
-        let sm = std::env::var("CK_SM")
+        let cap = std::env::var("CK_SM")
             .ok()
             .and_then(|v| v.parse().ok())
             .map_or(native, |cap: u32| cap.min(native));
+        let (sm, dir) = best(bin, cap)?;
         let stream = ctx.new_stream()?;
         keep_pool(&ctx)?;
-        let modules = std::fs::read_dir(best(bin, sm)?)?
+        let modules = std::fs::read_dir(dir)?
             .filter_map(Result::ok)
             .map(|e| e.path())
             .filter(|p| p.extension().is_some_and(|x| x == "ptx"))
@@ -186,7 +187,7 @@ impl Gpu {
     }
 }
 
-fn best(bin: &Path, sm: u32) -> Result<PathBuf> {
+fn best(bin: &Path, sm: u32) -> Result<(u32, PathBuf)> {
     std::fs::read_dir(bin)
         .wrap_err_with(|| bin.display().to_string())?
         .filter_map(Result::ok)
@@ -198,6 +199,5 @@ fn best(bin: &Path, sm: u32) -> Result<PathBuf> {
         })
         .filter(|(s, _)| *s <= sm)
         .max_by_key(|(s, _)| *s)
-        .map(|(_, p)| p)
         .ok_or_eyre(format!("no PTX for sm_{sm} under {}", bin.display()))
 }
