@@ -1,0 +1,8 @@
+[build]
+target = "nvptx64-nvidia-cuda"
+
+[target.nvptx64-nvidia-cuda]
+rustflags = ["-C", "target-cpu=sm_120"]
+
+[unstable]
+build-std = ["core"]

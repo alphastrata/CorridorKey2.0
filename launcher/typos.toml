@@ -1,0 +1,18 @@
+[default]
+locale = "en-gb"
+
+[default.extend-words]
+flavor = "flavor"
+setp = "setp"
+iy = "iy"
+# torch / CUDA API names
+synchronize  = "synchronize"
+
+[files]
+extend-exclude = ["target", "bench/footage", "bench/frames"]
+
+# external names: color_eyre, ffmpeg's -color_* flags
+[default.extend-identifiers]
+color_eyre = "color_eyre"
+color_primaries = "color_primaries"
+color_trc = "color_trc"
