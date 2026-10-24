@@ -6,7 +6,7 @@ version.workspace = true
 [package.metadata.ck]
 archs         = [75, 120]
 launch_bounds = {75 = [256, 1], 120 = [256, 1]}
-entry_bounds  = {gemm_square = {75 = [256, 2], 120 = [256, 2]}, gemm_thin = {75 = [256, 2], 120 = [256, 3]}}
+entry_bounds  = {gemm_square = {75 = [256, 2], 120 = [256, 2]}, gemm_thin = {75 = [256, 2], 120 = [256, 3]}, gemm_small = {75 = [256, 2], 120 = [256, 3]}}
 
 [lib]
 crate-type = ["cdylib"]

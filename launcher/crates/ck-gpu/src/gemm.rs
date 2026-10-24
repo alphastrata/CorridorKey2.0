@@ -9,6 +9,7 @@ struct Tile {
     bn: usize,
     stages: [u32; 2],
     resident: [usize; 2],
+    width: u32,
 }
 
 const WIDE: Tile = Tile {
@@ -17,6 +18,7 @@ const WIDE: Tile = Tile {
     bn: 128,
     stages: [2, 4],
     resident: [1, 1],
+    width: 64,
 };
 const SQUARE: Tile = Tile {
     name: "square",
@@ -24,6 +26,7 @@ const SQUARE: Tile = Tile {
     bn: 128,
     stages: [2, 3],
     resident: [2, 2],
+    width: 32,
 };
 const THIN: Tile = Tile {
     name: "thin",
@@ -31,6 +34,15 @@ const THIN: Tile = Tile {
     bn: 16,
     stages: [2, 4],
     resident: [2, 3],
+    width: 16,
+};
+const SMALL: Tile = Tile {
+    name: "small",
+    bm: 64,
+    bn: 64,
+    stages: [2, 4],
+    resident: [2, 3],
+    width: 32,
 };
 const ANY: usize = 64;
 const BK: usize = 32;
@@ -88,7 +100,7 @@ impl Gpu {
         if x.dtype == Dtype::Bf16 && w.dtype == self.half() && k % 8 == 0 && ld % lanes == 0 && off % lanes == 0 {
             let t = self.tile(rows, n, k);
             let tiles = rows.div_ceil(t.bm) * n.div_ceil(t.bn);
-            let shared = t.stages[usize::from(self.sm >= 80)] * (t.bm + t.bn) as u32 * 64;
+            let shared = (t.stages[usize::from(self.sm >= 80)] * (t.bm + t.bn) as u32 * 64).max(8 * 16 * (4 * t.width + 16));
             let (splits, span) = self.split(t, tiles, k);
             if splits == 1 {
                 let name = format!("gemm_{}_{suffix}", t.name);
@@ -139,8 +151,10 @@ impl Gpu {
 
     fn tile(&self, rows: usize, n: usize, k: usize) -> Tile {
         let wide = rows.div_ceil(WIDE.bm) * n.div_ceil(WIDE.bn);
+        let square = rows.div_ceil(SQUARE.bm) * n.div_ceil(SQUARE.bn);
         match () {
             () if n <= THIN.bn => THIN,
+            () if 2 * square < self.sms * SQUARE.resident[usize::from(self.sm >= 80)] => SMALL,
             () if self.sm >= 80 || (wide < 2 * self.sms && k < 8192) => SQUARE,
             () => WIDE,
         }
