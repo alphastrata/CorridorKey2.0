@@ -166,6 +166,16 @@ impl Gpu {
         Ok(usize::try_from(CudaContext::device_count()?)?)
     }
 
+    pub fn speed(index: usize) -> Result<f64> {
+        use cudarc::driver::result::device;
+        use sys::CUdevice_attribute::{CU_DEVICE_ATTRIBUTE_CLOCK_RATE, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT};
+        cudarc::driver::result::init()?;
+        let dev = device::get(i32::try_from(index)?)?;
+        let attr = |a| unsafe { device::get_attribute(dev, a) };
+        Ok(f64::from(attr(CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)?)
+            * f64::from(attr(CU_DEVICE_ATTRIBUTE_CLOCK_RATE)?))
+    }
+
     pub fn sync(&self) -> Result<()> {
         Ok(self.stream.synchronize()?)
     }

@@ -123,7 +123,11 @@ impl<'a> Clip<'a> {
                 Encoding::Display,
                 self.cfg.input(),
             )?;
-            let f = self.m.vfms.forward(self.gpu, &display, self.state.as_ref())?;
+            let f = self
+                .m
+                .front(self.gpu)?
+                .vfms
+                .forward(self.gpu, &display, self.state.as_ref())?;
             (0..n).try_for_each(|j| -> Result<()> {
                 let feats = [f.cradio.rows(j, 1)?, f.moge.rows(j, 1)?, f.rvm.rows(j, 1)?];
                 self.frames
@@ -221,7 +225,7 @@ impl<'a> Clip<'a> {
             features: [&feats[0], &feats[1], &feats[2]],
         };
         probe(self.gpu, "inputs");
-        let out = self.m.s1.forward(self.gpu, &self.m.cache, inputs)?;
+        let out = self.m.front(self.gpu)?.s1.forward(self.gpu, &self.m.cache, inputs)?;
         drop((feats, quality));
         let baton = out.baton.reshape(&[t, out.baton.numel() / t])?;
         let weights = taper(t, self.cfg.chunk.saturating_sub(self.cfg.stride), first, last);

@@ -12,28 +12,46 @@ use crate::vfm::Vfms;
 use crate::weights::{Loader, Weights};
 use crate::write::{Encoder, Exr, Format, Writer};
 
-pub struct Models {
+pub struct Front {
     pub vfms: Vfms,
     pub s1: Stage1,
+}
+
+pub struct Models {
     pub s2: Stage2,
     pub cache: Cache,
+    front: std::cell::OnceCell<Front>,
+    paths: (PathBuf, PathBuf),
+}
+
+fn loader<'a>(gpu: &'a Gpu, weights: &'a Weights, prefix: &'a str) -> Loader<'a> {
+    Loader {
+        gpu,
+        weights,
+        prefix,
+        half: gpu.half(),
+    }
 }
 
 impl Models {
     pub fn load(gpu: &Gpu, model: &Path, vfms: &Path) -> Result<Self> {
-        let weights = Weights::open(model)?;
-        let ld = |prefix| Loader {
-            gpu,
-            weights: &weights,
-            prefix,
-            half: gpu.half(),
-        };
         Ok(Self {
-            vfms: Vfms::load(gpu, &Weights::open(vfms)?)?,
-            s1: Stage1::load(&ld("stage1."))?,
-            s2: Stage2::load(&ld("stage2."))?,
+            s2: Stage2::load(&loader(gpu, &Weights::open(model)?, "stage2."))?,
             cache: Cache::default(),
+            front: std::cell::OnceCell::new(),
+            paths: (model.to_path_buf(), vfms.to_path_buf()),
         })
+    }
+
+    pub fn front(&self, gpu: &Gpu) -> Result<&Front> {
+        if let Some(f) = self.front.get() {
+            return Ok(f);
+        }
+        let front = Front {
+            vfms: Vfms::load(gpu, &Weights::open(&self.paths.1)?)?,
+            s1: Stage1::load(&loader(gpu, &Weights::open(&self.paths.0)?, "stage1."))?,
+        };
+        Ok(self.front.get_or_init(|| front))
     }
 }
 
