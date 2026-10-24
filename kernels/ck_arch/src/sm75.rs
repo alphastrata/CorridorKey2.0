@@ -70,3 +70,4 @@ pub fn put16(dst: u32, w: [u32; 4], convert: bool) {
     let w = if convert { w.map(|p| operand(p, 1.0)) } else { w };
     unsafe { shst_v4_u32(dst, (w[0], w[1], w[2], w[3])) };
 }
+

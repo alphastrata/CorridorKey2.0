@@ -8,7 +8,7 @@ use ptx::prelude::*;
 use ptx::mem::{ld_global_cs_v4_u32, ld_global_nc_v2_u32, st_global_v4_u32};
 use ptx::warp_ops::warp_sync;
 use ptx::sync::shared::{shared_window, shld_v4_f32, shst_v2_f32};
-use tune::STAGES;
+use tune::{SQUARE, THIN, WIDE};
 
 #[cfg_attr(feature = "sm_120", path = "tune/sm120.rs")]
 #[cfg_attr(not(feature = "sm_120"), path = "tune/sm75.rs")]
@@ -19,7 +19,6 @@ const THREADS: usize = 256;
 const MTS: usize = 4;
 const NTS: usize = 8;
 const ROW: u32 = (BK * 2) as u32;
-const STRIDE: u32 = (64 * 4 + 16) as u32;
 
 const fn chunk(row: usize, c: usize) -> u32 {
     ((c ^ ((row >> 1) & 3)) * 16) as u32
@@ -28,10 +27,11 @@ const fn chunk(row: usize, c: usize) -> u32 {
 type Acc = [[[f32; 4]; NTS]; MTS];
 
 #[derive(Clone, Copy, PartialEq, Eq, core::marker::ConstParamTy)]
-struct Tile {
-    bm: usize,
-    bn: usize,
-    wn: usize,
+pub struct Tile {
+    pub bm: usize,
+    pub bn: usize,
+    pub wn: usize,
+    pub stages: usize,
 }
 
 impl Tile {
@@ -49,6 +49,14 @@ impl Tile {
 
     const fn slot(self) -> u32 {
         (self.bm + self.bn) as u32 * ROW
+    }
+
+    const fn feeds(self) -> usize {
+        (self.bm + self.bn).div_ceil(64)
+    }
+
+    const fn stride(self) -> u32 {
+        (self.bn / self.wn * 4 + 16) as u32
     }
 }
 const ACCUMULATE: u32 = 1;
@@ -80,9 +88,9 @@ impl Feed {
             dst: [0; 8],
             kc,
         };
-        ptx::unroll!(8, |it| if it < (T.bm + T.bn) / 64 {
-            let r = tid / 4 + it * 64;
-            f.dst[it] = r as u32 * ROW + chunk(r, kc / 8);
+        ptx::unroll!(8, |it| if it < T.feeds() {
+            let r = (tid / 4 + it * 64).min(T.bm + T.bn - 1);
+            f.dst[it] = if tid / 4 + it * 64 < T.bm + T.bn { r as u32 * ROW + chunk(r, kc / 8) } else { u32::MAX };
             f.src[it] = if r < T.bm {
                 input + 2 * ((r0 + r).min(shape.rows - 1) * shape.k + kc)
             } else {
@@ -93,25 +101,40 @@ impl Feed {
     }
 
     #[inline(always)]
+    fn used(&self, it: usize) -> bool {
+        self.dst[it] != u32::MAX
+    }
+
+    #[inline(always)]
     fn fetch<const T: Tile>(&self, k: usize, kb: usize, slot: u32) -> [[u32; 4]; 8] {
         let edge = kb + BK > k;
         let mut w = [[0u32; 4]; 8];
-        ptx::unroll!(8, |it| if it < (T.bm + T.bn) / 64 {
-            let live = !edge || kb + self.kc < k;
-            w[it] = fetch16(slot + self.dst[it], self.src[it] + 2 * kb, live);
+        ptx::unroll!(8, |it| if it < T.feeds() {
+            if self.used(it) {
+                w[it] = fetch16(slot + self.dst[it], self.src[it] + 2 * kb, !edge || kb + self.kc < k);
+            }
         });
         w
     }
 
     #[inline(always)]
     fn put<const T: Tile, const CONVERT: bool>(&self, w: &[[u32; 4]; 8], slot: u32) {
-        ptx::unroll!(8, |it| if it < (T.bm + T.bn) / 64 {
+        ptx::unroll!(8, |it| if it < T.feeds() && self.used(it) {
             put16(slot + self.dst[it], w[it], CONVERT && it < T.bm / 64);
         });
     }
 }
 
 const GROUP: usize = 8;
+
+#[inline(always)]
+fn pending<const T: Tile>() {
+    match T.stages {
+        4 => wait::<2>(),
+        3 => wait::<1>(),
+        _ => wait::<0>(),
+    }
+}
 
 #[inline(always)]
 fn place<const T: Tile>(s: Shape) -> (usize, usize) {
@@ -159,27 +182,27 @@ fn gemm<const T: Tile, const F32: bool, const FLAGS: u32, const CONVERT: bool>((
     let (r0, c0) = place::<T>(s);
     let feed = Feed::new::<T>((input as usize, weight as usize), s, (r0, c0));
     let tiles = s.k.div_ceil(BK);
-    let last = smem + (STAGES - 1) as u32 * T.slot();
+    let last = smem + (T.stages - 1) as u32 * T.slot();
     let next = |slot: u32| if slot == last { smem } else { slot + T.slot() };
     let fetch = |t: usize, slot: u32| {
         let w = feed.fetch::<T>(if t < tiles { s.k } else { 0 }, t * BK, slot);
         commit();
         w
     };
-    let fill = (0..STAGES - 1).fold(smem, |slot, t| {
+    let fill = (0..T.stages - 1).fold(smem, |slot, t| {
         feed.put::<T, CONVERT>(&fetch(t, slot), slot);
         next(slot)
     });
     let warp = (wm, wn);
-    wait::<{ STAGES - 2 }>();
+    pending::<T>();
     sync_threads();
     let first = frag::<T>(smem, 0, warp);
     let (acc, ..) = (0..tiles).fold(([[[0.0f32; 4]; NTS]; MTS], first, smem, fill), |(acc, f0, read, write), t| {
-        let staged = fetch(t + STAGES - 1, write);
+        let staged = fetch(t + T.stages - 1, write);
         let f1 = frag::<T>(read, 1, warp);
         let acc = mma::<T>(acc, &f0);
         feed.put::<T, CONVERT>(&staged, write);
-        wait::<{ STAGES - 2 }>();
+        pending::<T>();
         sync_threads();
         let after = next(read);
         let f0 = frag::<T>(after, 0, warp);
@@ -187,7 +210,7 @@ fn gemm<const T: Tile, const F32: bool, const FLAGS: u32, const CONVERT: bool>((
     });
     wait::<0>();
     sync_threads();
-    let stage = smem + (tid / 32) as u32 * 16 * STRIDE;
+    let stage = smem + (tid / 32) as u32 * 16 * T.stride();
     let (group, quad) = (lane / 4, lane % 4);
     let mut add = [[0.0f32; 2]; NTS];
     ptx::unroll!(8, |nt| if FLAGS & BIAS != 0 && nt < T.nt() {
@@ -198,7 +221,7 @@ fn gemm<const T: Tile, const F32: bool, const FLAGS: u32, const CONVERT: bool>((
     ptx::unroll!(4, |mt| if mt < T.mt() {
         ptx::unroll!(8, |nt| if nt < T.nt() {
             ptx::unroll!(2, |h| {
-                let at = stage + (group + 8 * h) as u32 * STRIDE + ((nt * 8 + quad * 2) * 4) as u32;
+                let at = stage + (group + 8 * h) as u32 * T.stride() + ((nt * 8 + quad * 2) * 4) as u32;
                 let v = (acc[mt][nt][2 * h] + add[nt][0], acc[mt][nt][2 * h + 1] + add[nt][1]);
                 unsafe { shst_v2_f32(at, v) };
             });
@@ -220,7 +243,7 @@ fn drain<const T: Tile, const F32: bool, const FLAGS: u32>(stage: u32, out: u64,
         let (r, c) = ((i * 32 + lane) / lanes, (i * 32 + lane) % lanes);
         let (row, col) = (top + r, left + c * if F32 { 4 } else { 8 });
         if row < s.rows && col < s.n {
-            let src = stage + r as u32 * STRIDE + (c * if F32 { 16 } else { 32 }) as u32;
+            let src = stage + r as u32 * T.stride() + (c * if F32 { 16 } else { 32 }) as u32;
             let at = out + ((row * s.ld + s.off + col) * if F32 { 4 } else { 2 }) as u64;
             let old = if FLAGS & ACCUMULATE != 0 { unsafe { ld_global_cs_v4_u32(at) } } else { (0, 0, 0, 0) };
             unsafe {
@@ -253,6 +276,9 @@ fn drain<const T: Tile, const F32: bool, const FLAGS: u32>(stage: u32, out: u64,
 
 macro_rules! entry {
     ($name:ident, $tile:expr, $f32:literal, $flags:expr, $convert:literal) => {
+        entry!(@ $name, |at, s| gemm::<{ $tile }, $f32, { $flags }, $convert>(at, s), $flags);
+    };
+    (@ $name:ident, $body:expr, $flags:expr) => {
         #[kernel]
         pub fn $name(
             x: &[u32],
@@ -274,33 +300,35 @@ macro_rules! entry {
             };
             let b = if $flags & BIAS == 0 { 0 } else { bias.addr_at(0) };
             let at = (x.addr_at(0), w.addr_at(0), b, y.addr_at(0));
-            gemm::<{ $tile }, $f32, { $flags }, $convert>(at, s);
+            ($body)(at, s);
         }
     };
 }
 
-const WIDE: Tile = Tile {
-    bm: 256,
-    bn: 128,
-    wn: 2,
-};
-
-entry!(gemm_f32, WIDE, true, 0, true);
-entry!(gemm_f32_acc, WIDE, true, ACCUMULATE, true);
-entry!(gemm_f32_bias, WIDE, true, BIAS, true);
-entry!(gemm_f32_acc_bias, WIDE, true, ACCUMULATE | BIAS, true);
-entry!(gemm_bf16, WIDE, false, 0, true);
-entry!(gemm_bf16_acc, WIDE, false, ACCUMULATE, true);
-entry!(gemm_bf16_bias, WIDE, false, BIAS, true);
-entry!(gemm_bf16_acc_bias, WIDE, false, ACCUMULATE | BIAS, true);
-entry!(gemmh_f32, WIDE, true, 0, false);
-entry!(gemmh_f32_acc, WIDE, true, ACCUMULATE, false);
-entry!(gemmh_f32_bias, WIDE, true, BIAS, false);
-entry!(gemmh_f32_acc_bias, WIDE, true, ACCUMULATE | BIAS, false);
-entry!(gemmh_bf16, WIDE, false, 0, false);
-entry!(gemmh_bf16_acc, WIDE, false, ACCUMULATE, false);
-entry!(gemmh_bf16_bias, WIDE, false, BIAS, false);
-entry!(gemmh_bf16_acc_bias, WIDE, false, ACCUMULATE | BIAS, false);
+entry!(gemm_wide_f32, WIDE, true, 0, true);
+entry!(gemm_wide_f32_acc, WIDE, true, ACCUMULATE, true);
+entry!(gemm_wide_f32_bias, WIDE, true, BIAS, true);
+entry!(gemm_wide_f32_acc_bias, WIDE, true, ACCUMULATE | BIAS, true);
+entry!(gemm_wide_bf16, WIDE, false, 0, true);
+entry!(gemm_wide_bf16_acc, WIDE, false, ACCUMULATE, true);
+entry!(gemm_wide_bf16_bias, WIDE, false, BIAS, true);
+entry!(gemm_wide_bf16_acc_bias, WIDE, false, ACCUMULATE | BIAS, true);
+entry!(gemm_square_f32, SQUARE, true, 0, true);
+entry!(gemm_square_f32_acc, SQUARE, true, ACCUMULATE, true);
+entry!(gemm_square_f32_bias, SQUARE, true, BIAS, true);
+entry!(gemm_square_f32_acc_bias, SQUARE, true, ACCUMULATE | BIAS, true);
+entry!(gemm_square_bf16, SQUARE, false, 0, true);
+entry!(gemm_square_bf16_acc, SQUARE, false, ACCUMULATE, true);
+entry!(gemm_square_bf16_bias, SQUARE, false, BIAS, true);
+entry!(gemm_square_bf16_acc_bias, SQUARE, false, ACCUMULATE | BIAS, true);
+entry!(gemm_thin_f32, THIN, true, 0, true);
+entry!(gemm_thin_f32_acc, THIN, true, ACCUMULATE, true);
+entry!(gemm_thin_f32_bias, THIN, true, BIAS, true);
+entry!(gemm_thin_f32_acc_bias, THIN, true, ACCUMULATE | BIAS, true);
+entry!(gemm_thin_bf16, THIN, false, 0, true);
+entry!(gemm_thin_bf16_acc, THIN, false, ACCUMULATE, true);
+entry!(gemm_thin_bf16_bias, THIN, false, BIAS, true);
+entry!(gemm_thin_bf16_acc_bias, THIN, false, ACCUMULATE | BIAS, true);
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
