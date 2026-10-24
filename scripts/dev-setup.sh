@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# usage: dev-setup.sh : uv + Python deps, nightly Rust, the ck launcher, weights and the sample clip
+# usage: dev-setup.sh : uv + Python deps, nightly Rust, just, cargo-ptx, the ck launcher, weights and the sample clip
 set -euo pipefail
 R=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 need() { command -v "$1" > /dev/null || { echo "missing $1: $2" >&2; exit 1; }; }
@@ -13,6 +13,14 @@ export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH
 
 (cd "$R" && uv sync)
 (cd "$R/launcher" && rustup toolchain install --no-self-update && cargo build --release -p ck)
+(cd "$R/kernels" && rustup toolchain install --no-self-update)
+command -v just > /dev/null || cargo install --locked just
+command -v cargo-ptx > /dev/null || {
+  t=$(mktemp -d)
+  for r in cargo-ptx ptx_macros; do git clone -q --depth 1 -b develop https://codeberg.org/P-E-T-R-A/$r.git "$t/$r"; done
+  (cd "$R/kernels" && cargo install --locked --path "$t/cargo-ptx")
+  rm -rf "$t"
+}
 (cd "$R" && uv run python scripts/download_weights.py)
 "$R/scripts/download_sample_clips.sh"
 echo "ready: just run <clip> -o out, or scripts/bench.sh"
