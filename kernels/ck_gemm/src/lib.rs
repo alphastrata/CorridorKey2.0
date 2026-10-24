@@ -15,6 +15,8 @@ use tune::{SMALL, SQUARE, THIN, WIDE};
 #[cfg_attr(feature = "sm_120", path = "tune/sm120.rs")]
 #[cfg_attr(not(feature = "sm_120"), path = "tune/sm75.rs")]
 mod tune;
+#[cfg(feature = "sm_61")]
+mod simt;
 
 const BK: usize = 32;
 const THREADS: usize = 256;
@@ -386,6 +388,9 @@ macro_rules! entry {
     ($name:ident, any, $in32:literal, $flags:expr) => {
         entry!(@ $name, |at, s| any::<$in32, { $flags }>(at, s), $flags);
     };
+    ($name:ident, simt, $f32:literal, $flags:expr) => {
+        entry!(@ $name, |at, s| simt::simt::<$f32, { $flags }>(at, s), $flags);
+    };
     ($name:ident, reduce, $f32:literal, $flags:expr) => {
         entry!(@ $name, |(_, w, b, y), s: Shape| reduce::<$f32, { $flags }>((w, b, y), s, s.span), $flags);
     };
@@ -469,6 +474,23 @@ entry!(gemm_thin_bf16, THIN, false, 0, true);
 entry!(gemm_thin_bf16_acc, THIN, false, ACCUMULATE, true);
 entry!(gemm_thin_bf16_bias, THIN, false, BIAS, true);
 entry!(gemm_thin_bf16_acc_bias, THIN, false, ACCUMULATE | BIAS, true);
+
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_f32, simt, true, 0);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_f32_acc, simt, true, ACCUMULATE);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_f32_bias, simt, true, BIAS);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_f32_acc_bias, simt, true, ACCUMULATE | BIAS);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_bf16, simt, false, 0);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_bf16_acc, simt, false, ACCUMULATE);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_bf16_bias, simt, false, BIAS);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_bf16_acc_bias, simt, false, ACCUMULATE | BIAS);
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
