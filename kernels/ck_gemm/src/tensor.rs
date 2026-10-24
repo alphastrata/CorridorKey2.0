@@ -9,8 +9,8 @@ use tune::{SMALL, SQUARE, THIN, WIDE};
 
 use crate::{ACCUMULATE, BIAS, Shape, THREADS, Tile, place};
 
-#[cfg_attr(feature = "sm_120", path = "tune/sm120.rs")]
-#[cfg_attr(not(feature = "sm_120"), path = "tune/sm75.rs")]
+#[cfg_attr(feature = "sm_80", path = "tune/sm120.rs")]
+#[cfg_attr(not(feature = "sm_80"), path = "tune/sm75.rs")]
 mod tune;
 
 const BK: usize = 32;
