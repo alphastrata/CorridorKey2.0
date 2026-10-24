@@ -88,6 +88,8 @@ struct Shared<'a> {
     alive: Vec<AtomicBool>,
     active: AtomicUsize,
     abort: AtomicBool,
+    loaded: AtomicBool,
+    depth: Vec<usize>,
     sinks: flume::Sender<Result<()>>,
 }
 
@@ -100,7 +102,11 @@ impl Shared<'_> {
         (0..k).all(|j| self.leading[j].load(Ordering::Acquire) || !self.alive[j].load(Ordering::Acquire))
     }
 
-    fn take(&self, wait: Duration) -> Option<Job> {
+    fn take(&self, k: usize, wait: Duration) -> Option<Job> {
+        if self.jobs.1.len() < self.depth[k] {
+            std::thread::sleep(wait);
+            return None;
+        }
         let job = if wait.is_zero() {
             self.jobs.1.try_recv().ok()
         } else {
@@ -182,7 +188,7 @@ fn sink(
     writers.into_iter().try_for_each(|(_, w)| w.finish())
 }
 
-fn submit(gpu: &Gpu, m: &Models, sh: &Shared, job: Job<Tensor>) -> Result<()> {
+fn submit((gpu, m, k): (&Gpu, &Models, usize), sh: &Shared, job: Job<Tensor>) -> Result<()> {
     let bytes = job.baton.bytes() + job.raw.len();
     let free = sh
         .alive
@@ -196,7 +202,7 @@ fn submit(gpu: &Gpu, m: &Models, sh: &Shared, job: Job<Tensor>) -> Result<()> {
             let baton = gpu.download(&job.baton)?;
             return sh.jobs.0.send(job.with(baton)).map_err(|_| eyre!("job queue closed"));
         }
-        match sh.take(Duration::ZERO) {
+        match sh.take(k, Duration::ZERO) {
             Some(other) => queued(gpu, m, sh.cfg, other)?,
             None => return stage2(gpu, m, sh.cfg, &job),
         }
@@ -204,7 +210,7 @@ fn submit(gpu: &Gpu, m: &Models, sh: &Shared, job: Job<Tensor>) -> Result<()> {
 }
 
 fn lead<'s, 'e>(
-    (gpu, m): (&Gpu, &Models),
+    (gpu, m, k): (&Gpu, &Models, usize),
     sh: &'e Shared<'e>,
     s: &'s Scope<'s, 'e>,
     (input, name): (&Path, String),
@@ -254,19 +260,29 @@ fn lead<'s, 'e>(
         done,
         written,
     });
-    Clip::open((gpu, m, &cfg), &src, total, sh.hints, meta)?.run(total, |job| submit(gpu, m, sh, job))
+    Clip::open((gpu, m, &cfg), &src, total, sh.hints, meta)?.run(total, |job| submit((gpu, m, k), sh, job))
 }
 
 fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 'e>) -> Result<()> {
+    while k > 0 && !sh.loaded.load(Ordering::Acquire) && !sh.abort.load(Ordering::Acquire) {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    if sh.abort.load(Ordering::Acquire) {
+        return Ok(());
+    }
     let gpu = Gpu::open(device, &sh.assets.ptx)?;
     let free = gpu.ctx.mem_get_info()?.0 as f64 / f64::from(1u32 << 30);
     let m = Models::load(&gpu, &sh.assets.weights, &sh.assets.vfms)?;
+    if k == 0 {
+        m.front(&gpu)?;
+    }
+    sh.loaded.store(true, Ordering::Release);
     println!("GPU {device}: sm_{}, {free:.1} GiB free", gpu.sm);
     loop {
         if sh.abort.load(Ordering::Acquire) {
             return Ok(());
         }
-        if let Some(job) = sh.take(Duration::ZERO) {
+        if let Some(job) = sh.take(k, Duration::ZERO) {
             queued(&gpu, &m, sh.cfg, job)?;
             continue;
         }
@@ -274,7 +290,7 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
         if let Some((input, name)) = next {
             sh.leading[k].store(true, Ordering::Release);
             sh.active.fetch_add(1, Ordering::AcqRel);
-            let r = lead((&gpu, &m), sh, s, (&input, name), free);
+            let r = lead((&gpu, &m, k), sh, s, (&input, name), free);
             sh.leading[k].store(false, Ordering::Release);
             sh.active.fetch_sub(1, Ordering::AcqRel);
             r?;
@@ -284,7 +300,7 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
             println!("GPU {device}: {} frames through stage 2", KEYED.get());
             return Ok(());
         }
-        if let Some(job) = sh.take(Duration::from_millis(5)) {
+        if let Some(job) = sh.take(k, Duration::from_millis(5)) {
             queued(&gpu, &m, sh.cfg, job)?;
         }
     }
@@ -299,6 +315,13 @@ pub fn run(
     hints: &Hints,
 ) -> Result<()> {
     ensure!(!devices.is_empty(), "no CUDA devices");
+    let mut ranked = devices
+        .iter()
+        .map(|&d| Ok((Gpu::speed(d)?, d)))
+        .collect::<Result<Vec<_>>>()?;
+    ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let depth = ranked.iter().map(|r| (ranked[0].0 / r.0).ceil() as usize).collect();
+    let devices: Vec<usize> = ranked.into_iter().map(|(_, d)| d).collect();
     let (sinks, results) = flume::unbounded();
     let sh = Shared {
         assets,
@@ -312,6 +335,8 @@ pub fn run(
         alive: devices.iter().map(|_| AtomicBool::new(true)).collect(),
         active: AtomicUsize::new(0),
         abort: AtomicBool::new(false),
+        loaded: AtomicBool::new(false),
+        depth,
         sinks,
     };
     let workers: Vec<Result<()>> = std::thread::scope(|s| {
