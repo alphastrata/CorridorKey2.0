@@ -12,7 +12,7 @@ command -v cargo > /dev/null || curl --proto '=https' --tlsv1.2 -sSf https://sh.
 export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH
 
 (cd "$R" && uv sync)
-(cd "$R/launcher" && rustup toolchain install && cargo build --release -p ck)
+(cd "$R/launcher" && rustup toolchain install --no-self-update && cargo build --release -p ck)
 (cd "$R" && uv run python scripts/download_weights.py)
 "$R/scripts/download_sample_clips.sh"
 echo "ready: just run <clip> -o out, or scripts/bench.sh"
