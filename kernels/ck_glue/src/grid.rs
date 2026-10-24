@@ -161,7 +161,7 @@ fn modulate(
                 words[1],
                 words[2],
                 words[3],
-            )
+            );
         };
     });
 }
