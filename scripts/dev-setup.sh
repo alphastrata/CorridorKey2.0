@@ -15,12 +15,7 @@ export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH
 (cd "$R/launcher" && rustup toolchain install --no-self-update && cargo build --release -p ck)
 (cd "$R/kernels" && rustup toolchain install --no-self-update)
 command -v just > /dev/null || cargo install --locked just
-command -v cargo-ptx > /dev/null || {
-  t=$(mktemp -d)
-  for r in cargo-ptx ptx_macros; do git clone -q --depth 1 -b develop https://codeberg.org/P-E-T-R-A/$r.git "$t/$r"; done
-  (cd "$R/kernels" && cargo install --locked --path "$t/cargo-ptx")
-  rm -rf "$t"
-}
+command -v cargo-ptx > /dev/null || (cd "$R/kernels" && cargo install --locked --git https://codeberg.org/P-E-T-R-A/cargo-ptx.git --branch develop)
 (cd "$R" && uv run python scripts/download_weights.py)
 "$R/scripts/download_sample_clips.sh"
 echo "ready: just run <clip> -o out, or scripts/bench.sh"
