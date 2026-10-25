@@ -4697,7 +4697,7 @@ $L__BB0_108:
 	.param .u32 mix_bf16_param_18
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @mix_bf16
 {
 	.reg .pred 	%p<156>;
 	.reg .b32 	%r<2542>;
@@ -12250,7 +12250,7 @@ $L__BB1_137:
 	.param .u32 mix_f32_param_18
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @mix_f32
 {
 	.reg .pred 	%p<156>;
 	.reg .b32 	%r<2418>;
@@ -19667,7 +19667,7 @@ $L__BB2_137:
 	.param .f32 rms_bf16_param_6
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @rms_bf16
 {
 	.reg .pred 	%p<7>;
 	.reg .b32 	%r<30>;
@@ -19787,7 +19787,7 @@ $L__BB3_10:
 	.param .f32 rms_f32_param_6
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @rms_f32
 {
 	.reg .pred 	%p<7>;
 	.reg .b32 	%r<29>;

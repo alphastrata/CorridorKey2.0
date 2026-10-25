@@ -1,0 +1,22 @@
+[package]
+name              = "ck_gemm"
+edition.workspace = true
+version.workspace = true
+
+[package.metadata.ptx]
+launch_bounds = [256, 1]
+entry_bounds  = {gemm_square = [256, 2], gemm_thin = [256, 3], gemm_small = [256, 3]}
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = []
+sm_120  = ["ptx/sm_120", "ck_arch/sm_120"]
+
+[dependencies]
+ck_arch = {path = "../ck_arch"}
+ptx = {workspace = true, default-features = false}
+
+[lints]
+workspace = true
