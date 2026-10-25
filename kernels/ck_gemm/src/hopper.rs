@@ -1,4 +1,4 @@
-use ck_arch::{bf16x2, commit, fetch16, wait};
+use ck_arch::{bf16x2, wait};
 use ptx::cluster_mem::fence_proxy_async_shared_cta;
 use ptx::kernel;
 use ptx::mem::{ld_global_cs_v4_u32, ld_global_nc_v2_u32, st_global_v4_u32};
@@ -6,30 +6,15 @@ use ptx::mma::{wgmma_commit_group, wgmma_fence, wgmma_m64n128k16_f32_bf16_bf16, 
 use ptx::prelude::*;
 use ptx::sync::shared::{shared_window, shld_v4_f32, shst_v2_f32};
 
+use crate::sw128::{BK, Feed, PANE, ROW, SLOT};
 use crate::{ACCUMULATE, BIAS, Shape, Tile, place};
 
 const HOPPER: Tile = Tile { bm: 128, bn: 128, wn: 1, stages: 3 };
-const BK: usize = 64;
-const ROW: u32 = (BK * 2) as u32;
-const PANE: u32 = 128 * ROW;
-const SLOT: u32 = 2 * PANE;
 const STRIDE: u32 = (128 + 4) * 4;
 
 #[inline(always)]
 fn desc(at: u32) -> u64 {
     wgmma_smem_desc(at, 16, 8 * ROW, 1)
-}
-
-#[inline(always)]
-fn load(src: &[usize; 8], extent: usize, t: usize, slot: u32) {
-    let tid = thread_idx_x() as usize;
-    let c = tid % 8;
-    let live = t * BK + c * 8 < extent;
-    ptx::unroll!(8, |i| {
-        let r = tid / 8 + 32 * i;
-        let _ = fetch16(slot + r as u32 * ROW + ((c ^ (r & 7)) * 16) as u32, src[i] + 2 * t * BK, live);
-    });
-    commit();
 }
 
 #[inline(always)]
@@ -41,18 +26,10 @@ pub fn gemm<const F32: bool, const FLAGS: u32>((input, weight, bias, out): (u64,
     let (split, k0) = (block_idx_y() as usize, block_idx_y() as usize * s.span);
     let extent = s.span.min(s.k - k0);
     let out = out + (split * s.rows * s.ld * if F32 { 4 } else { 2 }) as u64;
-    let c = tid % 8;
-    let src: [usize; 8] = core::array::from_fn(|i| {
-        let r = tid / 8 + 32 * i;
-        if r < 128 {
-            input as usize + 2 * ((r0 + r).min(s.rows - 1) * s.k + k0 + c * 8)
-        } else {
-            weight as usize + 2 * ((c0 + r - 128).min(s.n - 1) * s.k + k0 + c * 8)
-        }
-    });
+    let feed = Feed::<8>::new((input, weight), s, (r0, c0), (k0, extent));
     let tiles = extent.div_ceil(BK);
     let slot = |t: usize| smem + (t % HOPPER.stages) as u32 * SLOT;
-    (0..HOPPER.stages - 1).for_each(|t| load(&src, extent, t, slot(t)));
+    (0..HOPPER.stages - 1).for_each(|t| feed.load(t, slot(t)));
     let acc = (0..tiles).fold([0.0f32; 64], #[inline(always)] |mut acc, t| {
         wait::<{ HOPPER.stages - 2 }>();
         unsafe { fence_proxy_async_shared_cta() };
@@ -60,7 +37,7 @@ pub fn gemm<const F32: bool, const FLAGS: u32>((input, weight, bias, out): (u64,
         let (a, b) = (slot(t) + group as u32 * 64 * ROW, slot(t) + PANE);
         unsafe {
             wgmma_fence();
-            let steps = (extent - t * BK).min(BK).div_ceil(16);
+            let steps = feed.steps(t);
             ptx::unroll!(4, |kk| if kk < steps {
                 wgmma_m64n128k16_f32_bf16_bf16(&mut acc, desc(a + 32 * kk as u32), desc(b + 32 * kk as u32), true);
             });
@@ -68,7 +45,7 @@ pub fn gemm<const F32: bool, const FLAGS: u32>((input, weight, bias, out): (u64,
             wgmma_wait_group::<1>();
         }
         sync_threads();
-        load(&src, extent, t + HOPPER.stages - 1, slot(t + HOPPER.stages - 1));
+        feed.load(t + HOPPER.stages - 1, slot(t + HOPPER.stages - 1));
         acc
     });
     unsafe { wgmma_wait_group::<0>() };

@@ -190,6 +190,10 @@ macro_rules! entry {
 mod tensor;
 #[cfg(feature = "sm_90a")]
 mod hopper;
+#[cfg(any(feature = "sm_90a", feature = "sm_100a"))]
+mod sw128;
+#[cfg(feature = "sm_100a")]
+mod blackwell;
 
 entry!(reduce_f32, reduce, true, 0);
 entry!(reduce_f32_acc, reduce, true, ACCUMULATE);
