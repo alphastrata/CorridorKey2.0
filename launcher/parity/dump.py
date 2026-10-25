@@ -68,7 +68,7 @@ def main() -> None:
     ap.add_argument("--tier", type=int, default=720)
     ap.add_argument("--frames", type=int, default=4)
     a = ap.parse_args()
-    model = load_model(RuntimePaths.from_package(REPO, None)).cuda()
+    model = load_model(RuntimePaths.from_package(REPO, None), bf16_weights=False).cuda()
     clip = load(min((REPO / "bench/frames").glob(f"*/{a.tier}p")), a.frames)
     x, display = clip.x.cuda().float(), clip.display.cuda()
     fm = model.foundations

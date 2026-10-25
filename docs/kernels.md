@@ -30,6 +30,13 @@ From `launcher/`, on each GPU you have:
 CK_DEVICE=0 cargo nextest run --release -p ck-gpu
 ```
 
+For the whole pipeline against PyTorch, make the fixtures once, then use `--workspace` in place of `-p ck-gpu`:
+
+```
+uv run python launcher/parity/dump.py --tier 720
+uv run python launcher/parity/dump.py --tier 1080
+```
+
 No GTX 10-series card? Add `CK_SM=61` and a newer card will run the GTX 10-series kernels instead:
 
 ```
