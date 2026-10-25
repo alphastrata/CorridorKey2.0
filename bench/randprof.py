@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import importlib
+import importlib.util
 import json
 import struct
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
 
 import torch
 from safetensors.torch import load_file
@@ -15,7 +18,11 @@ from safetensors.torch import load_file
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from corridorkey import ptx
+ptx: ModuleType | None = (
+    importlib.import_module("corridorkey.ptx")
+    if importlib.util.find_spec("corridorkey.ptx")
+    else None
+)
 from corridorkey.stage1 import Stage1
 from corridorkey.stage2 import Stage2
 
@@ -46,7 +53,6 @@ def stages(path: Path) -> tuple[Stage1, Stage2]:
         mlp_mult=cfg["mlp_mult"],
         local_mix_kernel=cfg["stage1_local_mix_kernel"],
         body64_local_mix_kernel=cfg["stage1_body64_local_mix_kernel"],
-
         recurrent_64_sites=(),
         hint_adaln_blocks=cfg["stage1_hint_adaln_blocks"],
         mid_16_blocks=cfg["stage1_mid_16_blocks"],
@@ -72,7 +78,6 @@ def stages(path: Path) -> tuple[Stage1, Stage2]:
         mlp_dw_kernel=cfg["mlp_dw_kernel"],
         qkv_dw_kernel=cfg["qkv_dw_kernel"],
         qkv_dw_fraction=cfg["qkv_dw_fraction"],
-
         rope_base=cfg["rope_base"],
     )
     if path.suffix == ".safetensors":
@@ -113,6 +118,8 @@ def main() -> None:
     s1, s2 = stages(a.checkpoint)
 
     if a.ck:
+        if ptx is None:
+            sys.exit("--ck needs corridorkey.ptx")
         print(f"ck patched {ptx.enable(s1) + ptx.enable(s2)} modules")
 
     t = a.frames
@@ -124,6 +131,7 @@ def main() -> None:
     }
 
     with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+
         def run1() -> dict:
             return s1(
                 rgb,

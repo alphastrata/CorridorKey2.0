@@ -1,4 +1,5 @@
-"""Python (stock kernels) and ck on the sample clip per tier and GPU (and all GPUs together): one csv, one table.
+"""Python (stock kernels) and, where the launcher exists, ck on the sample clip per tier and GPU (and all GPUs
+together): one csv, one table.
 
 uv run python bench/fps.py [--frames 50] [--tiers 720 1080 2160]
 """
@@ -181,7 +182,7 @@ def main() -> None:
     a = p.parse_args()
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     fetch(a.frames)
-    ck = ck_binary()
+    ck = ck_binary() if (ROOT / "launcher").is_dir() else None
     for sub in ("logs", "out"):
         (OUT / sub).mkdir(parents=True, exist_ok=True)
     names = {i: n.removeprefix("NVIDIA ") for i, n in smi("index,name")}
@@ -222,6 +223,8 @@ def main() -> None:
         )
 
     def ck_run(gpus: str, t: int) -> None:
+        if ck is None:
+            return
         out = OUT / "out" / f"{gpus.replace(',', '+')}_{t}p_ck"
         record(
             gpus,

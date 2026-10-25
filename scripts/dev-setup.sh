@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# usage: dev-setup.sh : uv + Python deps, nightly Rust, just, ripgrep, typos, cargo-nextest, the ck launcher, weights and the sample clip
+# usage: dev-setup.sh : uv + Python deps, nightly Rust, just, ripgrep, cargo-nextest, the ck launcher, weights and the sample clip
 set -euo pipefail
 R=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 need() { command -v "$1" > /dev/null || { echo "missing $1: $2" >&2; exit 1; }; }
@@ -17,7 +17,6 @@ export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH
 tool() { command -v "$1" > /dev/null || (cd "$R/launcher" && cargo install --locked "$2"); }
 tool just just
 tool rg ripgrep
-tool typos typos-cli
 tool cargo-nextest cargo-nextest
 command -v cargo-ptx > /dev/null || echo "cargo-ptx is not installed."
 (cd "$R" && uv run python scripts/download_weights.py)

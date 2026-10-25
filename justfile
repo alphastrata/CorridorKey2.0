@@ -10,7 +10,6 @@ lint:
     cd launcher && cargo clippy --release --workspace --all-targets 2>&1 | rg -n "error(\[|:)|warning:" || true
     uv run ruff check corridorkey/ptx bench
     cd kernels && for sm in 61 75 120; do RUSTFLAGS="-C target-cpu=sm_$(( sm < 70 ? 70 : sm ))" cargo clippy --release --workspace --features ck_attn/sm_$sm,ck_dw/sm_$sm,ck_gemm/sm_$sm,ck_glue/sm_$sm,ck_ops/sm_$sm 2>&1 | rg -n "error(\[|:)|warning:" || true; done
-    typos launcher/crates kernels bench scripts/dev-setup.sh
 
 profile *args:
     uv run python bench/randprof.py weights/corridorkey_v2.safetensors {{args}}

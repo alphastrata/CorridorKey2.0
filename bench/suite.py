@@ -29,7 +29,6 @@ sys.path.insert(0, str(REPO))
 import breakdown
 import render
 import sol
-from components import component_rows
 from harness import (
     Clip,
     Err,
@@ -42,18 +41,18 @@ from harness import (
     load,
     oom,
     per_frame,
+    ptx,
     reference,
     stage1,
     stage2,
     vfm,
 )
 
-from corridorkey import ptx
 from corridorkey.model import CorridorKeyV3
 from corridorkey.runtime import RuntimePaths, load_model
 
-CONFIGS = ("stock", "oracle", "ours")
-TIMED = ("stock", "ours")
+CONFIGS = ("stock", "oracle", "ours") if ptx else ("stock", "oracle")
+TIMED = ("stock", "ours") if ptx else ("stock",)
 PARTS = ("VFMs", "stage 1", "stage 2", "end-to-end")
 CRATES = ("ck_attn", "ck_dw", "ck_glue")
 
@@ -193,9 +192,11 @@ def main() -> None:
         ]
         shapes[tier] = list(clips[0].x.shape[-2:])
 
-        if not any(
+        if ptx and not any(
             r.config == "stock" and r.stage.startswith(render.COMPONENTS) for r in rows
         ):
+            from components import component_rows
+
             rows += oom(functools.partial(component_rows, model, clips[0], p), [])
 
         reference(model, clips)
@@ -221,7 +222,7 @@ def main() -> None:
         "gpu": gpu,
         "capability": list(torch.cuda.get_device_capability(dev)),
         "torch": torch.__version__,
-        "kernels": {c: ptx.arch(c, dev) for c in CRATES},
+        "kernels": {c: ptx.arch(c, dev) for c in CRATES} if ptx else {},
         "peaks": asdict(p),
         "tiers": a.tiers,
         "clips": a.clips,

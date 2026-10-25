@@ -4,6 +4,8 @@ stage 1 over a window, stage 2 per frame, and the fp32 reference."""
 from __future__ import annotations
 
 import functools
+import importlib
+import importlib.util
 import math
 import types
 import weakref
@@ -11,13 +13,18 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import ModuleType
 from typing import cast
 
 import sol
 import torch
 import torch.nn.functional as F
 
-from corridorkey import ptx
+ptx: ModuleType | None = (
+    importlib.import_module("corridorkey.ptx")
+    if importlib.util.find_spec("corridorkey.ptx")
+    else None
+)
 from corridorkey.blocks import DepthwiseSwiGLU2D, QKVDepthwiseSpatial, SwiGLU
 from corridorkey.model import CorridorKeyV3
 from corridorkey.runtime import (
@@ -126,9 +133,15 @@ def keep_fp32(model: torch.nn.Module) -> None:
 
 def weights(model: torch.nn.Module, dtype: torch.dtype) -> None:
     """Installs ``dtype`` weights, dropping ck's fused gate|up copies so they are rebuilt from them."""
-    stale = [(m, n, w) for m, n, w in _FP32.get(model, []) if getattr(m, n).dtype != dtype]
+    stale = [
+        (m, n, w) for m, n, w in _FP32.get(model, []) if getattr(m, n).dtype != dtype
+    ]
     for m, n, w in stale:
-        setattr(m, n, torch.nn.Parameter(w.to(getattr(m, n).device, dtype), requires_grad=False))
+        setattr(
+            m,
+            n,
+            torch.nn.Parameter(w.to(getattr(m, n).device, dtype), requires_grad=False),
+        )
     if stale:
         for m in model.modules():
             m.__dict__.pop("_ck", None)
@@ -141,7 +154,8 @@ def config(model: torch.nn.Module, name: str) -> Iterator[None]:
     opens autocast per stage call, so casts never outlive one."""
     ref = name == "ref"
     weights(model, torch.float32 if name in ("ref", "oracle") else torch.bfloat16)
-    ptx.enable(model, name == "ours")
+    if ptx is not None:
+        ptx.enable(model, name == "ours")
     if ref:
         configure_low_vram_inference(model, InferenceConfig())
     if name == "oracle":
@@ -232,16 +246,12 @@ def stage1(
     return s["baton"].float(), s["aux"].float()
 
 
-def frame2(
-    model: CorridorKeyV3, x: torch.Tensor, baton: torch.Tensor
-) -> torch.Tensor:
+def frame2(model: CorridorKeyV3, x: torch.Tensor, baton: torch.Tensor) -> torch.Tensor:
     out = model.stage2(x, baton)
     return (out[0] if isinstance(out, tuple) else out).float()
 
 
-def stage2(
-    model: CorridorKeyV3, x: torch.Tensor, baton: torch.Tensor
-) -> torch.Tensor:
+def stage2(model: CorridorKeyV3, x: torch.Tensor, baton: torch.Tensor) -> torch.Tensor:
     return torch.cat(
         [
             frame2(model, x[:, i : i + 1], baton[:, i : i + 1])

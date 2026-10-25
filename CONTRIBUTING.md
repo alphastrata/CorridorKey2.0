@@ -8,7 +8,7 @@ You need an NVIDIA GPU, its driver, `ffmpeg` and `curl`. Then run:
 scripts/dev-setup.sh
 ```
 
-This installs everything else (uv, Rust nightly, `just`, `rg`, `typos`, `cargo-nextest`, the `ck` launcher, the model weights and sample clips).
+This installs everything else (uv, Rust nightly, `just`, `rg`, `cargo-nextest`, the `ck` launcher, the model weights and sample clips).
 
 ## 2. Find your way around
 
@@ -41,7 +41,6 @@ It must pass with no warnings. Don't silence warnings with `#[allow]`; fix the c
 
 ## Style
 
-- British spelling.
 - Few comments; clear names instead.
 - Rust: add crates with `cargo add`. Python: add packages with `uv add`, and use type hints.
 
