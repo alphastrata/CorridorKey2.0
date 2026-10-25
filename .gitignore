@@ -40,4 +40,5 @@ path_mappings.json
 
 # Benchmark data
 bench/footage
+bench/frames/
 bench/results/

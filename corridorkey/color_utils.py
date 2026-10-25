@@ -1,3 +1,5 @@
+import functools
+
 import torch
 import numpy as np
 
@@ -6,6 +8,21 @@ HDR_ASINH_REF = 16.0
 
 def _is_tensor(x):
     return isinstance(x, torch.Tensor)
+
+
+@functools.cache
+def _side_stream(device: int) -> torch.cuda.Stream:
+    return torch.cuda.Stream(device)
+
+
+def _on_gpu(fn, x: np.ndarray) -> np.ndarray:
+    """``fn`` (a tensor transform) of numpy ``x``, on the GPU when there is one, on a side stream so it never
+    waits for the model."""
+    t = torch.from_numpy(np.ascontiguousarray(x))
+    if not torch.cuda.is_available():
+        return fn(t).numpy()
+    with torch.cuda.stream(_side_stream(torch.cuda.current_device())):
+        return fn(t.cuda()).cpu().numpy()
 
 def _signed_pow(x, gamma):
     """Sign-preserving power. For x ≥ 0 this is identical to `x.pow(gamma)`.
@@ -22,10 +39,7 @@ def _signed_pow(x, gamma):
         neg = -((-x).clamp(min=0.0).pow(gamma))
         return torch.where(x >= 0, pos, neg)
     if isinstance(x, np.ndarray):
-        t = torch.from_numpy(x)
-        pos = t.clamp(min=0.0).pow(gamma)
-        neg = -((-t).clamp(min=0.0).pow(gamma))
-        return torch.where(t >= 0, pos, neg).numpy()
+        return _on_gpu(lambda t: _signed_pow(t, gamma), x)
     return np.sign(x) * np.power(np.abs(x), gamma)
 
 
@@ -48,17 +62,7 @@ def linear_to_srgb(x):
         neg_pow = neg_x.clamp(min=0.0031308).pow(1.0 / 2.4)
         neg = -torch.where(neg_x <= 0.0031308, neg_x * 12.92, 1.055 * neg_pow - 0.055)
         return torch.where(x >= 0, pos, neg)
-    
-    t = torch.from_numpy(x)
-    pos_t = t.clamp(min=0.0)
-    pos_pow = pos_t.clamp(min=0.0031308).pow(1.0 / 2.4)
-    pos = torch.where(pos_t <= 0.0031308, pos_t * 12.92, 1.055 * pos_pow - 0.055)
-    
-    neg_t = (-t).clamp(min=0.0)
-    neg_pow = neg_t.clamp(min=0.0031308).pow(1.0 / 2.4)
-    neg = -torch.where(neg_t <= 0.0031308, neg_t * 12.92, 1.055 * neg_pow - 0.055)
-    t = torch.where(t >= 0, pos, neg)
-    return t.numpy()
+    return _on_gpu(linear_to_srgb, x)
 
 
 def srgb_to_linear(x):
@@ -77,20 +81,9 @@ def srgb_to_linear(x):
         neg_pow = ((neg_x + 0.055) / 1.055).pow(2.4)
         neg = -torch.where(neg_x <= 0.04045, neg_x / 12.92, neg_pow)
         return torch.where(x >= 0, pos, neg)
-        
-    t = torch.from_numpy(x)
-    pos_t = t.clamp(min=0.0)
-    pos_pow = ((pos_t + 0.055) / 1.055).pow(2.4)
-    pos = torch.where(pos_t <= 0.04045, pos_t / 12.92, pos_pow)
-    
-    neg_t = (-t).clamp(min=0.0)
-    neg_pow = ((neg_t + 0.055) / 1.055).pow(2.4)
-    neg = -torch.where(neg_t <= 0.04045, neg_t / 12.92, neg_pow)
-    t = torch.where(t >= 0, pos, neg)
-    return t.numpy()
+    return _on_gpu(srgb_to_linear, x)
 
 
-# Backwards compatibility aliases
 to_srgb = linear_to_srgb
 to_linear = srgb_to_linear
 
@@ -113,6 +106,8 @@ def linear_to_asinh(x, knee=HDR_ASINH_KNEE, ref=HDR_ASINH_REF):
         scale = x.new_tensor(denom)
         k = x.new_tensor(knee)
         return torch.asinh(x / k) / scale
+    if isinstance(x, np.ndarray):
+        return _on_gpu(lambda t: linear_to_asinh(t, knee, ref), x)
     return np.arcsinh(x / knee) / denom
 
 
@@ -180,20 +175,16 @@ def rgb_to_yuv(image):
     if not _is_tensor(image):
         raise TypeError("rgb_to_yuv only supports dict/tensor inputs currently")
 
-    # Weights for RGB -> Y
-    # Rec. 601: 0.299, 0.587, 0.114
     
-    # Assume BCHW layout if 4 dims
     if image.dim() == 4:
         r = image[:, 0:1, :, :]
         g = image[:, 1:2, :, :]
         b = image[:, 2:3, :, :]
-    elif image.dim() == 3 and image.shape[0] == 3: # CHW
+    elif image.dim() == 3 and image.shape[0] == 3:
         r = image[0:1, :, :]
         g = image[1:2, :, :]
         b = image[2:3, :, :]
     else:
-        # Last dim conversion
         r = image[..., 0]
         g = image[..., 1]
         b = image[..., 2]
@@ -202,7 +193,7 @@ def rgb_to_yuv(image):
     u = 0.492 * (b - y)
     v = 0.877 * (r - y)
     
-    if image.dim() >= 3 and image.shape[-3] == 3: # Concatenate along Channel dim
+    if image.dim() >= 3 and image.shape[-3] == 3:
          return torch.cat([y, u, v], dim=-3)
     else:
          return torch.stack([y, u, v], dim=-1)

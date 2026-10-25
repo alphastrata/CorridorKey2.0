@@ -2,7 +2,7 @@
 
 Results go to `bench/results/`.
 
-## Frames per second
+## Quick: frames per second
 
 ```
 just bench
@@ -15,3 +15,27 @@ Change the frame count or resolutions with:
 ```
 just bench --frames 100 --tiers 1080 2160
 ```
+
+## Full: every part, every resolution
+
+1. Cut frame sets from the footage (once):
+
+   ```
+   just prep
+   ```
+
+2. Measure on every GPU:
+
+   ```
+   just suite
+   ```
+
+   Options: `--tiers 2160 1080 720`, `--clips 4`, `--frames 8`.
+
+3. Build the report:
+
+   ```
+   just render
+   ```
+
+   Read `bench/results/README.md`, then `bench/results/<gpu>.md` for detail: time per stage, memory, time by kernel, and precision against an fp32 reference.

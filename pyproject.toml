@@ -30,6 +30,7 @@ package = false
 
 [tool.ruff.lint.per-file-ignores]
 "bench/*" = ["T201", "E402", "B010"]
+"corridorkey/ptx/*" = ["B010"]
 "corridorkey/runtime.py" = ["T201"]
 
 [[tool.uv.index]]

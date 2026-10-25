@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import importlib
+import importlib.util
 import json
 import struct
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
 
 import torch
 from safetensors.torch import load_file
@@ -15,6 +18,11 @@ from safetensors.torch import load_file
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+ptx: ModuleType | None = (
+    importlib.import_module("corridorkey.ptx")
+    if importlib.util.find_spec("corridorkey.ptx")
+    else None
+)
 from corridorkey.stage1 import Stage1
 from corridorkey.stage2 import Stage2
 
@@ -103,10 +111,16 @@ def main() -> None:
     p.add_argument("--hw", default="1088x1920")
     p.add_argument("--frames", type=int, default=8)
     p.add_argument("--nvtx", action="store_true")
+    p.add_argument("--ck", action="store_true")
     a = p.parse_args()
     h, w = map(int, a.hw.split("x"))
 
     s1, s2 = stages(a.checkpoint)
+
+    if a.ck:
+        if ptx is None:
+            sys.exit("--ck needs corridorkey.ptx")
+        print(f"ck patched {ptx.enable(s1) + ptx.enable(s2)} modules")
 
     t = a.frames
     rgb = torch.randn(1, t, 3, h, w, device="cuda")

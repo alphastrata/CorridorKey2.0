@@ -1,0 +1,14 @@
+[package]
+name              = "ck_arch"
+edition.workspace = true
+version.workspace = true
+
+[features]
+default = []
+sm_120  = ["ptx/sm_120"]
+
+[dependencies]
+ptx = {workspace = true, default-features = false}
+
+[lints]
+workspace = true
