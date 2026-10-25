@@ -70,7 +70,11 @@ impl Gpu {
         let ctx = CudaContext::new(index).wrap_err_with(|| format!("CUDA device {index}"))?;
         unsafe { ctx.disable_event_tracking() };
         let (major, minor) = ctx.compute_capability()?;
-        let sm = (major * 10 + minor) as u32;
+        let native = (major * 10 + minor) as u32;
+        let sm = std::env::var("CK_SM")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .map_or(native, |cap: u32| cap.min(native));
         let stream = ctx.new_stream()?;
         keep_pool(&ctx)?;
         let modules = std::fs::read_dir(best(bin, sm)?)?
@@ -156,7 +160,11 @@ impl Gpu {
 
     #[must_use]
     pub fn half(&self) -> Dtype {
-        if self.sm >= 80 { Dtype::Bf16 } else { Dtype::F16 }
+        if (70..80).contains(&self.sm) {
+            Dtype::F16
+        } else {
+            Dtype::Bf16
+        }
     }
 
     pub fn count() -> Result<usize> {

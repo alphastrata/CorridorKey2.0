@@ -12,14 +12,15 @@ Commit the changed files under `corridorkey/ptx/bin/` together with your source 
 
 ## 2. Support every GPU generation
 
-Your change must build for both:
+Your change must build for all three:
 
 | Folder | Cards |
 |---|---|
+| `sm_61` | GTX 10-series |
 | `sm_75` | RTX 20-series, TITAN RTX |
 | `sm_120` | RTX 50-series |
 
-`just lint` checks both.
+`just lint` checks all three.
 
 ## 3. Test
 
@@ -27,6 +28,12 @@ From `launcher/`, on each GPU you have:
 
 ```
 CK_DEVICE=0 cargo nextest run --release -p ck-gpu
+```
+
+No GTX 10-series card? Add `CK_SM=61` and a newer card will run the GTX 10-series kernels instead:
+
+```
+CK_SM=61 CK_DEVICE=0 cargo nextest run --release -p ck-gpu
 ```
 
 ## 4. Prove it is faster

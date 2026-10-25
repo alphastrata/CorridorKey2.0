@@ -4,8 +4,14 @@
 use ptx::kernel;
 use ptx::slice::GpuSlice;
 
+#[cfg(not(feature = "sm_61"))]
 mod mma;
+#[cfg(feature = "sm_61")]
+mod simt;
+#[cfg(not(feature = "sm_61"))]
 use mma::attn;
+#[cfg(feature = "sm_61")]
+use simt::attn;
 
 const BR: usize = 128;
 const BC: usize = 64;

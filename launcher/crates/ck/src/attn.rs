@@ -186,6 +186,9 @@ pub struct Qk<'a> {
 const HEAD_BYTES: usize = 512 << 20;
 
 pub fn launch(gpu: &Gpu, d: usize) -> (u32, u32) {
+    if gpu.sm < 70 {
+        return ((64 * d * 8) as u32, 256);
+    }
     let (stages, threads) = if gpu.sm >= 120 { (2, 128) } else { (1, 256) };
     ((stages * (2 * 64 * (d + 8) * 2 + 4 * 64)) as u32, threads)
 }
