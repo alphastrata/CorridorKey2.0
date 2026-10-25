@@ -6,9 +6,18 @@ import sys
 import subprocess
 import tempfile
 import shutil
+import signal
 from pathlib import Path
 
 DEFAULT_TEMP_DIR = str(Path(tempfile.gettempdir()) / "corridorkey_v2")
+
+def describe_exit(code: int) -> str:
+    if code >= 0:
+        return f"with exit code {code}"
+    name = signal.Signals(-code).name
+    hint = " (a memory-mapped file failed: check the weights are complete and on a local disk)" if name == "SIGBUS" else ""
+    return f"killed by {name}{hint}"
+
 
 class Colors:
     GREEN = "\033[92m"
@@ -556,7 +565,7 @@ def main():
                 if process.returncode == 0:
                     print(f"\n{Colors.BOLD}{Colors.GREEN}[SUCCESS] Finished {clip.name} successfully!{Colors.RESET}")
                 else:
-                    print(f"\n{Colors.BOLD}{Colors.YELLOW}[ERROR] Failed {clip.name} with exit code {process.returncode}{Colors.RESET}")
+                    print(f"\n{Colors.BOLD}{Colors.YELLOW}[ERROR] Failed {clip.name} {describe_exit(process.returncode)}{Colors.RESET}")
             except KeyboardInterrupt:
                 print(f"\n{Colors.YELLOW}[INTERRUPTED] Batch paused by user.{Colors.RESET}")
                 confirm_continue = prompt_confirm("Do you want to continue to the next clip in the batch?", default=True)
@@ -931,7 +940,7 @@ def main():
                     print(f"\n{Colors.BOLD}{Colors.GREEN}[SUCCESS] CorridorKey v2 inference completed successfully!{Colors.RESET}")
                     print(f"Outputs written to: {Colors.CYAN}{output_dir}{Colors.RESET}\n")
                 else:
-                    print(f"\n{Colors.BOLD}{Colors.YELLOW}[ERROR] Inference failed with exit code {process.returncode}{Colors.RESET}\n")
+                    print(f"\n{Colors.BOLD}{Colors.YELLOW}[ERROR] Inference failed {describe_exit(process.returncode)}{Colors.RESET}\n")
             except KeyboardInterrupt:
                 print(f"\n{Colors.YELLOW}[INTERRUPTED] Inference run canceled by user.{Colors.RESET}\n")
 

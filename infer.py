@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import os
 import tempfile
+
+faulthandler.enable()
 
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 os.environ["HF_HUB_OFFLINE"] = "1"
