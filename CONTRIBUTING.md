@@ -2,7 +2,7 @@
 
 ## 1. Set up
 
-You need an NVIDIA GPU, its driver, `ffmpeg`, `curl`, `jq`, `awk`, `column` and `/usr/bin/time`. Then run:
+You need an NVIDIA GPU, its driver, `ffmpeg` and `curl`. Then run:
 
 ```
 scripts/dev-setup.sh

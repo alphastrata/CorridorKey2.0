@@ -7,10 +7,6 @@ need() { command -v "$1" > /dev/null || { echo "missing $1: $2" >&2; exit 1; }; 
 need nvidia-smi "install the NVIDIA driver"
 need ffmpeg "install ffmpeg (decode, encode and the sample frame sets)"
 need curl "install curl"
-need jq "install jq"
-need awk "install gawk or mawk"
-need column "install util-linux (or bsdextrautils on Debian/Ubuntu)"
-[ -x /usr/bin/time ] || { echo "missing /usr/bin/time: install time" >&2; exit 1; }
 command -v uv > /dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 command -v cargo > /dev/null || curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
 export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH
@@ -25,5 +21,5 @@ tool typos typos-cli
 tool cargo-nextest cargo-nextest
 command -v cargo-ptx > /dev/null || echo "cargo-ptx is not installed."
 (cd "$R" && uv run python scripts/download_weights.py)
-"$R/scripts/download_sample_clips.sh"
-echo "ready: just run <clip> -o out, or scripts/bench.sh"
+(cd "$R" && uv run python bench/clips.py)
+echo "ready: just run <clip> -o out, or just bench"
