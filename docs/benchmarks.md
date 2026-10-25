@@ -13,7 +13,7 @@ Runs the original Python pipeline and `ck` on a sample clip at 720p, 1080p and 4
 Change the frame count or resolutions with:
 
 ```
-FRAMES=100 TIERS="1080 2160" just bench
+just bench --frames 100 --tiers 1080 2160
 ```
 
 ## Full: every part, every resolution
