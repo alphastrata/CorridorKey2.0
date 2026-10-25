@@ -39,8 +39,8 @@ struct Args {
     #[argh(description = "model weights")]
     #[argh(option, default = "PathBuf::from(\"weights/corridorkey_v2.safetensors\")")]
     weights: PathBuf,
-    #[argh(description = "foundation-model weights (`launcher/parity/export.py`)")]
-    #[argh(option, default = "PathBuf::from(\"weights/vfms.safetensors\")")]
+    #[argh(description = "foundation models, as `scripts/download_weights.py` fetches them")]
+    #[argh(option, default = "PathBuf::from(\"vfms\")")]
     vfms: PathBuf,
     #[argh(description = "PTX directory")]
     #[argh(option, default = "PathBuf::from(\"corridorkey/ptx/bin\")")]
@@ -264,7 +264,7 @@ fn main() -> Result<()> {
     let start = Instant::now();
     let assets = Assets {
         weights: asset(&a.weights, "uv run python scripts/download_weights.py")?,
-        vfms: asset(&a.vfms, "uv run python launcher/parity/export.py")?,
+        vfms: asset(&a.vfms, "uv run python scripts/download_weights.py")?,
         ptx: asset(&a.ptx, "just ptx")?,
     };
     run(&assets, &devices, &a.inputs, &a.output, &cfg, &hints)?;

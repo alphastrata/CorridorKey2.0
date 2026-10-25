@@ -48,7 +48,10 @@ impl Models {
             return Ok(f);
         }
         let front = Front {
-            vfms: Vfms::load(gpu, &Weights::open(&self.paths.1)?)?,
+            vfms: Vfms::load(
+                gpu,
+                &Weights::vfms(&self.paths.1, &self.paths.0.with_file_name("foundation_stats.safetensors"))?,
+            )?,
             s1: Stage1::load(&loader(gpu, &Weights::open(&self.paths.0)?, "stage1."))?,
         };
         Ok(self.front.get_or_init(|| front))

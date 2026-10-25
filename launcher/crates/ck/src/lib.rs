@@ -7,6 +7,7 @@ pub mod io;
 pub mod ops;
 pub mod rope;
 pub mod run;
+pub mod sources;
 pub mod stage1;
 pub mod stage2;
 pub mod vfm;

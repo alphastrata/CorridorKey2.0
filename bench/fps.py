@@ -236,8 +236,6 @@ def main() -> None:
                 "corridorkey/ptx/bin",
                 "--weights",
                 "weights/corridorkey_v2.safetensors",
-                "--vfms",
-                "weights/vfms.safetensors",
                 "--frames",
                 str(a.frames),
                 "--chunk",

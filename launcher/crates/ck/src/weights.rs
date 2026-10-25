@@ -1,40 +1,81 @@
+use std::ops::Range;
 use std::path::Path;
+use std::sync::Arc;
 
+use ahash::AHashMap;
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::{OptionExt, Result, WrapErr, bail};
 use half::{bf16, f16};
 use memmap2::Mmap;
 use rayon::prelude::*;
 use safetensors::SafeTensors;
-use safetensors::tensor::{Dtype as St, Metadata};
+use safetensors::tensor::Dtype as St;
 
-pub struct Weights {
-    map: Mmap,
-    start: usize,
-    meta: Metadata,
+use crate::sources;
+
+pub enum Data {
+    Map(Arc<Mmap>, Range<usize>),
+    Owned(Vec<u8>),
+}
+
+pub struct Entry {
+    pub shape: Vec<usize>,
+    pub dtype: St,
+    pub data: Data,
+}
+
+#[derive(Default)]
+pub struct Weights(pub AHashMap<String, Entry>);
+
+pub fn map(path: &Path) -> Result<Arc<Mmap>> {
+    let file = std::fs::File::open(path).wrap_err_with(|| path.display().to_string())?;
+    Ok(Arc::new(unsafe { Mmap::map(&file) }?))
 }
 
 impl Weights {
     pub fn open(path: &Path) -> Result<Self> {
-        let file = std::fs::File::open(path).wrap_err_with(|| path.display().to_string())?;
-        let map = unsafe { Mmap::map(&file) }?;
+        Self::renamed(path, "", "")
+    }
+
+    pub fn vfms(dir: &Path, stats: &Path) -> Result<Self> {
+        let mut w = Self::renamed(&dir.join("cradio/C-RADIOv4-SO400M/model.safetensors"), "radio_model.", "cradio.")?;
+        w.0.extend(sources::torch(&dir.join("moge/model.pt"), "model.encoder.", "moge.")?);
+        w.0.extend(sources::rvm(&dir.join("rvm/pretrain_rvm_small16_256_204031069.npz"))?);
+        w.0.extend(Self::renamed(stats, "", "stats.")?.0);
+        Ok(w)
+    }
+
+    fn renamed(path: &Path, from: &str, to: &str) -> Result<Self> {
+        let map = map(path)?;
         let (header, meta) = SafeTensors::read_metadata(&map)?;
-        Ok(Self {
-            map,
-            start: header + 8,
-            meta,
-        })
+        let start = header + 8;
+        Ok(Self(
+            meta.tensors()
+                .into_iter()
+                .filter_map(|(name, info)| {
+                    let entry = Entry {
+                        shape: info.shape.clone(),
+                        dtype: info.dtype,
+                        data: Data::Map(map.clone(), start + info.data_offsets.0..start + info.data_offsets.1),
+                    };
+                    Some((format!("{to}{}", name.strip_prefix(from)?), entry))
+                })
+                .collect(),
+        ))
     }
 
     #[must_use]
     pub fn has(&self, name: &str) -> bool {
-        self.meta.info(name).is_some()
+        self.0.contains_key(name)
     }
 
     pub fn view(&self, name: &str) -> Result<(Vec<usize>, St, &[u8])> {
-        let info = self.meta.info(name).ok_or_eyre(format!("no weight {name}"))?;
-        let bytes = &self.map[self.start + info.data_offsets.0..self.start + info.data_offsets.1];
-        Ok((info.shape.clone(), info.dtype, bytes))
+        let e = self.0.get(name).ok_or_eyre(format!("no weight {name}"))?;
+        let bytes = match &e.data {
+            Data::Map(map, range) => &map[range.clone()],
+            Data::Owned(v) => v.as_slice(),
+        };
+        Ok((e.shape.clone(), e.dtype, bytes))
     }
 
     pub fn get(&self, name: &str) -> Result<(Vec<usize>, Vec<f32>)> {

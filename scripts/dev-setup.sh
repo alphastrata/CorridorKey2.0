@@ -20,6 +20,5 @@ tool rg ripgrep
 tool cargo-nextest cargo-nextest
 command -v cargo-ptx > /dev/null || echo "cargo-ptx is not installed."
 (cd "$R" && uv run python scripts/download_weights.py)
-[ -f "$R/weights/vfms.safetensors" ] || (cd "$R" && uv run python launcher/parity/export.py)
 (cd "$R" && uv run python bench/clips.py)
 echo "ready: just run <clip> -o out, or just bench"

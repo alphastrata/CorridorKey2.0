@@ -61,8 +61,6 @@ def main() -> None:
         + [
             "--weights",
             "weights/corridorkey_v2.safetensors",
-            "--vfms",
-            "weights/vfms.safetensors",
         ]
         + ["-o", str(RESULTS / "out" / name), *args],
         cwd=ROOT,
