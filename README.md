@@ -18,26 +18,27 @@ Any business or research inquiries for Zac can be directed to z.brooks.harris@gm
 
 ## Setup
 
-You need an NVIDIA GPU (currently RTX 30-series or newer) with at least 4 GB of VRAM
-for footage up to 1440p, or 6 GB for 4K, `ffmpeg` on your PATH, and a Python
-environment with CUDA-enabled PyTorch installed. On smaller cards, see [Long Clips And Low VRAM](#long-clips-and-low-vram).
-This package was tested with:
+You need an NVIDIA GPU (RTX 20-series or newer; GTX 10-series with `ck` only)
+with at least 4 GB of VRAM
+for footage up to 1440p, or 6 GB for 4K, and `ffmpeg` on your PATH. On smaller
+cards, see [Long Clips And Low VRAM](#long-clips-and-low-vram).
+
+On Linux, one script installs [uv](https://docs.astral.sh/uv/), the Python
+environment, Rust and the `ck` launcher, and downloads the weights (about 5 GB):
 
 ```
-torch==2.9.1
-torchvision==0.24.1
+scripts/dev-setup.sh
 ```
 
-From the repository root, create an environment, install PyTorch and the
-remaining dependencies, and download the model weights (about 5 GB):
+Elsewhere, install uv, then from the repository root:
 
 ```
-python -m venv venv
-source venv/bin/activate
-pip install torch==2.9.1 torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cu128
-pip install -r requirements.txt
-python scripts/download_weights.py
+uv sync
+uv run python scripts/download_weights.py
 ```
+
+The commands below assume the environment is active (`source .venv/bin/activate`,
+or `.venv\Scripts\activate` on Windows); otherwise prefix them with `uv run`.
 
 The download script fetches:
 
@@ -60,7 +61,7 @@ or a folder of clips onto the launcher in the repository root:
   the clip into the terminal when asked)
 
 It walks you through the inference mode, outputs, and GPU memory profile, then
-runs the job. The launcher uses the `venv` created during setup if it exists.
+runs the job. The launcher uses the `.venv` created during setup if it exists.
 It also picks up companion hint files next to the input automatically
 (`<clip>FrameHint.png` for a first-frame hint, `<clip>_AlphaHint.mp4` for a
 full hint video).
@@ -89,6 +90,40 @@ writes:
 
 Native resolution is always preserved. The model reflect-pads internally to its
 required shape quantum and crops back to the original size for output.
+
+`infer.py` runs CorridorKey's own CUDA kernels for attention and the depthwise
+blocks. Set `CORRIDORKEY_PTX=0` to use PyTorch's alone.
+
+## The `ck` Launcher
+
+`ck` is the same model in Rust with CUDA kernels throughout. It shares the work
+across every GPU in the machine and picks its window from free memory.
+With [just](https://just.systems) installed (`scripts/dev-setup.sh` does it):
+
+```
+just run shot.mp4
+```
+
+This writes `output/shot_alpha.mp4` and `output/shot_fg.mp4`. `ck --help` lists
+every option; most mirror `infer.py`:
+
+| `infer.py` | `ck` |
+|---|---|
+| `--output_dir out` | `-o out` |
+| `--outputs alpha fg` | `--outputs alpha,fg` |
+| `--hint_first_frame` / `--hint_video` | `--hint` / `--hint-video` |
+| `--hint_quality` / `--carry_hint_quality` | `--hint-quality` / `--carry-quality` |
+| `--no_carry_hint` | `--no-carry` |
+| `--hann_chunk` / `--hann_stride` | `--chunk` / `--stride` |
+| `--num_frames` | `--frames` |
+| `--output_format exr --exr_dtype half` | `--exr half` |
+| `--despill_strength` | `--despill` |
+| `--ffmpeg_codec` | `--codec` (`hevc_nvenc` encodes on the GPU) |
+| `--frame_dir_fps` / `--frame_dir_linear` | `--fps` / `--linear` |
+
+`--device 0` limits it to one GPU. `--log debug` shows what it is doing.
+
+Developing CorridorKey itself: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Choosing An Inference Mode
 
