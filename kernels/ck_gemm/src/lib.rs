@@ -7,6 +7,9 @@ use ptx::mem::{ld_global_cs_u32, ld_global_cs_u64, ld_global_cs_v4_u32, ld_globa
 use ptx::prelude::*;
 use ptx::sync::shared::{shared_window, shld_v4_f32, shst_f32};
 
+#[cfg(feature = "sm_61")]
+mod simt;
+
 const THREADS: usize = 256;
 
 #[derive(Clone, Copy, PartialEq, Eq, core::marker::ConstParamTy)]
@@ -145,6 +148,9 @@ macro_rules! entry {
     ($name:ident, any, $in32:literal, $flags:expr) => {
         entry!(@ $name, |at, s| any::<$in32, { $flags }>(at, s), $flags);
     };
+    ($name:ident, simt, $f32:literal, $flags:expr) => {
+        entry!(@ $name, |at, s| simt::simt::<$f32, { $flags }>(at, s), $flags);
+    };
     ($name:ident, reduce, $f32:literal, $flags:expr) => {
         entry!(@ $name, |(_, w, b, y), s: Shape| reduce::<$f32, { $flags }>((w, b, y), s, s.span), $flags);
     };
@@ -180,6 +186,7 @@ macro_rules! entry {
     };
 }
 
+#[cfg(not(feature = "sm_61"))]
 mod tensor;
 
 entry!(reduce_f32, reduce, true, 0);
@@ -198,6 +205,22 @@ entry!(any_f32, any, false, 0);
 entry!(any_f32_acc, any, false, ACCUMULATE);
 entry!(any_f32_bias, any, false, BIAS);
 entry!(any_f32_acc_bias, any, false, ACCUMULATE | BIAS);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_f32, simt, true, 0);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_f32_acc, simt, true, ACCUMULATE);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_f32_bias, simt, true, BIAS);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_f32_acc_bias, simt, true, ACCUMULATE | BIAS);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_bf16, simt, false, 0);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_bf16_acc, simt, false, ACCUMULATE);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_bf16_bias, simt, false, BIAS);
+#[cfg(feature = "sm_61")]
+entry!(gemm_simt_bf16_acc_bias, simt, false, ACCUMULATE | BIAS);
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
