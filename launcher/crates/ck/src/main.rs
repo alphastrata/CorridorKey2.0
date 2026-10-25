@@ -36,13 +36,13 @@ struct Args {
     #[argh(option, default = "1.0")]
     model_scale: f64,
     #[argh(
-        description = "frames per stage-1 window, or `auto` to pick it (and the stride) per clip from free GPU memory"
+        description = "frames per stage-1 window; by default (`auto`) picked with the stride per clip from free GPU memory"
     )]
-    #[argh(option, default = "Some(80)", from_str_fn(window))]
+    #[argh(option, default = "None", from_str_fn(window))]
     chunk: Option<usize>,
-    #[argh(description = "frames between window starts")]
-    #[argh(option, default = "40")]
-    stride: usize,
+    #[argh(description = "frames between window starts (default: half the window)")]
+    #[argh(option)]
+    stride: Option<usize>,
     #[argh(description = "model frames are padded to multiples of this")]
     #[argh(option, default = "128")]
     quantum: usize,
@@ -167,7 +167,8 @@ fn main() -> Result<()> {
         a.device.concat()
     };
     let chunk = a.chunk.unwrap_or(80);
-    ensure!((1..=chunk).contains(&a.stride), "want 0 < stride <= chunk");
+    let stride = a.stride.unwrap_or((chunk / 2).max(1));
+    ensure!((1..=chunk).contains(&stride), "want 0 < stride <= chunk");
     ensure!(
         a.quantum > 0 && a.quantum % 64 == 0,
         "--quantum must be a multiple of 64"
@@ -175,7 +176,7 @@ fn main() -> Result<()> {
     ensure!(a.vfm_batch > 0, "--vfm-batch must be positive");
     let cfg = Config {
         chunk,
-        stride: a.stride,
+        stride,
         auto: a.chunk.is_none(),
         carry: !a.no_carry,
         hint_quality: a.hint_quality,
