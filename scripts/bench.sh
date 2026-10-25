@@ -37,7 +37,7 @@ run() {
     -i $gpus -lms 100 > $B/samples/$tag.csv &
   local smi=$! s=$(date +%s.%N)
   (cd $R && CUDA_VISIBLE_DEVICES=$gpus /usr/bin/time -f "RSS %M" "$@" > $B/logs/$tag.log 2>&1)
-  local rc=$? wall=$(echo "$(date +%s.%N) - $s" | bc)
+  local rc=$? wall=$(f "%.3f" "$(date +%s.%N) - $s")
   kill $smi; wait $smi 2>/dev/null
   local rss=$(rg -o "^RSS \d+" $B/logs/$tag.log | tail -1 | cut -d' ' -f2)
   IFS=, read -r vram util watts joules <<< "$(stats "$base" $B/samples/$tag.csv)"

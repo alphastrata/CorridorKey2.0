@@ -2,13 +2,13 @@
 
 ## 1. Set up
 
-You need an NVIDIA GPU, its driver, `ffmpeg` and `curl`. Then run:
+You need an NVIDIA GPU, its driver, `ffmpeg`, `curl`, `jq`, `awk`, `column` and `/usr/bin/time`. Then run:
 
 ```
 scripts/dev-setup.sh
 ```
 
-This installs everything else (uv, Rust nightly, `just`, `cargo-ptx`, the `ck` launcher, the model weights and sample clips).
+This installs everything else (uv, Rust nightly, `just`, `rg`, `typos`, `cargo-nextest`, the `ck` launcher, the model weights and sample clips).
 
 ## 2. Find your way around
 
