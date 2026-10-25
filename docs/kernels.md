@@ -16,7 +16,11 @@ Kernels build for `sm_120` (RTX 50-series).
 
 ## 3. Test
 
-`just suite` on each GPU you have; see [Benchmarks](benchmarks.md).
+From `launcher/`, on each GPU you have:
+
+```
+CK_DEVICE=0 cargo nextest run --release -p ck-gpu
+```
 
 ## 4. Prove it is faster
 
