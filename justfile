@@ -44,8 +44,8 @@ run *args:
       --weights {{justfile_directory()}}/weights/corridorkey_v2.safetensors \
       --vfms {{justfile_directory()}}/weights/vfms.safetensors "$@"
 
-bench-all:
-    scripts/bench.sh
+bench-all *args:
+    uv run python kernels/bench/fps.py {{args}}
 
 kprof name *args:
-    kernels/bench/kprof.sh {{name}} {{args}}
+    uv run python kernels/bench/kprof.py {{name}} {{args}}

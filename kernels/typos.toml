@@ -6,6 +6,7 @@ flavor = "flavor"
 setp = "setp"
 iy = "iy"
 synchronize  = "synchronize"
+utilization  = "utilization"
 
 [files]
 extend-exclude = ["target", "bench/footage", "bench/frames", "bench/results"]
