@@ -51,13 +51,9 @@ fn linear_matches_f64() -> eyre::Result<()> {
         (2310, 1280, 1024, false),
     ];
     cases.iter().try_for_each(|&(rows, n, k, f32in)| {
-        let (xd, wd) = if f32in {
-            (Dtype::F32, Dtype::F32)
-        } else {
-            (Dtype::Bf16, gpu.half())
-        };
+        let xd = if f32in { Dtype::F32 } else { Dtype::Bf16 };
         let (x, w, bias) = (noise(rows * k, 1), noise(n * k, 2), noise(n, 3));
-        let (xr, wr) = (round(&x, xd), round(&w, wd));
+        let (xr, wr) = (round(&x, xd), round(&w, xd));
         let dots: Vec<f64> = (0..rows * n)
             .map(|i| {
                 (0..k)
@@ -65,7 +61,7 @@ fn linear_matches_f64() -> eyre::Result<()> {
                     .sum()
             })
             .collect();
-        let (xt, wt) = (gpu.upload_f32(&x, &[rows, k], xd)?, gpu.upload_f32(&w, &[n, k], wd)?);
+        let (xt, wt) = (gpu.upload_f32(&x, &[rows, k], xd)?, gpu.upload_f32(&w, &[n, k], xd)?);
         let bt = gpu.upload_f32(&bias, &[n], Dtype::F32)?;
         let (ld, off) = (n + 8, 8);
         let start = noise(rows * ld, 4);
@@ -123,14 +119,10 @@ fn timing() -> eyre::Result<()> {
             return Ok(());
         };
         let [rows, n, k, ld]: [usize; 4] = [rows, n, k, ld].map(|v| v.parse().unwrap_or(0));
-        let (xd, wd) = if x == "F32" {
-            (Dtype::F32, Dtype::F32)
-        } else {
-            (Dtype::Bf16, gpu.half())
-        };
+        let xd = if x == "F32" { Dtype::F32 } else { Dtype::Bf16 };
         let yd = if y == "F32" { Dtype::F32 } else { Dtype::Bf16 };
         let xt = gpu.upload_f32(&noise(rows * k, 1), &[rows, k], xd)?;
-        let wt = gpu.upload_f32(&noise(n * k, 2), &[n, k], wd)?;
+        let wt = gpu.upload_f32(&noise(n * k, 2), &[n, k], xd)?;
         let bt = gpu.upload_f32(&noise(n, 3), &[n], Dtype::F32)?;
         let yt = gpu.zeros(&[rows, ld], yd)?;
         let b = (epi == "Bias").then_some(&bt);

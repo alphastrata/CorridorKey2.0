@@ -154,11 +154,6 @@ impl Gpu {
         Ok(())
     }
 
-    #[must_use]
-    pub fn half(&self) -> Dtype {
-        if self.sm >= 80 { Dtype::Bf16 } else { Dtype::F16 }
-    }
-
     pub fn count() -> Result<usize> {
         Ok(usize::try_from(CudaContext::device_count()?)?)
     }

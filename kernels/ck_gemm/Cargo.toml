@@ -4,15 +4,14 @@ edition.workspace = true
 version.workspace = true
 
 [package.metadata.ptx]
-launch_bounds = {75 = [256, 1], 120 = [256, 1]}
-entry_bounds  = {gemm_square = {75 = [256, 2], 120 = [256, 2]}, gemm_thin = {75 = [256, 2], 120 = [256, 3]}, gemm_small = {75 = [256, 2], 120 = [256, 3]}}
+launch_bounds = [256, 1]
+entry_bounds  = {gemm_square = [256, 2], gemm_thin = [256, 3], gemm_small = [256, 3]}
 
 [lib]
 crate-type = ["cdylib"]
 
 [features]
 default = []
-sm_75   = ["ptx/sm_75", "ck_arch/sm_75"]
 sm_120  = ["ptx/sm_120", "ck_arch/sm_120"]
 
 [dependencies]

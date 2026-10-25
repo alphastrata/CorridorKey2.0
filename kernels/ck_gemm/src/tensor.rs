@@ -5,13 +5,12 @@ use ptx::mma::ldmatrix_x4_b16_u32;
 use ptx::prelude::*;
 use ptx::sync::shared::{shared_window, shld_v4_f32, shst_v2_f32};
 use ptx::warp_ops::warp_sync;
-use tune::{SMALL, SQUARE, THIN, WIDE};
 
 use crate::{ACCUMULATE, BIAS, Shape, THREADS, Tile, place};
 
-#[cfg_attr(feature = "sm_120", path = "tune/sm120.rs")]
-#[cfg_attr(not(feature = "sm_120"), path = "tune/sm75.rs")]
-mod tune;
+const SQUARE: Tile = Tile { bm: 128, bn: 128, wn: 4, stages: 3 };
+const THIN: Tile = Tile { bm: 128, bn: 16, wn: 1, stages: 4 };
+const SMALL: Tile = Tile { bm: 64, bn: 64, wn: 2, stages: 4 };
 
 const BK: usize = 32;
 const MTS: usize = 4;
@@ -246,14 +245,6 @@ fn drain<const T: Tile, const F32: bool, const FLAGS: u32>(stage: u32, out: u64,
     });
 }
 
-entry!(gemm_wide_f32, WIDE, true, 0, true);
-entry!(gemm_wide_f32_acc, WIDE, true, ACCUMULATE, true);
-entry!(gemm_wide_f32_bias, WIDE, true, BIAS, true);
-entry!(gemm_wide_f32_acc_bias, WIDE, true, ACCUMULATE | BIAS, true);
-entry!(gemm_wide_bf16, WIDE, false, 0, true);
-entry!(gemm_wide_bf16_acc, WIDE, false, ACCUMULATE, true);
-entry!(gemm_wide_bf16_bias, WIDE, false, BIAS, true);
-entry!(gemm_wide_bf16_acc_bias, WIDE, false, ACCUMULATE | BIAS, true);
 entry!(gemm_square_f32, SQUARE, true, 0, true);
 entry!(gemm_square_f32_acc, SQUARE, true, ACCUMULATE, true);
 entry!(gemm_square_f32_bias, SQUARE, true, BIAS, true);

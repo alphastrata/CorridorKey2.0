@@ -29,7 +29,7 @@ def available() -> bool:
         os.environ.get("CORRIDORKEY_PTX", "1") != "0"
         and torch.cuda.is_available()
         and not torch.version.hip
-        and torch.cuda.get_device_capability() >= (7, 5)
+        and torch.cuda.get_device_capability() >= (12, 0)
         and _driver() is not None
     )
 
