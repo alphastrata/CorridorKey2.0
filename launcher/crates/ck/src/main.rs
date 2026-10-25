@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use argh::FromArgs;
 use ck::farm::{Assets, run};
@@ -6,7 +6,7 @@ use ck::frame::{Adjust, Look, Output};
 use ck::run::{Config, Hints};
 use ck::write::{Encoder, Exr};
 use ck_gpu::Gpu;
-use eyre::{Result, bail, ensure};
+use eyre::{Result, bail, ensure, eyre};
 
 #[derive(FromArgs)]
 #[argh(description = "Key a video or frame directory with `CorridorKey` v2.")]
@@ -150,6 +150,15 @@ fn exr(s: &str) -> Result<Exr> {
     }
 }
 
+fn asset(path: &Path, fix: &str) -> Result<PathBuf> {
+    let found = std::iter::once(PathBuf::new())
+        .chain(std::env::current_exe()?.ancestors().map(PathBuf::from))
+        .chain(Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().map(PathBuf::from))
+        .map(|dir| dir.join(path))
+        .find(|p| p.exists());
+    found.ok_or_else(|| eyre!("{}: not found here or beside ck; create it with `{fix}`", path.display()))
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
     let a: Args = argh::from_env();
@@ -212,9 +221,9 @@ fn main() -> Result<()> {
     };
     let start = std::time::Instant::now();
     let assets = Assets {
-        weights: a.weights,
-        vfms: a.vfms,
-        ptx: a.ptx,
+        weights: asset(&a.weights, "uv run python scripts/download_weights.py")?,
+        vfms: asset(&a.vfms, "uv run python launcher/parity/export.py")?,
+        ptx: asset(&a.ptx, "just ptx")?,
     };
     run(&assets, &devices, &a.inputs, &a.output, &cfg, &hints)?;
     println!("done in {:.1} s", start.elapsed().as_secs_f64());
