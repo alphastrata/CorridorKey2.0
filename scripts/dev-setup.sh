@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# usage: dev-setup.sh : uv + Python deps, nightly Rust, just, cargo-ptx, the ck launcher, weights and the sample clip
+# usage: dev-setup.sh : uv + Python deps, nightly Rust, just, ripgrep, typos, cargo-nextest, the ck launcher, weights and the sample clip
 set -euo pipefail
 R=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 need() { command -v "$1" > /dev/null || { echo "missing $1: $2" >&2; exit 1; }; }
@@ -7,6 +7,10 @@ need() { command -v "$1" > /dev/null || { echo "missing $1: $2" >&2; exit 1; }; 
 need nvidia-smi "install the NVIDIA driver"
 need ffmpeg "install ffmpeg (decode, encode and the sample frame sets)"
 need curl "install curl"
+need jq "install jq"
+need awk "install gawk or mawk"
+need column "install util-linux (or bsdextrautils on Debian/Ubuntu)"
+[ -x /usr/bin/time ] || { echo "missing /usr/bin/time: install time" >&2; exit 1; }
 command -v uv > /dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 command -v cargo > /dev/null || curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
 export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH
@@ -14,7 +18,11 @@ export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH
 (cd "$R" && uv sync)
 (cd "$R/launcher" && rustup toolchain install --no-self-update && cargo build --release -p ck)
 (cd "$R/kernels" && rustup toolchain install --no-self-update)
-command -v just > /dev/null || cargo install --locked just
+tool() { command -v "$1" > /dev/null || (cd "$R/launcher" && cargo install --locked "$2"); }
+tool just just
+tool rg ripgrep
+tool typos typos-cli
+tool cargo-nextest cargo-nextest
 command -v cargo-ptx > /dev/null || echo "cargo-ptx is not installed."
 (cd "$R" && uv run python scripts/download_weights.py)
 "$R/scripts/download_sample_clips.sh"
