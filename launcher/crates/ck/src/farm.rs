@@ -8,6 +8,7 @@ use std::time::Duration;
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::{Result, bail, ensure, eyre};
 use flume::RecvTimeoutError;
+use tracing::{info, info_span, warn};
 
 use crate::clip::{Clip, upload};
 use crate::frame::{self, Encoding, Geometry, Output};
@@ -216,6 +217,7 @@ fn lead<'s, 'e>(
     (input, name): (&Path, String),
     free: f64,
 ) -> Result<()> {
+    let _clip = info_span!("clip", %name).entered();
     let src = Source::open(input, sh.cfg.dir_fps)?;
     let total = sh.cfg.frames.map_or(src.frames, |n| n.min(src.frames));
     ensure!(total > 0, "{}: no frames", input.display());
@@ -224,14 +226,14 @@ fn lead<'s, 'e>(
     if cfg.auto {
         let free = free - cfg.encoder_gib((src.w, src.h));
         let (chunk, stride, est) = vram::window(g, total, free, gpu.sm);
-        println!("{name}: {free:.1} GiB free → window {chunk}, stride {stride} (estimated peak {est:.1} GiB)");
+        info!("{free:.1} GiB free → window {chunk}, stride {stride} (estimated peak {est:.1} GiB)");
         if est > free {
-            println!("warning: even one frame may not fit at this resolution");
+            warn!("even one frame may not fit at this resolution");
         }
         (cfg.chunk, cfg.stride) = (chunk, stride);
     }
     if src.float() && !cfg.linear_input {
-        println!("warning: float frames read as display-coded and clipped to [0, 1]; pass --linear for scene-linear");
+        warn!("float frames read as display-coded and clipped to [0, 1]; pass --linear for scene-linear");
     }
     std::fs::create_dir_all(sh.out_dir)?;
     let writers = cfg
@@ -249,8 +251,8 @@ fn lead<'s, 'e>(
         }
         let _ = sh.sinks.send(r);
     });
-    println!(
-        "{name}: {total} frames {}x{} → {}x{}, window {}, stride {}",
+    info!(
+        "{total} frames {}x{} → {}x{}, window {}, stride {}",
         src.w, src.h, g.w, g.h, cfg.chunk, cfg.stride
     );
     let meta = Arc::new(Meta {
@@ -264,6 +266,7 @@ fn lead<'s, 'e>(
 }
 
 fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 'e>) -> Result<()> {
+    let _gpu = info_span!("gpu", id = device).entered();
     while k > 0 && !sh.loaded.load(Ordering::Acquire) && !sh.abort.load(Ordering::Acquire) {
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -277,7 +280,7 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
         m.front(&gpu)?;
     }
     sh.loaded.store(true, Ordering::Release);
-    println!("GPU {device}: sm_{}, {free:.1} GiB free", gpu.sm);
+    info!("sm_{}, {free:.1} GiB free", gpu.sm);
     loop {
         if sh.abort.load(Ordering::Acquire) {
             return Ok(());
@@ -297,7 +300,7 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
             continue;
         }
         if sh.idle()? {
-            println!("GPU {device}: {} frames through stage 2", KEYED.get());
+            info!("{} frames through stage 2", KEYED.get());
             return Ok(());
         }
         if let Some(job) = sh.take(k, Duration::from_millis(5)) {

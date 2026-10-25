@@ -1,4 +1,6 @@
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use argh::FromArgs;
 use ck::farm::{Assets, run};
@@ -6,7 +8,15 @@ use ck::frame::{Adjust, Look, Output};
 use ck::run::{Config, Hints};
 use ck::write::{Encoder, Exr};
 use ck_gpu::Gpu;
+use color_eyre::config::{HookBuilder, Theme};
 use eyre::{Result, bail, ensure, eyre};
+use tracing::info;
+use tracing_error::ErrorLayer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::fmt::format::Writer;
+use tracing_subscriber::fmt::time::FormatTime;
+use tracing_subscriber::{EnvFilter, fmt};
 
 #[derive(FromArgs)]
 #[argh(description = "Key a video or frame directory with `CorridorKey` v2.")]
@@ -20,6 +30,9 @@ struct Args {
     #[argh(description = "comma-separated outputs: alpha, fg, cutout, checker")]
     #[argh(option, default = "String::from(\"alpha,fg\")")]
     outputs: String,
+    #[argh(description = "log filter, e.g. `debug` or `info,ck::time=debug` (default: $CK_LOG, else `info`)")]
+    #[argh(option)]
+    log: Option<String>,
     #[argh(description = "CUDA devices to use, e.g. `0` or `0,1` (default: every device)")]
     #[argh(option, from_str_fn(devices))]
     device: Vec<Vec<usize>>,
@@ -159,9 +172,38 @@ fn asset(path: &Path, fix: &str) -> Result<PathBuf> {
     found.ok_or_else(|| eyre!("{}: not found here or beside ck; create it with `{fix}`", path.display()))
 }
 
+struct Since(Instant);
+
+impl FormatTime for Since {
+    fn format_time(&self, w: &mut Writer<'_>) -> std::fmt::Result {
+        write!(w, "{:8.2}s", self.0.elapsed().as_secs_f64())
+    }
+}
+
+fn logging(filter: Option<&str>) -> Result<()> {
+    let filter = match filter {
+        Some(f) => EnvFilter::try_new(f)?,
+        None => EnvFilter::try_from_env("CK_LOG").or_else(|_| EnvFilter::try_new("info"))?,
+    };
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(
+            fmt::layer()
+                .with_writer(std::io::stderr)
+                .with_ansi(std::io::stderr().is_terminal())
+                .with_target(false)
+                .with_timer(Since(Instant::now())),
+        )
+        .with(ErrorLayer::default())
+        .try_init()?;
+    Ok(())
+}
+
 fn main() -> Result<()> {
-    color_eyre::install()?;
     let a: Args = argh::from_env();
+    logging(a.log.as_deref())?;
+    let theme = if std::io::stderr().is_terminal() { Theme::dark() } else { Theme::new() };
+    HookBuilder::default().theme(theme).install()?;
     ensure!(!a.inputs.is_empty(), "no inputs");
     if let Some(p) = a.inputs.iter().find(|p| !p.exists()) {
         bail!("{}: no such file or directory", p.display());
@@ -219,13 +261,13 @@ fn main() -> Result<()> {
         first: a.hint,
         video: a.hint_video,
     };
-    let start = std::time::Instant::now();
+    let start = Instant::now();
     let assets = Assets {
         weights: asset(&a.weights, "uv run python scripts/download_weights.py")?,
         vfms: asset(&a.vfms, "uv run python launcher/parity/export.py")?,
         ptx: asset(&a.ptx, "just ptx")?,
     };
     run(&assets, &devices, &a.inputs, &a.output, &cfg, &hints)?;
-    println!("done in {:.1} s", start.elapsed().as_secs_f64());
+    info!("done in {:.1} s", start.elapsed().as_secs_f64());
     Ok(())
 }

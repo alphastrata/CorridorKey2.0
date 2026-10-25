@@ -1,5 +1,6 @@
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::{Result, ensure};
+use tracing::{Level, debug, enabled};
 
 use crate::weights::TAIL;
 
@@ -431,19 +432,20 @@ thread_local! {
 }
 
 pub fn probe(gpu: &Gpu, what: &str) {
-    if std::env::var_os("CK_MEM").is_some() {
+    if enabled!(target: "ck::mem", Level::DEBUG) {
         let gib = |b: usize| b as f64 / f64::from(1u32 << 30);
-        println!(
-            "    mem {what:>10}: live {:6.2} GiB, peak {:6.2} GiB",
+        debug!(
+            target: "ck::mem",
+            "{what}: live {:.2} GiB, peak {:.2} GiB",
             gib(gpu.meter.live()),
             gib(gpu.meter.peak())
         );
         gpu.meter.reset();
     }
-    if std::env::var_os("CK_TIME").is_some() && gpu.sync().is_ok() {
+    if enabled!(target: "ck::time", Level::DEBUG) && gpu.sync().is_ok() {
         let now = std::time::Instant::now();
         if let Some(then) = LAST.replace(Some(now)) {
-            println!("    time {what:>9}: {:8.1} ms", (now - then).as_secs_f64() * 1e3);
+            debug!(target: "ck::time", "{what}: {:.1} ms", (now - then).as_secs_f64() * 1e3);
         }
     }
 }

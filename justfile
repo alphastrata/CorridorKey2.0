@@ -35,7 +35,4 @@ kprof name *args:
 
 [no-cd, positional-arguments]
 run *args:
-    @cargo run -q --release --manifest-path {{justfile_directory()}}/launcher/Cargo.toml -p ck -- \
-      --ptx {{out}} \
-      --weights {{justfile_directory()}}/weights/corridorkey_v2.safetensors \
-      --vfms {{justfile_directory()}}/weights/vfms.safetensors "$@"
+    @cargo run -q --release --manifest-path {{justfile_directory()}}/launcher/Cargo.toml -p ck -- "$@"

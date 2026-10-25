@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::{OptionExt, Result, ensure};
+use tracing::info;
 
 use crate::farm::{Job, Meta};
 use crate::frame::{self, Encoding};
@@ -272,7 +273,7 @@ impl<'a> Clip<'a> {
             self.window((t0, t1), (i == 0, i + 1 == s.len()))?;
             self.flush(s.get(i + 1).copied().unwrap_or(total), &mut submit)?;
             probe(self.gpu, "stage 2");
-            println!("  {} window {}/{} [{t0}:{t1}]", self.meta.name, i + 1, s.len());
+            info!("window {}/{} [{t0}:{t1}]", i + 1, s.len());
             Ok(())
         })
     }

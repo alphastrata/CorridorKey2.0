@@ -38,3 +38,11 @@ CK_DEVICE=0 ncu --set full -k regex:gemm -c 5 -o gemm <program> <test name>
 ```
 
 Open `gemm.ncu-rep` in Nsight Compute.
+
+## What `ck` is doing
+
+`--log` (or `CK_LOG`) takes a [filter](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html); the default is `info`.
+
+- `--log debug` — everything.
+- `--log info,ck::time=debug` — time per stage (synchronises the GPU, so slower).
+- `--log info,ck::mem=debug` — live and peak GPU memory per stage.
