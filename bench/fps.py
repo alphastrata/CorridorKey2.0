@@ -1,5 +1,4 @@
-"""Python (stock kernels) and, where the launcher exists, ck on the sample clip per tier and GPU (and all GPUs
-together): one csv, one table.
+"""Python (stock kernels) on the sample clip per tier and GPU: one csv, one table.
 
 uv run python bench/fps.py [--frames 50] [--tiers 720 1080 2160]
 """
@@ -8,7 +7,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import os
 import subprocess
 import sys
@@ -142,39 +140,6 @@ def run(
     return rc, wall, meter
 
 
-def ck_binary() -> Path:
-    manifest = ROOT / "launcher" / "Cargo.toml"
-    subprocess.run(
-        [
-            "cargo",
-            "build",
-            "-q",
-            "--release",
-            "--manifest-path",
-            str(manifest),
-            "-p",
-            "ck",
-        ],
-        check=True,
-    )
-    meta = subprocess.run(
-        [
-            "cargo",
-            "metadata",
-            "-q",
-            "--format-version",
-            "1",
-            "--no-deps",
-            "--manifest-path",
-            str(manifest),
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return Path(json.loads(meta.stdout)["target_directory"]) / "release" / "ck"
-
-
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--frames", type=int, default=50)
@@ -182,7 +147,6 @@ def main() -> None:
     a = p.parse_args()
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     fetch(a.frames)
-    ck = ck_binary() if (ROOT / "launcher").is_dir() else None
     for sub in ("logs", "out"):
         (OUT / sub).mkdir(parents=True, exist_ok=True)
     names = {i: n.removeprefix("NVIDIA ") for i, n in smi("index,name")}
@@ -222,32 +186,6 @@ def main() -> None:
             }
         )
 
-    def ck_run(gpus: str, t: int) -> None:
-        if ck is None:
-            return
-        out = OUT / "out" / f"{gpus.replace(',', '+')}_{t}p_ck"
-        record(
-            gpus,
-            t,
-            "ck",
-            [
-                str(ck),
-                "--ptx",
-                "corridorkey/ptx/bin",
-                "--weights",
-                "weights/corridorkey_v2.safetensors",
-                "--vfms",
-                "weights/vfms.safetensors",
-                "--frames",
-                str(a.frames),
-                "--chunk",
-                "auto",
-                "-o",
-                str(out),
-                str(tier(t)),
-            ],
-        )
-
     for t in a.tiers:
         for g in sorted(names, key=int):
             out = OUT / "out" / f"{g}_{t}p_python"
@@ -267,9 +205,6 @@ def main() -> None:
                 ],
                 {"CORRIDORKEY_PTX": "0"},
             )
-            ck_run(g, t)
-        if len(names) > 1:
-            ck_run(",".join(sorted(names, key=int)), t)
     with (OUT / "bench.csv").open("w", newline="") as f:
         w = csv.DictWriter(f, COLUMNS)
         w.writeheader()

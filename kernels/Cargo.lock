@@ -42,14 +42,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ck_gemm"
-version = "0.1.0"
-dependencies = [
- "ck_arch",
- "ptx",
-]
-
-[[package]]
 name = "ck_glue"
 version = "0.1.0"
 dependencies = [

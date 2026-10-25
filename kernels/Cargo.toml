@@ -1,5 +1,5 @@
 [workspace]
-members  = ["ck_arch", "ck_attn", "ck_dw", "ck_gemm", "ck_glue", "ck_ops"]
+members  = ["ck_arch", "ck_attn", "ck_dw", "ck_glue", "ck_ops"]
 resolver = "3"
 
 [workspace.package]

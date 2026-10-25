@@ -8,7 +8,7 @@ Results go to `bench/results/`.
 just bench
 ```
 
-Runs the original Python pipeline and `ck` on a sample clip at 720p, 1080p and 4K, on every GPU, and prints one table: frames per second, speed-up over Python, memory, power.
+Runs the Python pipeline on a sample clip at 720p, 1080p and 4K, on every GPU, and prints one table: frames per second, memory, power.
 
 Change the frame count or resolutions with:
 

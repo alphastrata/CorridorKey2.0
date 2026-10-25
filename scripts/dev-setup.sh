@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# usage: dev-setup.sh : uv + Python deps, nightly Rust, just, ripgrep, cargo-nextest, the ck launcher, weights and the sample clip
+# usage: dev-setup.sh : uv + Python deps, nightly Rust, just, ripgrep, weights and the sample clip
 set -euo pipefail
 R=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 need() { command -v "$1" > /dev/null || { echo "missing $1: $2" >&2; exit 1; }; }
@@ -12,13 +12,11 @@ command -v cargo > /dev/null || curl --proto '=https' --tlsv1.2 -sSf https://sh.
 export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH
 
 (cd "$R" && uv sync)
-(cd "$R/launcher" && rustup toolchain install --no-self-update && cargo build --release -p ck)
 (cd "$R/kernels" && rustup toolchain install --no-self-update)
-tool() { command -v "$1" > /dev/null || (cd "$R/launcher" && cargo install --locked "$2"); }
+tool() { command -v "$1" > /dev/null || (cd "$R/kernels" && cargo install --locked "$2"); }
 tool just just
 tool rg ripgrep
-tool cargo-nextest cargo-nextest
 command -v cargo-ptx > /dev/null || echo "cargo-ptx is not installed."
 (cd "$R" && uv run python scripts/download_weights.py)
 (cd "$R" && uv run python bench/clips.py)
-echo "ready: just run <clip> -o out, or just bench"
+echo "ready: just bench"

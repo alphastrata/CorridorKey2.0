@@ -8,22 +8,22 @@ You need an NVIDIA GPU, its driver, `ffmpeg` and `curl`. Then run:
 scripts/dev-setup.sh
 ```
 
-This installs everything else (uv, Rust nightly, `just`, `rg`, `cargo-nextest`, the `ck` launcher, the model weights and sample clips).
+This installs everything else (uv, Rust nightly, `just`, `rg`, the model weights and sample clips).
 
 ## 2. Find your way around
 
-- `launcher/` — the `ck` program, written in Rust.
-- `kernels/` — the GPU kernels, also in Rust.
+- `kernels/` — the GPU kernels, in Rust.
+- `corridorkey/ptx/` — routes the model through them.
 - `corridorkey/ptx/bin/` — the compiled kernels, one folder per GPU generation.
 - `bench/` — benchmarks and profiling.
 
 ## 3. Test
 
-From `launcher/`, run the tests on each GPU you have (`CK_DEVICE=0`, `1`, …):
+```
+just suite
+```
 
-```
-CK_DEVICE=0 cargo nextest run --release -p ck-gpu
-```
+It checks every kernel against an fp32 reference on each GPU.
 
 ## 4. Lint
 
@@ -36,7 +36,7 @@ It must pass with no warnings. Don't silence warnings with `#[allow]`; fix the c
 ## 5. Commit
 
 - One change per commit.
-- Message format: `type(scope): summary`, e.g. `perf(ck_gemm): faster split-K`.
+- Message format: `type(scope): summary`, e.g. `perf(ck_attn): fewer stages`.
 - Never commit footage or weights.
 
 ## Style
