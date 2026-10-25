@@ -24,7 +24,7 @@ lint:
     cd launcher && cargo clippy --release --workspace --all-targets 2>&1 | rg -n "error(\[|:)|warning:" || true
     uv run ruff check corridorkey/ptx bench
     cd kernels && for sm in 75 120; do RUSTFLAGS="-C target-cpu=sm_$sm" cargo clippy --release --workspace --features ck_arch/sm_$sm 2>&1 | rg -n "error(\[|:)|warning:" || true; done
-    typos launcher/crates kernels bench scripts/bench.sh scripts/dev-setup.sh scripts/download_sample_clips.sh
+    typos launcher/crates kernels bench scripts/dev-setup.sh
 
 profile *args:
     uv run python bench/randprof.py weights/corridorkey_v2.safetensors {{args}}
@@ -42,11 +42,11 @@ suite *args:
 render:
     uv run python bench/render.py
 
-bench:
-    scripts/bench.sh
+bench *args:
+    uv run python bench/fps.py {{args}}
 
 kprof name *args:
-    bench/kprof.sh {{name}} {{args}}
+    uv run python bench/kprof.py {{name}} {{args}}
 
 [no-cd, positional-arguments]
 run *args:
