@@ -20,8 +20,16 @@ from pathlib import Path
 import psutil
 from clips import fetch, tier
 
-ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "bench" / "results" / "bench"
+BENCH = Path(__file__).resolve().parent
+ROOT = Path(
+    subprocess.run(
+        ["git", "-C", str(BENCH), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+)
+OUT = BENCH / "results" / "bench"
 COLUMNS = [
     "gpu",
     "tier",

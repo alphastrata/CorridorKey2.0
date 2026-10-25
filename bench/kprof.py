@@ -11,9 +11,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from fps import ROOT, ck_binary
+from fps import BENCH, ROOT, ck_binary
 
-RESULTS = ROOT / "bench" / "results"
+RESULTS = BENCH / "results"
 
 
 def top(report: Path, count: int = 25) -> list[str]:
