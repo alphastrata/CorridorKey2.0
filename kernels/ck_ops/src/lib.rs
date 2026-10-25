@@ -46,7 +46,7 @@ pub(crate) fn gelu(x: f32) -> f32 {
 }
 
 pub(crate) fn gelu_tanh(x: f32) -> f32 {
-    x * sigmoid(1.595_769_2 * (x + 0.044_715 * x * x * x))
+    0.5 * x * (1.0 + (0.797_884_6 * (x + 0.044_715 * x * x * x)).tanh())
 }
 
 #[panic_handler]
