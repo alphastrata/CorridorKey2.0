@@ -1,7 +1,7 @@
 out := justfile_directory() / "corridorkey/ptx/bin"
 
 ptx:
-    cd kernels && cargo ptx build -r --archs sm_61,sm_75,sm_80,sm_120 --emit ptx --out-dir {{out}}
+    cd kernels && cargo ptx build -r --archs sm_61,sm_75,sm_80,sm_90a,sm_120 --emit ptx --out-dir {{out}}
 
 install:
     scripts/dev-setup.sh

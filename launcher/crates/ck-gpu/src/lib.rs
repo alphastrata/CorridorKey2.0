@@ -192,12 +192,11 @@ fn best(bin: &Path, sm: u32) -> Result<(u32, PathBuf)> {
         .wrap_err_with(|| bin.display().to_string())?
         .filter_map(Result::ok)
         .filter_map(|e| {
-            Some((
-                e.file_name().to_str()?.strip_prefix("sm_")?.parse::<u32>().ok()?,
-                e.path(),
-            ))
+            let name = e.file_name().to_str()?.strip_prefix("sm_")?.to_owned();
+            let exact = name.strip_suffix('a');
+            let arch = exact.unwrap_or(&name).parse::<u32>().ok()?;
+            (if exact.is_some() { arch == sm } else { arch <= sm }).then(|| (arch, e.path()))
         })
-        .filter(|(s, _)| *s <= sm)
         .max_by_key(|(s, _)| *s)
         .ok_or_eyre(format!("no PTX for sm_{sm} under {}", bin.display()))
 }

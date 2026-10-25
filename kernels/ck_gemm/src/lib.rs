@@ -188,6 +188,8 @@ macro_rules! entry {
 
 #[cfg(not(feature = "sm_61"))]
 mod tensor;
+#[cfg(feature = "sm_90a")]
+mod hopper;
 
 entry!(reduce_f32, reduce, true, 0);
 entry!(reduce_f32_acc, reduce, true, ACCUMULATE);
