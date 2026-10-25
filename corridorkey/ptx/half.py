@@ -1,8 +1,10 @@
 """bf16-autocast GEMMs and convolutions where torch's defaults are slow. Thin-input convolutions (patchify) as
-im2col and one GEMM."""
+im2col and one GEMM everywhere. Turing has no bf16 tensor cores: there Linears run as f16 GEMMs into f32, dense
+convolutions as cuDNN f16, each rounded back to bf16."""
 
 from __future__ import annotations
 
+import functools
 import types
 from collections.abc import Callable
 from typing import cast
@@ -12,8 +14,13 @@ import torch.nn.functional as F
 
 from . import available
 
-BF16 = torch.bfloat16
+F16, BF16 = torch.float16, torch.bfloat16
 THIN = 16
+
+
+@functools.cache
+def turing(device: int) -> bool:
+    return torch.cuda.get_device_capability(device) < (8, 0)
 
 
 def _bf16(x: torch.Tensor) -> bool:
@@ -24,21 +31,53 @@ def _bf16(x: torch.Tensor) -> bool:
     )
 
 
+def _ok(x: torch.Tensor) -> bool:
+    return _bf16(x) and turing(x.device.index)
+
+
+def _half(w: torch.Tensor, t: bool = True) -> torch.Tensor:
+    if (hit := getattr(w, "_ck_f16", None)) is None:
+        hit = w.detach().to(F16)
+        hit = hit.t() if t else hit
+        setattr(w, "_ck_f16", hit)
+    return hit
+
+
 def linear(
     x: torch.Tensor, w: torch.Tensor, b: torch.Tensor | None = None
 ) -> torch.Tensor:
-    return F.linear(x, w, b)
+    if not _ok(x):
+        return F.linear(x, w, b)
+    with torch.autocast("cuda", enabled=False):
+        return linear_f16(x, w, b)
+
+
+def linear_f16(
+    x: torch.Tensor, w: torch.Tensor, b: torch.Tensor | None
+) -> torch.Tensor:
+    a = x.reshape(-1, x.shape[-1]).to(F16)
+    y = (
+        torch.mm(a, _half(w), out_dtype=torch.float32)
+        if b is None
+        else torch.addmm(b.float(), a, _half(w), out_dtype=torch.float32)
+    )
+    return y.to(BF16).view(*x.shape[:-1], w.shape[0])
+
+
+def _forward(self: torch.nn.Linear, x: torch.Tensor) -> torch.Tensor:
+    return linear(x, self.weight, self.bias)
 
 
 def _conv(self: torch.nn.Conv2d, x: torch.Tensor) -> torch.Tensor:
-    if (
-        _bf16(x)
-        and self.groups == 1
-        and self.in_channels < THIN
-        and self.padding_mode == "zeros"
-    ):
+    if not _bf16(x) or self.groups != 1:
+        return torch.nn.Conv2d.forward(self, x)
+    if self.in_channels < THIN and self.padding_mode == "zeros":
         return _unfold(self, x)
-    return torch.nn.Conv2d.forward(self, x)
+    if not turing(x.device.index):
+        return torch.nn.Conv2d.forward(self, x)
+    b = None if self.bias is None else _half(self.bias, False)
+    with torch.autocast("cuda", enabled=False):
+        return self._conv_forward(x.to(F16), _half(self.weight, False), b).to(BF16)
 
 
 def _unfold(self: torch.nn.Conv2d, x: torch.Tensor) -> torch.Tensor:
@@ -50,18 +89,46 @@ def _unfold(self: torch.nn.Conv2d, x: torch.Tensor) -> torch.Tensor:
         (h + 2 * ph - dh * (kh - 1) - 1) // sh + 1,
         (w + 2 * pw - dw * (kw - 1) - 1) // sw + 1,
     )
-    cols = F.unfold(x.to(BF16), (kh, kw), (dh, dw), (ph, pw), (sh, sw))
-    y = F.linear(cols.transpose(1, 2), self.weight.flatten(1), self.bias)
+    half = turing(x.device.index)
+    with torch.autocast("cuda", enabled=not half):
+        cols = F.unfold(
+            x.to(F16 if half else BF16), (kh, kw), (dh, dw), (ph, pw), (sh, sw)
+        )
+        gemm = linear_f16 if half else F.linear
+        y = gemm(cols.transpose(1, 2), self.weight.flatten(1), self.bias)
     return y.transpose(1, 2).view(x.shape[0], -1, oh, ow)
 
 
-FORWARDS: dict[type, Callable] = {torch.nn.Conv2d: _conv}
+def _deconv(self: torch.nn.ConvTranspose2d, x: torch.Tensor) -> torch.Tensor:
+    if not _ok(x) or self.groups != 1:
+        return torch.nn.ConvTranspose2d.forward(self, x)
+    b = None if self.bias is None else _half(self.bias, False)
+    with torch.autocast("cuda", enabled=False):
+        y = F.conv_transpose2d(
+            x.to(F16),
+            _half(self.weight, False),
+            b,
+            self.stride,
+            cast("tuple[int, int]", self.padding),
+            self.output_padding,
+            1,
+            self.dilation,
+        )
+    return y.to(BF16)
+
+
+FORWARDS: dict[type, Callable] = {
+    torch.nn.Linear: _forward,
+    torch.nn.Conv2d: _conv,
+    torch.nn.ConvTranspose2d: _deconv,
+}
 
 
 def patch(model: torch.nn.Module) -> int:
     if not available():
         return 0
-    mods = [m for m in model.modules() if type(m) in FORWARDS]
+    kinds = FORWARDS if turing(torch.cuda.current_device()) else {torch.nn.Conv2d}
+    mods = [m for m in model.modules() if type(m) in kinds]
     for m in mods:
         setattr(m, "forward", types.MethodType(FORWARDS[type(m)], m))
     return len(mods)

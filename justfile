@@ -1,7 +1,7 @@
 out := justfile_directory() / "corridorkey/ptx/bin"
 
 ptx:
-    cd kernels && cargo ptx build -r --archs sm_120 --emit ptx --out-dir {{out}}
+    cd kernels && cargo ptx build -r --archs sm_75,sm_120 --emit ptx --out-dir {{out}}
 
 install:
     scripts/dev-setup.sh
@@ -9,7 +9,7 @@ install:
 lint:
     cd launcher && cargo clippy --release --workspace --all-targets 2>&1 | rg -n "error(\[|:)|warning:" || true
     uv run ruff check corridorkey/ptx bench
-    cd kernels && for sm in 120; do RUSTFLAGS="-C target-cpu=sm_$sm" cargo clippy --release --workspace --features ck_attn/sm_$sm,ck_dw/sm_$sm,ck_gemm/sm_$sm,ck_glue/sm_$sm,ck_ops/sm_$sm 2>&1 | rg -n "error(\[|:)|warning:" || true; done
+    cd kernels && for sm in 75 120; do RUSTFLAGS="-C target-cpu=sm_$sm" cargo clippy --release --workspace --features ck_attn/sm_$sm,ck_dw/sm_$sm,ck_gemm/sm_$sm,ck_glue/sm_$sm,ck_ops/sm_$sm 2>&1 | rg -n "error(\[|:)|warning:" || true; done
 
 profile *args:
     uv run python bench/randprof.py weights/corridorkey_v2.safetensors {{args}}

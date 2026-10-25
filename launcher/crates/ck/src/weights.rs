@@ -72,6 +72,7 @@ pub struct Loader<'a> {
     pub gpu: &'a Gpu,
     pub weights: &'a Weights,
     pub prefix: &'a str,
+    pub half: Dtype,
 }
 
 impl Loader<'_> {
@@ -104,15 +105,20 @@ impl Loader<'_> {
 
     pub fn tail(&self, shape: &[usize], w: &[f32], b: &[f32]) -> Result<Tensor> {
         let inner = shape[1..].iter().product::<usize>();
+        let round: fn(f32) -> f32 = if self.half == Dtype::F16 {
+            |v| f16::from_f32(v).to_f32()
+        } else {
+            |v| bf16::from_f32(v).to_f32()
+        };
         let v: Vec<f32> = w
             .chunks(inner)
             .zip(b)
             .flat_map(|(row, &bias)| {
-                let hi = bf16::from_f32(bias).to_f32();
+                let hi = round(bias);
                 row.iter().copied().chain([hi, bias - hi]).chain([0.0; TAIL - 2])
             })
             .collect();
-        self.gpu.upload_f32(&v, &[shape[0], inner + TAIL], Dtype::Bf16)
+        self.gpu.upload_f32(&v, &[shape[0], inner + TAIL], self.half)
     }
 
     pub fn rows(&self, names: &[&str]) -> Result<Tensor> {
@@ -131,7 +137,11 @@ impl Loader<'_> {
         let width: usize = parts[0].0[1..].iter().product();
         let total: usize = parts.iter().map(|(s, _, _)| s.iter().product::<usize>()).sum();
         let mut out = vec![0u16; total];
-        let to = |v: f32| bf16::from_f32(v).to_bits();
+        let to: fn(f32) -> u16 = if self.half == Dtype::F16 {
+            |v| f16::from_f32(v).to_bits()
+        } else {
+            |v| bf16::from_f32(v).to_bits()
+        };
         parts
             .iter()
             .try_fold((out.as_mut_slice(), 0), |(rest, row), (shape, dtype, bytes)| {
@@ -144,7 +154,7 @@ impl Loader<'_> {
                 Ok::<_, eyre::Report>((tail, row + n / width))
             })?;
         self.gpu
-            .upload(bytemuck::cast_slice(&out), &[total / width, width], Dtype::Bf16)
+            .upload(bytemuck::cast_slice(&out), &[total / width, width], self.half)
     }
 
     pub fn cat(&self, names: &[&str]) -> Result<Tensor> {
@@ -168,14 +178,14 @@ impl Loader<'_> {
                 v[row * c * kk + col % c * kk + col / c]
             })
             .collect();
-        self.gpu.upload_f32(&t, &[o, c * kk], Dtype::Bf16)
+        self.gpu.upload_f32(&t, &[o, c * kk], self.half)
     }
 
     pub fn deconv(&self, n: &str) -> Result<Tensor> {
         let (shape, v) = self.get(n)?;
         let (rows, cols) = (shape[0], shape[1..].iter().product::<usize>());
         let t: Vec<f32> = (0..cols * rows).map(|i| v[i % rows * cols + i / rows]).collect();
-        self.gpu.upload_f32(&t, &[cols, rows], Dtype::Bf16)
+        self.gpu.upload_f32(&t, &[cols, rows], self.half)
     }
 
     pub fn taps(&self, names: &[&str]) -> Result<Tensor> {

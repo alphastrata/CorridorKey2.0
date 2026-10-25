@@ -16,8 +16,8 @@ from . import arch, available, load
 
 HEADS = (64, 80, 96)
 BR, BC = 128, 64
-STAGES = {120: 2}
-THREADS = {120: 128}
+STAGES = {75: 1, 120: 2}
+THREADS = {75: 256, 120: 128}
 
 
 def attention(
@@ -51,9 +51,22 @@ def attention(
     return out
 
 
+F16_SAFE = 14
+
+
 def _range(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
-    """Multipliers for q, k, v: ones, since operands stay bf16."""
-    return _ones(q.device.index)
+    """Multipliers for q, k, v: ones where operands stay bf16; on sm_75, which runs them as f16 (max 65504),
+    ``2^-e`` with ``e`` the least keeping ``max |x| · 2^-e ≤ 2^14`` (0 for any sane input). Powers of two, so
+    the kernel undoes them exactly; computed on the device, no host sync."""
+    if arch("ck_attn", q.device.index) >= 80:
+        return _ones(q.device.index)
+    top = torch.stack(
+        [
+            torch.linalg.vector_norm(t, float("inf"), dtype=torch.float32)
+            for t in (q, k, v)
+        ]
+    )
+    return torch.exp2(-(torch.log2(top).ceil() - F16_SAFE).clamp(min=0))
 
 
 @functools.cache
@@ -82,6 +95,12 @@ def _stages(device: int) -> int:
     return STAGES[arch("ck_attn", device)]
 
 
+@functools.cache
+def plain(device: int) -> bool:
+    """Whether unmasked SDPA goes to ck too: only where no flash kernel exists (pre-sm_80)."""
+    return torch.cuda.get_device_capability(device) < (8, 0)
+
+
 def supported(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> bool:
     return (
         q.is_cuda
@@ -102,6 +121,9 @@ def _sdpa(
     **kw: Any,
 ) -> torch.Tensor:
     ok = dropout_p == 0.0 and not is_causal and not kw and supported(q, k, v)
+    if ok and attn_mask is None and plain(q.device.index):
+        return attention(q, k, v)
+
     key_pad = (
         attn_mask is not None
         and attn_mask.dtype == torch.bool

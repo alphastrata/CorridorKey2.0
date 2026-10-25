@@ -26,6 +26,7 @@ fn stage2(tier: &str) -> Result<()> {
         gpu: &gpu,
         weights: &weights,
         prefix: "stage2.",
+        half: gpu.half(),
     };
     let s2 = Stage2::load(&ld)?;
     let cache = Cache::default();

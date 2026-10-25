@@ -35,6 +35,7 @@ fn stage1_720() -> Result<()> {
         gpu: &gpu,
         weights: &weights,
         prefix: "stage1.",
+        half: gpu.half(),
     };
     let s1 = Stage1::load(&ld)?;
     let cache = Cache::default();
@@ -85,6 +86,7 @@ fn batched_blocks_match_single() -> Result<()> {
         gpu: &gpu,
         weights: &weights,
         prefix: "stage1.",
+        half: gpu.half(),
     };
     let s1 = Stage1::load(&ld)?;
     let cache = Cache::default();

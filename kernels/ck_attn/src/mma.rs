@@ -5,11 +5,13 @@ use ptx::prelude::*;
 use ptx::slice::{GpuSlice, GpuSliceMut};
 use ptx::sync::shared::{shared_window, shld_u32, shst_u32};
 use ptx::warp_ops::shfl_bfly_sync_b32;
+use tune::{RB, STAGES};
 
 use crate::{BC, BR, Shape, span};
 
-const STAGES: usize = 2;
-const RB: usize = 2;
+#[cfg_attr(feature = "sm_120", path = "tune/sm120.rs")]
+#[cfg_attr(not(feature = "sm_120"), path = "tune/sm75.rs")]
+mod tune;
 
 const THREADS: usize = BR / (16 * RB) * 32;
 const KS: usize = 6;
