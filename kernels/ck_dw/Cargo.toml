@@ -1,0 +1,22 @@
+[package]
+name              = "ck_dw"
+edition.workspace = true
+version.workspace = true
+
+[package.metadata.ptx]
+launch_bounds = [256, 2]
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = []
+sm_61   = []
+sm_75   = ["ptx/sm_75"]
+sm_120  = ["ptx/sm_120"]
+
+[dependencies]
+ptx = {workspace = true, default-features = false}
+
+[lints]
+workspace = true

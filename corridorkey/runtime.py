@@ -1,26 +1,30 @@
 from __future__ import annotations
 
+import contextlib
+import gc
 import json
 import os
 import sys
 import tempfile
+import time
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 from . import color_utils as cu
+from . import ptx
 from .model import CorridorKeyV3
 from .video_io import (
     ExrSequenceWriter,
     ThreadedVideoWriter,
     WriterConfig,
-    apply_linear_adjust,
-    frame_paths,
-    has_linear_adjust,
+
     iter_frame_dir_chunks,
     iter_video_frame_chunks,
     load_initial_hint_frame,
@@ -61,7 +65,6 @@ class RuntimePaths:
 
     @staticmethod
     def _prefer_safetensors(root: Path, stem: str) -> str:
-        # Legacy pickle .pt files are still accepted if that is all that is present.
         if not (root / f"{stem}.safetensors").exists() and (root / f"{stem}.pt").exists():
             return f"{stem}.pt"
         return f"{stem}.safetensors"
@@ -107,15 +110,18 @@ class InferenceConfig:
     num_frames: int = -1
     start_mode: str = "begin"
     seed: int = 0
+
     low_vram: bool = False
-    # Pick hann_chunk/hann_stride/low_vram per clip from free GPU memory.
     auto_vram: bool = False
+    vram_estimate_gb: float | None = None
+    vram_ceiling_gb: float | None = None
     low_vram_foundation_chunk: int = 4
     low_vram_mlp_chunk_tokens: int = 65536
     low_vram_enc_frame_chunk: int = 1
     low_vram_swin_window_batch: int = 16
     low_vram_full_attn_query_chunk_tokens: int = 2048
     stage2_batch: int = 1
+
     outputs: set[str] = field(default_factory=lambda: {"alpha", "fg"})
     temp_dir: Path = Path(tempfile.gettempdir()) / "corridorkey_v2"
     linear_brightness: float = 1.0
@@ -129,8 +135,6 @@ class InferenceConfig:
     exr_dtype: str = "half"
 
 
-# Peak GPU memory in GiB by megapixels of model input, measured at each Hann
-# chunk size. Keys are low_vram False/True.
 _VRAM_PEAK_GB = {
     False: ((8, 24, 48, 80), (
         (0.98, (6.19, 7.52, 9.77, 12.89)),
@@ -138,6 +142,7 @@ _VRAM_PEAK_GB = {
         (3.93, (9.06, 14.78, 23.92, 33.19)),
         (8.36, (13.94, 25.96, 45.15, 70.45)),
     )),
+
     True: ((1, 2, 4, 8, 24, 48, 80), (
         (0.98, (2.71, 2.78, 2.94, 3.25, 4.54, 6.57, 9.50)),
         (2.21, (2.80, 2.97, 3.35, 4.12, 7.69, 13.20, 20.56)),
@@ -146,7 +151,12 @@ _VRAM_PEAK_GB = {
     )),
 }
 _VRAM_MARGIN_SCALE = 1.1
-_VRAM_MARGIN_GB = 0.3
+_VRAM_HEADROOM_GB = 1.5
+_VRAM_HEADROOM_FRAC = 0.05
+
+
+def _vram_headroom_gb(total_gb: float) -> float:
+    return max(_VRAM_HEADROOM_GB, _VRAM_HEADROOM_FRAC * total_gb)
 
 
 def _interp(x: float, points) -> float:
@@ -169,34 +179,62 @@ def estimate_peak_vram_gb(megapixels: float, frames: int, low_vram: bool) -> flo
     return _interp(frames, zip(chunks, per_chunk))
 
 
-def select_vram_profile(shape_hw, num_frames: int, budget_gb: float):
+def select_vram_profile(shape_hw, num_frames: int, budget_gb: float,
+                        headroom_gb: float, ceiling_gb: float | None = None):
     """Largest Hann window that fits `budget_gb`, as (chunk, stride, low_vram, estimate).
 
     Bigger windows give better temporal consistency, and low-VRAM mode is
     exact, so a larger low-VRAM window is preferred over a smaller normal one.
-    Falls back to a single-frame window when nothing is estimated to fit.
+    Profiles estimated at `ceiling_gb` or more are skipped. Falls back to a
+    single-frame window when nothing is estimated to fit.
     """
+
     megapixels = shape_hw[0] * shape_hw[1] / 1e6
+    estimate = 0.0
     for chunk in reversed(_VRAM_PEAK_GB[True][0]):
         for low_vram in (False, True):
             if chunk not in _VRAM_PEAK_GB[low_vram][0]:
                 continue
             estimate = estimate_peak_vram_gb(megapixels, min(chunk, num_frames), low_vram)
-            if estimate * _VRAM_MARGIN_SCALE + _VRAM_MARGIN_GB <= budget_gb:
+            if ceiling_gb is not None and estimate >= ceiling_gb:
+                continue
+            if estimate * _VRAM_MARGIN_SCALE + headroom_gb <= budget_gb:
                 return chunk, max(1, chunk // 2), low_vram, estimate
     return 1, 1, True, estimate
 
 
+def _read_vram_budget_gb() -> tuple[float, float]:
+    """(budget, total) in GiB; budget is free memory plus what this process holds.
+
+    Reads twice a second apart and keeps the lower value, since another process
+    may still be releasing memory at startup.
+    """
+    gc.collect()
+    torch.cuda.empty_cache()
+    readings = []
+    for i in range(2):
+        if i:
+            time.sleep(1.0)
+        free_bytes, total_bytes = torch.cuda.mem_get_info()
+        readings.append((free_bytes + torch.cuda.memory_reserved()) / 2**30)
+    if max(readings) - min(readings) > 1.0:
+        print(f"  [WARNING] GPU free memory is changing ({readings[0]:.1f} -> "
+              f"{readings[1]:.1f} GB); another process is using this GPU.")
+    return min(readings), total_bytes / 2**30
+
+
 def apply_auto_vram(cfg: InferenceConfig, shape_hw, num_frames: int) -> None:
-    free_bytes, _ = torch.cuda.mem_get_info()
-    # Memory this process already holds (the loaded model) is part of the budget.
-    budget_gb = (free_bytes + torch.cuda.memory_reserved()) / 2**30
-    chunk, stride, low_vram, estimate = select_vram_profile(shape_hw, num_frames, budget_gb)
+    budget_gb, total_gb = _read_vram_budget_gb()
+    headroom_gb = _vram_headroom_gb(total_gb)
+    chunk, stride, low_vram, estimate = select_vram_profile(
+        shape_hw, num_frames, budget_gb, headroom_gb, cfg.vram_ceiling_gb)
     cfg.hann_chunk, cfg.hann_stride, cfg.low_vram = chunk, stride, low_vram
+    cfg.vram_estimate_gb = estimate
+    margin_gb = budget_gb - (estimate * _VRAM_MARGIN_SCALE + headroom_gb)
     print(f"  Auto VRAM: {budget_gb:.1f} GB available at {shape_hw[1]}x{shape_hw[0]} -> "
           f"hann_chunk={chunk}, hann_stride={stride}, low_vram={low_vram} "
-          f"(estimated peak {estimate:.1f} GB)")
-    if estimate * _VRAM_MARGIN_SCALE + _VRAM_MARGIN_GB > budget_gb:
+          f"(estimated peak {estimate:.1f} GB, margin {margin_gb:+.1f} GB)")
+    if margin_gb < 0:
         print("  [WARNING] Even a single-frame window may not fit this GPU at this "
               "resolution. Inference may run out of memory.")
 
@@ -235,7 +273,34 @@ def load_runtime_checkpoint(path: Path) -> dict:
     return torch.load(path, map_location="cpu", weights_only=False, mmap=True)
 
 
-def load_model(paths: RuntimePaths, device: str = "cuda") -> CorridorKeyV3:
+_BF16_WEIGHT_MODULES = (
+    nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d,
+    nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d,
+)
+
+
+def bf16_storage(module: nn.Module) -> bool:
+    """Whether ``load_model`` stores ``module``'s weights in bf16. Depthwise convs stay f32: ck's kernels use their
+    exact weights (autocast rounds them for torch anyway)."""
+    return isinstance(module, _BF16_WEIGHT_MODULES) and getattr(module, "groups", 1) == 1
+
+
+@contextlib.contextmanager
+def _no_random_init() -> Iterator[None]:
+    """Every weight comes from a checkpoint, so torch's random initialisers are wasted work while building."""
+    names = ("uniform_", "normal_", "trunc_normal_", "kaiming_uniform_", "kaiming_normal_",
+             "xavier_uniform_", "xavier_normal_")
+    saved = {n: getattr(nn.init, n) for n in names}
+    for n in names:
+        setattr(nn.init, n, lambda t, *_, **__: t)
+    try:
+        yield
+    finally:
+        for n, f in saved.items():
+            setattr(nn.init, n, f)
+
+
+def load_model(paths: RuntimePaths, device: str = "cuda", bf16_weights: bool = True) -> CorridorKeyV3:
     paths.validate()
     prepare_runtime_environment(paths)
     ckpt = load_runtime_checkpoint(paths.weights)
@@ -251,7 +316,8 @@ def load_model(paths: RuntimePaths, device: str = "cuda") -> CorridorKeyV3:
     cfg["stage1_recurrent_64_sites"] = ()
 
     print(f"Loading CorridorKey v2 runtime weights: {paths.weights}")
-    model = CorridorKeyV3(**cfg)
+    with _no_random_init():
+        model = CorridorKeyV3(**cfg)
     missing, unexpected = model.load_state_dict(ckpt["state_dict"], strict=False)
     train_missing = [k for k in missing if not k.startswith("foundations.")]
     train_unexpected = [k for k in unexpected if not k.startswith("foundations.")]
@@ -261,6 +327,14 @@ def load_model(paths: RuntimePaths, device: str = "cuda") -> CorridorKeyV3:
             f"missing={train_missing[:8]} unexpected={train_unexpected[:8]}")
     print(f"  loaded weights; omitted frozen foundation tensors={len(missing)}")
     model.eval()
+    model.requires_grad_(False)
+
+    for module in model.modules():
+        if bf16_weights and bf16_storage(module):
+            for p in module.parameters(recurse=False):
+                p.data = p.data.to(torch.bfloat16)
+    if patched := ptx.enable(model):
+        print(f"  ck kernels: {patched} modules")
     del ckpt
     return model
 
@@ -311,10 +385,12 @@ def precompute_rvm_to_memmap(model, source, meta, rvm_path: Path,
     h_e, w_e = H_e // 16, W_e // 16
     print(f"    RVM continuous prepass: T={T_all}, chunk={chunk}, "
           f"input={W_e}x{H_e}, grid={w_e}x{h_e}")
+
     out = np.memmap(rvm_path, dtype=np.float16, mode="w+",
                     shape=(T_all, D, h_e, w_e))
     mean = model.foundations.rvm_mean.view(1, 1, -1, 1, 1).float().cpu()
     std = model.foundations.rvm_std.view(1, 1, -1, 1, 1).float().cpu().clamp(min=1e-6)
+
     if reader_kind == "video":
         chunks = iter_video_frame_chunks(str(source), meta, chunk_size=chunk, need_model=False)
     else:
@@ -329,6 +405,7 @@ def precompute_rvm_to_memmap(model, source, meta, rvm_path: Path,
             future = pool.submit(_next_or_none, chunks)
             t0, _model, display = item
             Tc = display.shape[0]
+
             rgb = display.unsqueeze(0).to(device, non_blocking=True).float()
             rgb_rvm = F.interpolate(
                 rgb.reshape(Tc, 3, H, W), size=(H_e, W_e),
@@ -355,6 +432,7 @@ def precompute_foundations_to_memmap(model, source, meta, prefix: Path,
     C_moge = int(getattr(model.stage1, "moge_dim", 0) or 0)
     if C_moge <= 0:
         raise RuntimeError("MoGe is required for this model")
+
     paths = {
         "moge": str(prefix) + "_moge.f32",
         "moge_shape": (T_all, C_moge, h64, w64),
@@ -367,7 +445,9 @@ def precompute_foundations_to_memmap(model, source, meta, prefix: Path,
         paths["cradio_shape"] = (T_all, C_cradio, h64, w64)
         cradio_out = np.memmap(paths["cradio"], dtype=np.float32, mode="w+",
                                shape=paths["cradio_shape"])
+
     print(f"    frozen VFM prepass: T={T_all}, grid={w64}x{h64}, chunk={chunk}")
+
     if reader_kind == "video":
         chunks = iter_video_frame_chunks(str(source), meta, chunk_size=chunk, need_model=False)
     else:
@@ -381,6 +461,7 @@ def precompute_foundations_to_memmap(model, source, meta, prefix: Path,
             future = pool.submit(_next_or_none, chunks)
             t0, _model, display = item
             Tc = display.shape[0]
+
             rgb = display.unsqueeze(0).to(device, non_blocking=True)
             rgb_radio, rgb_moge = _build_foundation_inputs(rgb)
             with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -388,6 +469,7 @@ def precompute_foundations_to_memmap(model, source, meta, prefix: Path,
                     rgb_cradio=rgb_radio.reshape(Tc, 3, *rgb_radio.shape[-2:]),
                     rgb_moge=rgb_moge.reshape(Tc, 3, *rgb_moge.shape[-2:]),
                 )
+
             moge_out[t0:t0 + Tc] = ff["moge"].float().cpu().numpy()
             if cradio_out is not None:
                 cradio_out[t0:t0 + Tc] = ff["cradio"].float().cpu().numpy()
@@ -403,7 +485,6 @@ def precompute_foundations_to_memmap(model, source, meta, prefix: Path,
 
 def _phase1_setup(model, *, stage1_on_gpu: bool = True):
     model.foundations.cuda()
-    # Low-VRAM mode precomputes foundation features first, so stage 1 waits on CPU.
     if stage1_on_gpu:
         model.stage1.cuda()
     else:
@@ -424,6 +505,7 @@ def _phase2_setup(model):
 def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
                        chunk: int, stride: int, baton_path: Path,
                        initial_hint, initial_hint_quality: float,
+
                        full_hint_video_path: str | None,
                        full_hint_quality: float,
                        rvm_path: Path | None,
@@ -432,13 +514,15 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
                        carry_hint_quality: float,
                        on_baton_frames):
     device = next(model.stage1.parameters()).device
+
     T_all = int(meta["num_frames"])
     H, W = meta["shape_hw"]
     d_16 = model.stage1.d_16
     h16, w16 = H // 16, W // 16
     starts = window_starts(T_all, chunk, stride)
     overlap = max(0, chunk - stride)
-    baton_fp16 = None
+
+    baton_fp16: np.memmap | None = None
     if on_baton_frames is None:
         baton_fp16 = np.memmap(baton_path, dtype=np.float16, mode="w+",
                                shape=(T_all, d_16, h16, w16))
@@ -469,8 +553,8 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
         ready = []
         for k in sorted(k for k in live_acc if k < t_limit):
             frame = (live_acc.pop(k) / max(live_w.pop(k), 1e-6)).astype(np.float16)
-            if on_baton_frames is None:
-                baton_fp16[k] = frame
+            if (mm := baton_fp16) is not None:
+                mm[k] = frame
             else:
                 model_frame = stage2_frame_cache.pop(k)
                 ready.append((k, frame, model_frame))
@@ -482,6 +566,7 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
             t1 = min(t0 + chunk, T_all)
             Tc = t1 - t0
             model_chunk, display_chunk, review_chunk = reader.window(t0, t1)
+
             hint_cpu = torch.zeros(1, Tc, 1, H, W, dtype=torch.bfloat16)
             hint_quality_cpu = torch.zeros(1, Tc, dtype=torch.bfloat16)
             hint_present = torch.zeros(1, Tc, dtype=torch.bool)
@@ -494,6 +579,7 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
                     hint_cpu[0, j] = carry_cache[t_abs]
                     hint_quality_cpu[0, j] = float(carry_hint_quality)
                     hint_present[0, j] = True
+
             if initial_hint is not None and t0 == 0:
                 hint_cpu[0, 0] = initial_hint.to(dtype=hint_cpu.dtype)
                 hint_quality_cpu[0, 0] = float(initial_hint_quality)
@@ -508,6 +594,7 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
             rgb_c = model_chunk.unsqueeze(0).to(device, non_blocking=True)
             hint_c = hint_cpu.to(device, non_blocking=True)
             hint_quality_c = hint_quality_cpu.to(device, non_blocking=True)
+
             ff = rgb_radio = rgb_moge = None
             if foundation_paths is None:
                 rgb_found = display_chunk.unsqueeze(0).to(device, non_blocking=True)
@@ -520,20 +607,25 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
                 cradio_feat = ff["cradio"].reshape(1, Tc, -1, H // 64, W // 64)
                 moge_feat = ff["moge"].reshape(1, Tc, -1, H // 64, W // 64)
             else:
+                assert moge_map is not None, "moge features were not precomputed"
                 moge_feat = torch.from_numpy(np.asarray(moge_map[t0:t1]).copy())
                 moge_feat = moge_feat.unsqueeze(0).to(device, non_blocking=True).float()
+
+                assert cradio_map is not None, "cradio features were not precomputed"
                 cradio_feat = torch.from_numpy(np.asarray(cradio_map[t0:t1]).copy())
                 cradio_feat = cradio_feat.unsqueeze(0).to(device, non_blocking=True).float()
             rvm_feat = None
             if rvm_map is not None:
                 rvm_feat = torch.from_numpy(np.asarray(rvm_map[t0:t1]).copy())
                 rvm_feat = rvm_feat.unsqueeze(0).to(device, non_blocking=True).float()
+
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 s1 = model.stage1(
                     rgb_c, hint_c, moge_feat, cradio_feat=cradio_feat,
                     rvm_feat=rvm_feat, t_stride=1.0,
                     hint_quality=hint_quality_c,
                 )
+
             baton_gpu = s1["baton"][0].float()
             if carry_hint_from_aux:
                 aux_alpha = s1["aux"][0, :, 0:1].float()
@@ -547,11 +639,13 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
                 for old_t in [k for k in carry_cache if k < next_start]:
                     del carry_cache[old_t]
                 del aux_alpha, aux_full, aux_cpu
+
             w = taper_weights(Tc, overlap, is_first=(i == 0),
                               is_last=(i == len(starts) - 1),
                               device="cpu", dtype=torch.float32)
             weighted = (baton_gpu * w.to(device).view(Tc, 1, 1, 1)).to("cpu").numpy()
             w_np = w.numpy()
+
             for j, t_abs in enumerate(range(t0, t1)):
                 if t_abs not in live_acc:
                     live_acc[t_abs] = weighted[j].copy()
@@ -563,6 +657,7 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
             del s1, baton_gpu, weighted, ff, cradio_feat, moge_feat, rvm_feat
             del rgb_c, hint_c, hint_quality_c, hint_cpu, hint_quality_cpu
             del model_chunk, display_chunk, review_chunk
+
             flush_before(next_start)
             print(f"      window {i + 1}/{len(starts)} [{t0}:{t1}]", flush=True)
         torch.cuda.synchronize()
@@ -574,7 +669,6 @@ def hann_stage1_stream(model, source, meta, *, reader_cls, reader_kind: str,
 
     if baton_fp16 is not None:
         baton_fp16.flush()
-    del baton_fp16, live_acc, live_w, rvm_map, cradio_map, moge_map
     torch.cuda.empty_cache()
 
 
@@ -614,18 +708,17 @@ def _despill_average_srgb_torch(fg: torch.Tensor, strength: float = 0.5) -> torc
     return fg * (1.0 - strength) + full * strength
 
 
+def _to_uint16(x: torch.Tensor) -> torch.Tensor:
+    return (x.clamp(0.0, 1.0) * 65535.0).to(torch.uint16)
+
+
 def _srgb_to_bgr_uint16_cpu(x: torch.Tensor) -> np.ndarray:
-    x = x.clamp(0.0, 1.0)
-    x = x[:, [2, 1, 0]].permute(0, 2, 3, 1).contiguous().cpu().numpy()
-    return (x * 65535.0).astype(np.uint16)
+    return _to_uint16(x[:, [2, 1, 0]]).permute(0, 2, 3, 1).contiguous().cpu().numpy()
 
 
 def _srgb_to_bgra_uint16_cpu(rgb: torch.Tensor, alpha: torch.Tensor) -> np.ndarray:
-    rgb = rgb.clamp(0.0, 1.0)
-    alpha = alpha.clamp(0.0, 1.0)
-    bgra = torch.cat([rgb[:, [2, 1, 0]], alpha], dim=1)
-    bgra = bgra.permute(0, 2, 3, 1).contiguous().cpu().numpy()
-    return (bgra * 65535.0).astype(np.uint16)
+    bgra = _to_uint16(torch.cat([rgb[:, [2, 1, 0]], alpha], dim=1))
+    return bgra.permute(0, 2, 3, 1).contiguous().cpu().numpy()
 
 
 def _chw_to_bgr_f32_cpu(x: torch.Tensor) -> np.ndarray:
@@ -672,6 +765,7 @@ def _render_predictions_exr_torch(meta: dict, outputs: set[str],
         pf_linear_despilled = _despill_average_srgb_torch(
             pf_linear, strength=despill_strength)
         rendered["cutout"] = _chw_to_bgra_f32_cpu(pf_linear_despilled, pa)
+
     if "checker" in outputs:
         checker_b = checker.to(device=pf_linear.device,
                                dtype=pf_linear.dtype).unsqueeze(0)
@@ -707,6 +801,7 @@ def _render_predictions_torch(meta: dict, outputs: set[str],
     pf_linear = _linear_adjust_inverse_torch(cu.asinh_to_linear(pf_model), meta)
     pf_linear_pos = pf_linear.clamp(min=0.0)
     pf = _resize_output_torch(cu.linear_to_srgb(pf_linear_pos), meta).clamp(0.0, 1.0)
+
     if "fg" in outputs:
         rendered["fg"] = _srgb_to_bgr_uint16_cpu(pf)
     if "cutout" in outputs:
@@ -717,6 +812,7 @@ def _render_predictions_torch(meta: dict, outputs: set[str],
         else:
             pf_despill = _despill_average_srgb_torch(pf, strength=despill_strength)
             rendered["cutout"] = _srgb_to_bgra_uint16_cpu(pf_despill, pa)
+
     if "checker" in outputs:
         checker_b = checker.to(device=pf.device, dtype=pf.dtype).unsqueeze(0)
         bg_lin = cu.srgb_to_linear(checker_b)
@@ -731,8 +827,25 @@ def _render_predictions_torch(meta: dict, outputs: set[str],
 
 
 def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
-                  writer_cfg: WriterConfig, *, initial_hint_path: str | None,
-                  hint_video_path: str | None):
+                  writer_cfg: WriterConfig, **kwargs):
+    """Run inference; with cfg.auto_vram, an OOM restarts the clip with a cheaper profile."""
+    while True:
+        try:
+            return _run_inference_once(
+                model, input_path, output_dir, cfg, writer_cfg, **kwargs)
+        except torch.OutOfMemoryError:
+            if not cfg.auto_vram or (cfg.hann_chunk, cfg.low_vram) == (1, True):
+                raise
+            cfg.vram_ceiling_gb = cfg.vram_estimate_gb
+            print(f"  [AUTO VRAM] Out of memory at hann_chunk={cfg.hann_chunk}, "
+                  f"low_vram={cfg.low_vram}; retrying with a smaller profile.")
+        gc.collect()
+        torch.cuda.empty_cache()
+
+
+def _run_inference_once(model, input_path: str, output_dir: str, cfg: InferenceConfig,
+                        writer_cfg: WriterConfig, *, initial_hint_path: str | None,
+                        hint_video_path: str | None):
     input_path = str(input_path)
     output_dir = str(output_dir)
     cfg.temp_dir.mkdir(parents=True, exist_ok=True)
@@ -740,6 +853,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
     is_dir = os.path.isdir(input_path)
     reader_kind = "frame_dir" if is_dir else "video"
     reader_cls = SequentialFrameDirWindowReader if is_dir else SequentialVideoWindowReader
+
     if is_dir:
         meta = probe_frame_dir_meta(
             input_path, num_frames=cfg.num_frames,
@@ -751,6 +865,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
             print("  [WARNING] EXR input frames are being treated as "
                   "display-coded and clipped to [0, 1]. For scene-linear HDR "
                   "EXR plates, pass --frame_dir_linear.")
+
     else:
         meta = probe_video_meta(
             input_path, num_frames=cfg.num_frames,
@@ -760,6 +875,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
             linear_brightness=cfg.linear_brightness,
             linear_contrast=cfg.linear_contrast,
             linear_contrast_pivot=cfg.linear_contrast_pivot)
+
     T_all = int(meta["num_frames"])
     H, W = meta["shape_hw"]
     if cfg.auto_vram:
@@ -767,6 +883,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
     H_out, W_out = meta["output_hw"]
     meta["cutout_linear"] = cfg.cutout_linear
     meta["despill_strength"] = cfg.despill_strength
+
     fps = float(meta["native_fps"])
     clip_name = raw_clip_name(input_path)
     checker = make_checker(H_out, W_out)
@@ -778,6 +895,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
         "checker": f"checker_comp_despill{int(cfg.despill_strength * 100):03d}",
         "cutout": "cutout",
     }
+
     try:
         use_exr = cfg.output_format == "exr"
         if cfg.output_format not in ("video", "exr"):
@@ -785,6 +903,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
         for name in sorted(cfg.outputs):
             if name not in suffix:
                 raise ValueError(f"unsupported output choice: {name}")
+
             if use_exr:
                 channels = 4 if name == "cutout" else (1 if name == "alpha" else 3)
                 writers[name] = ExrSequenceWriter(
@@ -799,12 +918,12 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
                     os.path.join(output_dir, f"{clip_name}_{suffix[name]}{ext}"),
                     fps, (W_out, H_out), writer_cfg, channels=channels, color_trc=color_trc)
 
-        # Write settings log file in the output folder
         settings_path = os.path.join(output_dir, f"{clip_name}_settings.txt")
+
         try:
             with open(settings_path, "w") as sf:
-                sf.write(f"CorridorKey v2 Inference Settings Log\n")
-                sf.write(f"====================================\n")
+                sf.write("CorridorKey v2 Inference Settings Log\n")
+                sf.write("====================================\n")
                 sf.write(f"Input: {input_path}\n")
                 sf.write(f"Output Directory: {output_dir}\n")
                 sf.write(f"Resolution: {W_out}x{H_out}\n")
@@ -816,6 +935,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
                 sf.write(f"Hint First Frame: {initial_hint_path}\n")
                 sf.write(f"Hint Video: {hint_video_path}\n")
                 sf.write(f"Hint Quality (Trust): {cfg.hint_quality}\n")
+
                 sf.write(f"Carry Hint: {cfg.carry_hint}\n")
                 sf.write(f"Carry Hint Quality: {cfg.carry_hint_quality}\n")
                 sf.write(f"Despill Strength: {cfg.despill_strength}\n")
@@ -824,6 +944,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
                 sf.write(f"Hann Chunk: {cfg.hann_chunk}\n")
                 sf.write(f"Hann Stride: {cfg.hann_stride}\n")
                 sf.write(f"Low VRAM: {cfg.low_vram}\n")
+
                 sf.write(f"Model Scale: {cfg.model_scale}\n")
                 sf.write(f"Num Frames: {cfg.num_frames}\n")
                 sf.write(f"Start Mode: {cfg.start_mode}\n")
@@ -834,13 +955,14 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
         except Exception as e:
             print(f"[WARNING] Failed to write settings file: {e}")
 
+        hint_in = none_path(initial_hint_path)
         initial_hint = (
-            load_initial_hint_frame(initial_hint_path, meta)
-            if none_path(initial_hint_path) is not None else None
+            load_initial_hint_frame(hint_in, meta) if hint_in is not None else None
         )
         _phase1_setup(model, stage1_on_gpu=not cfg.low_vram)
         if cfg.low_vram:
             configure_low_vram_inference(model, cfg)
+
         rvm_path = cfg.temp_dir / f"{clip_name}_rvm_feat.f16"
         baton_path = cfg.temp_dir / f"{clip_name}_baton.f16"
         foundation_prefix = cfg.temp_dir / f"{clip_name}_foundation"
@@ -849,6 +971,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
             Path(str(foundation_prefix) + "_moge.f32"),
         ):
             safe_remove(p)
+
         if model.foundations.rvm is not None:
             precompute_rvm_to_memmap(
                 model, input_path, meta, rvm_path,
@@ -857,6 +980,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
             rvm_feat_path = rvm_path
         else:
             rvm_feat_path = None
+
         foundation_paths = None
         if cfg.low_vram:
             foundation_paths = precompute_foundations_to_memmap(
@@ -883,6 +1007,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
                 baton_np = np.stack([item[1] for item in sub], axis=0)
                 baton_t = torch.from_numpy(baton_np).unsqueeze(0)
                 baton_t = baton_t.to(device, non_blocking=True).float()
+
                 with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
                     logits = model.stage2(rgb_t, baton_t)
                     if isinstance(logits, tuple):
@@ -911,6 +1036,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
             baton = np.memmap(
                 baton_path, dtype=np.float16, mode="r",
                 shape=(T_all, model.stage1.d_16, H // 16, W // 16))
+
             reader = reader_cls(input_path, meta)
             try:
                 for t0 in range(0, T_all, stage2_batch):
@@ -922,6 +1048,7 @@ def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
                     ]
                     write_prediction_batches(items)
                     del model_chunk, _display_chunk, _review_chunk, items
+
             finally:
                 reader.close()
                 del baton
