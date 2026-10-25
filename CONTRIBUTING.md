@@ -49,3 +49,4 @@ It must pass with no warnings. Don't silence warnings with `#[allow]`; fix the c
 - [Kernels](docs/kernels.md) — changing and testing GPU kernels.
 - [Benchmarks](docs/benchmarks.md) — measuring speed.
 - [Profiling](docs/profiling.md) — finding where the time goes.
+- [Optimisations](docs/optimisations.md) — what makes it fast, and where.
