@@ -11,7 +11,7 @@ struct Tile {
     resident: [usize; 2],
     width: u32,
     bk: usize,
-    align: u32,
+    extra: u32,
 }
 
 const WIDE: Tile = Tile {
@@ -22,7 +22,7 @@ const WIDE: Tile = Tile {
     resident: [1, 1],
     width: 64,
     bk: 32,
-    align: 0,
+    extra: 0,
 };
 const SQUARE: Tile = Tile {
     name: "square",
@@ -32,7 +32,7 @@ const SQUARE: Tile = Tile {
     resident: [2, 2],
     width: 32,
     bk: 32,
-    align: 0,
+    extra: 0,
 };
 const THIN: Tile = Tile {
     name: "thin",
@@ -42,7 +42,7 @@ const THIN: Tile = Tile {
     resident: [2, 3],
     width: 16,
     bk: 32,
-    align: 0,
+    extra: 0,
 };
 const SMALL: Tile = Tile {
     name: "small",
@@ -52,7 +52,7 @@ const SMALL: Tile = Tile {
     resident: [2, 3],
     width: 32,
     bk: 32,
-    align: 0,
+    extra: 0,
 };
 const SIMT: Tile = Tile {
     name: "simt",
@@ -62,7 +62,7 @@ const SIMT: Tile = Tile {
     resident: [2, 2],
     width: 0,
     bk: 32,
-    align: 0,
+    extra: 0,
 };
 const HOPPER: Tile = Tile {
     name: "hopper",
@@ -72,7 +72,12 @@ const HOPPER: Tile = Tile {
     resident: [2, 2],
     width: 0,
     bk: 64,
-    align: 1024,
+    extra: 1024,
+};
+const BLACKWELL: Tile = Tile {
+    name: "blackwell",
+    extra: 1024 + 32,
+    ..HOPPER
 };
 const ANY: usize = 64;
 const MIN_SPAN: usize = 256;
@@ -158,7 +163,7 @@ impl Gpu {
             }
             let shared = (t.stages[usize::from(self.sm >= 80)] * (t.bm + t.bn) as u32 * 2 * t.bk as u32)
                 .max(8 * 16 * (4 * t.width + 16))
-                + t.align;
+                + t.extra;
             let parts = (splits > 1)
                 .then(|| self.empty(&[splits, rows, n], Dtype::F32))
                 .transpose()?;
@@ -255,6 +260,7 @@ impl Gpu {
             () if self.sm < 70 => SIMT,
             () if n <= THIN.bn => THIN,
             () if self.sm == 90 => HOPPER,
+            () if self.sm == 100 => BLACKWELL,
             () if self.sm >= 80
                 || (wide < 2 * self.sms && k < 8192 && wide.next_multiple_of(self.sms) * 9 > wide * 10) =>
             {
