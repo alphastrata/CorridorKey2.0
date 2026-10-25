@@ -7,33 +7,41 @@ struct Tile {
     name: &'static str,
     bm: usize,
     bn: usize,
-    stages: u32,
-    resident: usize,
+    stages: [u32; 2],
+    resident: [usize; 2],
     width: u32,
 }
 
+const WIDE: Tile = Tile {
+    name: "wide",
+    bm: 256,
+    bn: 128,
+    stages: [2, 4],
+    resident: [1, 1],
+    width: 64,
+};
 const SQUARE: Tile = Tile {
     name: "square",
     bm: 128,
     bn: 128,
-    stages: 3,
-    resident: 2,
+    stages: [2, 3],
+    resident: [2, 2],
     width: 32,
 };
 const THIN: Tile = Tile {
     name: "thin",
     bm: 128,
     bn: 16,
-    stages: 4,
-    resident: 3,
+    stages: [2, 4],
+    resident: [2, 3],
     width: 16,
 };
 const SMALL: Tile = Tile {
     name: "small",
     bm: 64,
     bn: 64,
-    stages: 4,
-    resident: 3,
+    stages: [2, 4],
+    resident: [2, 3],
     width: 32,
 };
 const ANY: usize = 64;
@@ -102,7 +110,7 @@ impl Gpu {
             off.into(),
         ];
         let lanes = 16 / y.dtype.size();
-        if x.dtype == Dtype::Bf16 && w.dtype == Dtype::Bf16 && k % 8 == 0 && ld % lanes == 0 && off % lanes == 0 {
+        if x.dtype == Dtype::Bf16 && w.dtype == self.half() && k % 8 == 0 && ld % lanes == 0 && off % lanes == 0 {
             let (t, tiles, splits, span) = self.plan(rows, n, k, tail);
             if let Some(head) = self.head(t, tiles, splits, n, k) {
                 let (x, y) = (x.reshape(&[rows, k])?, y.reshape(&[rows, ld])?);
@@ -120,7 +128,7 @@ impl Gpu {
                 return part(head, rows - head, true);
             }
             let shared =
-                (t.stages * (t.bm + t.bn) as u32 * 64).max(8 * 16 * (4 * t.width + 16));
+                (t.stages[usize::from(self.sm >= 80)] * (t.bm + t.bn) as u32 * 64).max(8 * 16 * (4 * t.width + 16));
             let parts = (splits > 1)
                 .then(|| self.empty(&[splits, rows, n], Dtype::F32))
                 .transpose()?;
@@ -172,7 +180,7 @@ impl Gpu {
 
     fn plan(&self, rows: usize, n: usize, k: usize, tail: bool) -> (Tile, usize, usize, usize) {
         let tiles = |t: Tile| rows.div_ceil(t.bm) * n.div_ceil(t.bn);
-        let t = Self::tile(n);
+        let t = self.tile(rows, n, k);
         if tail {
             let span = k.div_ceil(TAIL).next_multiple_of(BK);
             return (t, tiles(t), k.div_ceil(span), span);
@@ -190,7 +198,7 @@ impl Gpu {
     }
 
     fn slots(&self, t: Tile) -> usize {
-        self.sms * t.resident
+        self.sms * t.resident[usize::from(self.sm >= 80)]
     }
 
     fn split(&self, t: Tile, tiles: usize, k: usize) -> (usize, usize) {
@@ -211,7 +219,16 @@ impl Gpu {
             .map_or((1, k), |((_, span), _)| (k.div_ceil(span), span))
     }
 
-    fn tile(n: usize) -> Tile {
-        if n <= THIN.bn { THIN } else { SQUARE }
+    fn tile(&self, rows: usize, n: usize, k: usize) -> Tile {
+        let wide = rows.div_ceil(WIDE.bm) * n.div_ceil(WIDE.bn);
+        match () {
+            () if n <= THIN.bn => THIN,
+            () if self.sm >= 80
+                || (wide < 2 * self.sms && k < 8192 && wide.next_multiple_of(self.sms) * 9 > wide * 10) =>
+            {
+                SQUARE
+            }
+            () => WIDE,
+        }
     }
 }

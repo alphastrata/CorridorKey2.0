@@ -29,6 +29,7 @@ fn loader<'a>(gpu: &'a Gpu, weights: &'a Weights, prefix: &'a str) -> Loader<'a>
         gpu,
         weights,
         prefix,
+        half: gpu.half(),
     }
 }
 
