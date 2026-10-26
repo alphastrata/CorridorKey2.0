@@ -36,3 +36,11 @@ kprof name *args:
 [no-cd, positional-arguments]
 run *args:
     @cargo run -q --release --manifest-path {{justfile_directory()}}/launcher/Cargo.toml -p ck -- "$@"
+
+[no-cd, positional-arguments]
+gui *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    clips=()
+    for a in "$@"; do clips+=("$(realpath "$a")"); done
+    cd {{justfile_directory()}} && uv run --group gui python -m gui ${clips[@]+"${clips[@]}"}
