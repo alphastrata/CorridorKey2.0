@@ -1,5 +1,5 @@
-"""Python with stock and with our kernels and, where the launcher exists, ck on the sample clip per tier and GPU (and all GPUs
-together): one csv, one table.
+"""Upstream at ``STOCK``, our Python with our kernels and, where the launcher exists, ck on the sample clip
+per tier and GPU (and all GPUs together): one csv, one table.
 
 uv run python bench/fps.py [--frames 50] [--tiers 720 1080 2160]
 """
@@ -10,6 +10,7 @@ import argparse
 import csv
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -31,6 +32,7 @@ ROOT = Path(
     ).stdout.strip()
 )
 OUT = BENCH / "results" / "bench"
+STOCK = "485f5e9"
 COLUMNS = [
     "gpu",
     "tier",
@@ -40,7 +42,7 @@ COLUMNS = [
     "wall_s",
     "fps",
     "ms_frame",
-    "x_python",
+    "x_stock",
 ]
 COLUMNS += ["vram_gib", "util_pct", "power_w", "j_frame", "rss_gib"]
 SMI = ["nvidia-smi", "--format=csv,noheader,nounits"]
@@ -142,6 +144,22 @@ def run(
     return rc, wall, meter
 
 
+def stock_tree() -> Path:
+    tree = OUT / f"stock-{STOCK}"
+    if not (tree / "infer.py").exists():
+        tree.mkdir(parents=True, exist_ok=True)
+        archive = subprocess.run(
+            ["git", "-C", str(ROOT), "archive", STOCK], capture_output=True, check=True
+        )
+        subprocess.run(["tar", "-x", "-C", str(tree)], input=archive.stdout, check=True)
+    for d in ("weights", "vfms"):
+        link = tree / d
+        if not link.is_symlink():
+            shutil.rmtree(link, ignore_errors=True)
+            link.symlink_to(ROOT / d)
+    return tree
+
+
 def ck_binary() -> Path:
     manifest = ROOT / "launcher" / "Cargo.toml"
     subprocess.run(
@@ -183,6 +201,7 @@ def main() -> None:
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     fetch(a.frames)
     ck = ck_binary() if (ROOT / "launcher").is_dir() else None
+    stock = stock_tree() / "infer.py"
     for sub in ("logs", "out"):
         (OUT / sub).mkdir(parents=True, exist_ok=True)
     names = {i: n.removeprefix("NVIDIA ") for i, n in smi("index,name")}
@@ -199,7 +218,7 @@ def main() -> None:
         tag = f"{gpus.replace(',', '+')}_{t}p_{launcher}"
         label = " + ".join(names[g] for g in gpus.split(","))
         rc, wall, meter = run(gpus, label, cmd, OUT / "logs" / f"{tag}.log", env or {})
-        if launcher == "python":
+        if launcher == "stock":
             base[gpus + str(t)] = wall
         ok, ref = rc == 0, base.get(gpus + str(t))
         vram, util, watts, joules = meter.stats()
@@ -213,7 +232,7 @@ def main() -> None:
                 "wall_s": f"{wall:.1f}",
                 "fps": f"{a.frames / wall:.2f}" if ok else "",
                 "ms_frame": f"{1000 * wall / a.frames:.0f}" if ok else "",
-                "x_python": f"{ref / wall:.2f}" if ok and ref else "",
+                "x_stock": f"{ref / wall:.2f}" if ok and ref else "",
                 "vram_gib": f"{vram:.2f}",
                 "util_pct": f"{util:.0f}",
                 "power_w": f"{watts:.0f}",
@@ -248,7 +267,10 @@ def main() -> None:
 
     for t in a.tiers:
         for g in sorted(names, key=int):
-            for launcher, ptx in (("python", "0"), ("python-ptx", "1")):
+            for launcher, script, ptx in (
+                ("stock", stock, "0"),
+                ("python-ptx", ROOT / "infer.py", "1"),
+            ):
                 out = OUT / "out" / f"{g}_{t}p_{launcher}"
                 record(
                     g,
@@ -256,7 +278,7 @@ def main() -> None:
                     launcher,
                     [
                         sys.executable,
-                        "infer.py",
+                        str(script),
                         "--input",
                         str(tier(t)),
                         "--output_dir",
