@@ -118,3 +118,5 @@ hopper! {
     gemm_hopper_bf16_bias, false, BIAS;
     gemm_hopper_bf16_acc_bias, false, ACCUMULATE | BIAS;
 }
+
+stages!(STAGES_HOPPER = HOPPER);

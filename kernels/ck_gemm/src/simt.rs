@@ -100,3 +100,5 @@ pub fn simt<const F32: bool, const FLAGS: u32>((input, weight, bias, out): (u64,
         });
     });
 }
+
+stages!(STAGES_SIMT = SIMT);

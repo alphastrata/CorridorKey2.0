@@ -45,6 +45,7 @@ pub struct Gpu {
     pub sm: u32,
     modules: HashMap<String, Arc<CudaModule>>,
     functions: RefCell<HashMap<(String, String), CudaFunction>>,
+    tiles: RefCell<HashMap<&'static str, (u32, usize)>>,
     pub sms: usize,
     staging: RefCell<staging::Staging>,
     pub meter: Arc<Meter>,
@@ -95,6 +96,7 @@ impl Gpu {
             sm,
             modules,
             functions: RefCell::default(),
+            tiles: RefCell::default(),
             sms,
             staging: RefCell::default(),
             meter: Arc::default(),
@@ -118,6 +120,17 @@ impl Gpu {
         )?;
         self.functions.borrow_mut().insert(key, f.clone());
         Ok(f)
+    }
+
+    pub fn resident(&self, module: &str, name: &str, block: u32, shared: u32) -> Result<usize> {
+        let f = self.function(module, name, shared)?;
+        Ok(f.occupancy_max_active_blocks_per_multiprocessor(block, shared as usize, None)? as usize)
+    }
+
+    pub fn global_u32(&self, module: &str, name: &str) -> Result<u32> {
+        let m = self.modules.get(module).ok_or_eyre(format!("no PTX module {module}"))?;
+        let bytes = self.stream.clone_dtoh(&m.get_global(name, &self.stream).wrap_err_with(|| format!("{module}::{name}"))?)?;
+        Ok(u32::from_le_bytes(bytes.get(..4).ok_or_eyre(format!("{module}::{name} is not a u32"))?.try_into()?))
     }
 
     pub fn launch(

@@ -27,6 +27,10 @@
 	.param .b64 _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero_param_0
 )
 .noreturn;
+.visible .global .align 4 .b8 STAGES_SMALL[4] = {2};
+.visible .global .align 4 .b8 STAGES_SQUARE[4] = {2};
+.visible .global .align 4 .b8 STAGES_THIN[4] = {2};
+.visible .global .align 4 .b8 STAGES_WIDE[4] = {2};
                                         // @any_f32
 .visible .entry any_f32(
 	.param .u64 .ptr .align 1 any_f32_param_0,

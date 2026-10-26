@@ -278,3 +278,5 @@ entry!(gemm_thin_bf16, THIN, false, 0, true);
 entry!(gemm_thin_bf16_acc, THIN, false, ACCUMULATE, true);
 entry!(gemm_thin_bf16_bias, THIN, false, BIAS, true);
 entry!(gemm_thin_bf16_acc_bias, THIN, false, ACCUMULATE | BIAS, true);
+
+stages!(STAGES_WIDE = WIDE, STAGES_SQUARE = SQUARE, STAGES_THIN = THIN, STAGES_SMALL = SMALL);

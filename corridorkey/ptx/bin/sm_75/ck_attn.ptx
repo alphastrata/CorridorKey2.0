@@ -2356,7 +2356,7 @@ $L__BB0_84:
 	.param .f32 attn64_masked_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 1                                       // @attn64_masked
+.minnctapersm 1
 {
 	.reg .pred 	%p<130>;
 	.reg .b32 	%r<1426>;
@@ -5201,7 +5201,7 @@ $L__BB1_160:
 	.param .f32 attn80_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 1                                       // @attn80
+.minnctapersm 1
 {
 	.reg .pred 	%p<71>;
 	.reg .b16 	%rs<26>;
@@ -7981,7 +7981,7 @@ $L__BB2_100:
 	.param .f32 attn80_masked_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 1                                       // @attn80_masked
+.minnctapersm 1
 {
 	.reg .pred 	%p<139>;
 	.reg .b16 	%rs<26>;
@@ -11306,7 +11306,7 @@ $L__BB3_176:
 	.param .f32 attn96_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 1                                       // @attn96
+.minnctapersm 1
 {
 	.reg .pred 	%p<79>;
 	.reg .b16 	%rs<31>;
@@ -14495,7 +14495,7 @@ $L__BB4_116:
 	.param .f32 attn96_masked_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 1                                       // @attn96_masked
+.minnctapersm 1
 {
 	.reg .pred 	%p<147>;
 	.reg .b16 	%rs<31>;

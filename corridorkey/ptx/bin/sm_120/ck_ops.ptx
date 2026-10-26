@@ -252,7 +252,7 @@ $L__BB0_22:
 	.param .u32 act_bf16_bf16_param_5
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @act_bf16_bf16
+.minnctapersm 4
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<47>;
@@ -379,7 +379,7 @@ $L__BB1_11:
 	.param .u32 act_f32_param_5
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @act_f32
+.minnctapersm 4
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<42>;
@@ -503,7 +503,7 @@ $L__BB2_11:
 	.param .u32 add_bias_param_7
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @add_bias
+.minnctapersm 4
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<23>;
@@ -619,7 +619,7 @@ $L__BB3_11:
 	.param .u32 add_gated_param_11
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @add_gated
+.minnctapersm 4
 {
 	.reg .pred 	%p<10>;
 	.reg .b32 	%r<22>;
@@ -776,7 +776,7 @@ $L__BB4_19:
 	.param .u32 add_scaled_param_7
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @add_scaled
+.minnctapersm 4
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<11>;
@@ -872,7 +872,7 @@ $L__BB5_10:
 	.param .u32 axpy_param_5
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @axpy
+.minnctapersm 4
 {
 	.reg .pred 	%p<4>;
 	.reg .b32 	%r<7>;
@@ -941,7 +941,7 @@ $L__BB6_6:
 	.param .u32 bf16_f16_param_4
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @bf16_f16
+.minnctapersm 4
 {
 	.reg .pred 	%p<6>;
 	.reg .b16 	%rs<2>;
@@ -1022,7 +1022,7 @@ $L__BB7_6:
 	.param .u32 col2im_param_14
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @col2im
+.minnctapersm 4
 {
 	.reg .pred 	%p<37>;
 	.reg .b32 	%r<45>;
@@ -1463,7 +1463,7 @@ $L__BB8_74:
 	.param .u32 crop_param_10
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @crop
+.minnctapersm 4
 {
 	.reg .pred 	%p<9>;
 	.reg .b32 	%r<15>;
@@ -1604,7 +1604,7 @@ $L__BB9_19:
 	.param .u32 embed_param_11
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @embed
+.minnctapersm 4
 {
 	.reg .pred 	%p<13>;
 	.reg .b32 	%r<16>;
@@ -1786,7 +1786,7 @@ $L__BB10_28:
 	.param .u32 f32_bf16_param_7
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @f32_bf16
+.minnctapersm 4
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<13>;
@@ -1890,7 +1890,7 @@ $L__BB11_11:
 	.param .f32 gru_kv_param_10
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @gru_kv
+.minnctapersm 4
 {
 	.reg .pred 	%p<12>;
 	.reg .b32 	%r<57>;
@@ -2137,7 +2137,7 @@ $L__BB12_19:
 	.param .u32 gru_mix_param_9
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @gru_mix
+.minnctapersm 4
 {
 	.reg .pred 	%p<8>;
 	.reg .b32 	%r<20>;
@@ -2278,7 +2278,7 @@ $L__BB13_15:
 	.param .u32 heads_param_12
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @heads
+.minnctapersm 4
 {
 	.reg .pred 	%p<20>;
 	.reg .b16 	%rs<2>;
@@ -2524,7 +2524,7 @@ $L__BB14_30:
 	.param .u32 hint_param_11
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @hint
+.minnctapersm 4
 {
 	.reg .pred 	%p<13>;
 	.reg .b32 	%r<18>;
@@ -2687,7 +2687,7 @@ $L__BB15_19:
 	.param .u32 im2col_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @im2col
+.minnctapersm 4
 {
 	.reg .pred 	%p<66>;
 	.reg .b32 	%r<113>;
@@ -3496,7 +3496,7 @@ $L__BB16_139:
 	.param .f32 layer_norm_param_10
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @layer_norm
+.minnctapersm 4
 {
 	.reg .pred 	%p<12>;
 	.reg .b32 	%r<53>;
@@ -3730,7 +3730,7 @@ $L__BB17_19:
 	.param .f32 layer_norm_f32_param_10
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @layer_norm_f32
+.minnctapersm 4
 {
 	.reg .pred 	%p<12>;
 	.reg .b32 	%r<49>;
@@ -3968,7 +3968,7 @@ $L__BB18_19:
 	.param .u32 merge_param_20
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @merge
+.minnctapersm 4
 {
 	.reg .pred 	%p<28>;
 	.reg .b32 	%r<112>;
@@ -4418,7 +4418,7 @@ $L__BB19_57:
 	.param .u32 norm_mod_param_14
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @norm_mod
+.minnctapersm 4
 {
 	.reg .pred 	%p<12>;
 	.reg .b32 	%r<47>;
@@ -4641,7 +4641,7 @@ $L__BB20_21:
 	.param .f32 place_param_8
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @place
+.minnctapersm 4
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<11>;
@@ -4740,7 +4740,7 @@ $L__BB21_11:
 	.param .u32 planar_param_7
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @planar
+.minnctapersm 4
 {
 	.reg .pred 	%p<11>;
 	.reg .b16 	%rs<2>;
@@ -4895,7 +4895,7 @@ $L__BB22_21:
 	.param .f32 prep_param_16
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @prep
+.minnctapersm 4
 {
 	.reg .pred 	%p<18>;
 	.reg .b16 	%rs<2>;
@@ -5152,7 +5152,7 @@ $L__BB23_32:
 	.param .f32 prep_f32_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @prep_f32
+.minnctapersm 4
 {
 	.reg .pred 	%p<22>;
 	.reg .b32 	%r<61>;
@@ -5421,7 +5421,7 @@ $L__BB24_34:
 	.param .f32 render_param_16
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @render
+.minnctapersm 4
 {
 	.reg .pred 	%p<50>;
 	.reg .b16 	%rs<5>;
@@ -5970,7 +5970,7 @@ $L__BB25_69:
 	.param .f32 render_exr_param_16
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @render_exr
+.minnctapersm 4
 {
 	.reg .pred 	%p<41>;
 	.reg .b16 	%rs<6>;
@@ -6397,7 +6397,7 @@ $L__BB26_35:
 	.param .f32 resize_param_18
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @resize
+.minnctapersm 4
 {
 	.local .align 4 .b8 	__local_depot27[32];
 	.reg .b64 	%SP;
@@ -7570,7 +7570,7 @@ $L__BB27_129:
 	.param .u32 shuffle_param_8
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @shuffle
+.minnctapersm 4
 {
 	.reg .pred 	%p<17>;
 	.reg .b32 	%r<29>;
@@ -7824,7 +7824,7 @@ $L__BB28_39:
 	.param .u32 split_param_31
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @split
+.minnctapersm 4
 {
 	.reg .pred 	%p<68>;
 	.reg .b32 	%r<484>;
@@ -9037,7 +9037,7 @@ $L__BB29_29:
 	.param .u32 standardise_param_12
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @standardise
+.minnctapersm 4
 {
 	.reg .pred 	%p<12>;
 	.reg .b16 	%rs<2>;
@@ -9213,7 +9213,7 @@ $L__BB30_25:
 	.param .u32 to_bf16_param_4
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @to_bf16
+.minnctapersm 4
 {
 	.reg .pred 	%p<4>;
 	.reg .b32 	%r<8>;
@@ -9286,7 +9286,7 @@ $L__BB31_6:
 	.param .u32 to_nhwc_param_8
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @to_nhwc
+.minnctapersm 4
 {
 	.reg .pred 	%p<9>;
 	.reg .b32 	%r<15>;
@@ -9424,7 +9424,7 @@ $L__BB32_19:
 	.param .u32 unheads_param_9
 )
 .maxntid 256, 1, 1
-.minnctapersm 4                                       // @unheads
+.minnctapersm 4
 {
 	.reg .pred 	%p<24>;
 	.reg .b16 	%rs<2>;

@@ -7,9 +7,6 @@ use ptx::mem::{ld_global_cs_u32, ld_global_cs_u64, ld_global_cs_v4_u32, ld_globa
 use ptx::prelude::*;
 use ptx::sync::shared::{shared_window, shld_v4_f32, shst_f32};
 
-#[cfg(feature = "sm_61")]
-mod simt;
-
 const THREADS: usize = 256;
 
 #[derive(Clone, Copy, PartialEq, Eq, core::marker::ConstParamTy)]
@@ -186,6 +183,17 @@ macro_rules! entry {
     };
 }
 
+macro_rules! stages {
+    ($($name:ident = $tile:expr),*) => {
+        $(
+            #[unsafe(no_mangle)]
+            pub static $name: u32 = $tile.stages as u32;
+        )*
+    };
+}
+
+#[cfg(feature = "sm_61")]
+mod simt;
 #[cfg(not(feature = "sm_61"))]
 mod tensor;
 #[cfg(feature = "sm_90a")]

@@ -134,3 +134,5 @@ blackwell! {
     gemm_blackwell_bf16_bias, false, BIAS;
     gemm_blackwell_bf16_acc_bias, false, ACCUMULATE | BIAS;
 }
+
+stages!(STAGES_BLACKWELL = BLACKWELL);
