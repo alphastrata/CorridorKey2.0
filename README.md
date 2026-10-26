@@ -18,7 +18,7 @@ Any business or research inquiries for Zac can be directed to z.brooks.harris@gm
 
 ## Setup
 
-You need an NVIDIA GPU (RTX 20-series or newer; GTX 10-series with `ck` only)
+You need an NVIDIA GPU (GTX 10-series or newer; see [GTX 10-series](#gtx-10-series))
 with at least 4 GB of VRAM
 for footage up to 1440p, or 6 GB for 4K, and `ffmpeg` on your PATH. On smaller
 cards, see [Long Clips And Low VRAM](#long-clips-and-low-vram).
@@ -36,6 +36,18 @@ Elsewhere, install uv, then from the repository root:
 uv sync
 uv run python scripts/download_weights.py
 ```
+
+### GTX 10-series
+
+PyTorch's default CUDA 12.8 build has no Pascal kernels. Use its CUDA 12.6 build
+instead, and stop `uv run` from switching back:
+
+```
+uv sync --no-group cu128 --group pascal
+export UV_NO_SYNC=1
+```
+
+`scripts/dev-setup.sh` does this when it finds such a card.
 
 The commands below assume the environment is active (`source .venv/bin/activate`,
 or `.venv\Scripts\activate` on Windows); otherwise prefix them with `uv run`.

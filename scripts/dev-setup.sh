@@ -11,7 +11,14 @@ command -v uv > /dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 command -v cargo > /dev/null || curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
 export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH
 
-(cd "$R" && uv sync)
+caps=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sort -n)
+if [ "$(echo "$caps" | head -1 | tr -d .)" -lt 75 ] && [ "$(echo "$caps" | tail -1 | tr -d .)" -lt 100 ]; then
+  (cd "$R" && uv sync --no-group cu128 --group pascal)
+  export UV_NO_SYNC=1
+  echo "GTX 10-series: PyTorch for CUDA 12.6; export UV_NO_SYNC=1 before uv run"
+else
+  (cd "$R" && uv sync)
+fi
 (cd "$R/launcher" && rustup toolchain install --no-self-update && cargo build --release -p ck)
 (cd "$R/kernels" && rustup toolchain install --no-self-update)
 tool() { command -v "$1" > /dev/null || (cd "$R/launcher" && cargo install --locked "$2"); }
