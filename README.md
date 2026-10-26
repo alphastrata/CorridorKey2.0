@@ -87,8 +87,9 @@ python run_interactive.py /path/to/clip.mp4
 ## Desktop App
 
 There is also a desktop UI in `gui/`: a clip queue, a viewer for the input and
-every output, and the settings described below as controls. It runs the same
-`infer.py` underneath, one clip at a time.
+every output, and the settings described below as controls. It runs one clip at
+a time through the backend chosen under **Backend**: `ck` (once built), `infer.py`
+with our kernels, or `infer.py` on PyTorch's stock kernels.
 
 ![The CorridorKey 2.0 desktop UI](gui/screenshot.png)
 
@@ -97,7 +98,7 @@ every output, and the settings described below as controls. It runs the same
 - **Any platform:** `python -m gui [clip_or_folder ...]` from the repository root
 
 The launchers install PySide6, the UI toolkit, into the venv the first time
-they run; otherwise `pip install PySide6-Essentials`. To add a Start Menu entry
+they run; otherwise `uv sync --group gui`. To add a Start Menu entry
 and a desktop shortcut with the CorridorKey icon (an applications-menu entry on
 Linux), run this once:
 

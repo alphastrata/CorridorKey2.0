@@ -1,4 +1,4 @@
-"""Runs the queue through infer.py, one process per clip, as the wizard does."""
+"""Runs the queue through infer.py or ck, one process per clip, as the wizard does."""
 from __future__ import annotations
 
 import re
@@ -11,7 +11,7 @@ from typing import Callable
 from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, Signal
 
 from .clips import DONE, FAILED, RUNNING, STOPPED, Clip, output_dir_for
-from .command import ROOT, JobSettings, command_line, infer_args, python_exe
+from .command import ROOT, JobSettings, backend_command, command_line
 
 # Milestones infer.py prints, in order (see corridorkey/runtime.py).
 _LOADING = re.compile(r"^Loading CorridorKey v2 runtime weights")
@@ -21,6 +21,12 @@ _RVM = re.compile(r"RVM continuous prepass")
 _VFM = re.compile(r"frozen VFM prepass")
 _STAGE1 = re.compile(r"Hann stage1: ")
 _WINDOW = re.compile(r"^\s*window (\d+)/(\d+)")
+
+# ck's log lines (launcher/crates/ck/src/farm.rs, clip.rs).
+_CK_GPU = re.compile(r"\bsm_\d+a?, [\d.]+ GiB free")
+_CK_CLIP = re.compile(r"\b\d+ frames \d+x\d+ → \d+x\d+, window \d+, stride \d+")
+_CK_WINDOW = re.compile(r"\bwindow (\d+)/(\d+) \[")
+_CK_STAGE2 = re.compile(r"\b(\d+) frames through stage 2")
 
 # Stage 1 windows span this part of the bar; low-VRAM runs still have a
 # second pass to write the outputs after the last window.
@@ -53,6 +59,7 @@ class QueueRunner(QObject):
         self._last_line = ""
         self._low_vram = False
         self._keying_since = 0.0
+        self._exe = ""
 
     def is_running(self) -> bool:
         return self._proc is not None
@@ -86,11 +93,16 @@ class QueueRunner(QObject):
             return
         self._clip = clip
         clip.output_dir = output_dir_for(clip, self._settings.output_parent)
-        args = infer_args(clip, self._settings, clip.output_dir)
         self._buffer, self._last_line = "", ""
         self._low_vram = self._settings.low_vram and not self._settings.auto_vram
         self._keying_since = time.monotonic()
-        self._set(clip, RUNNING, 0.0, "Starting Python")
+        try:
+            exe, args, extra = backend_command(clip, self._settings, clip.output_dir)
+        except FileNotFoundError as e:
+            self._set(clip, FAILED, 0.0, str(e))
+            self._start_next()
+            return
+        self._set(clip, RUNNING, 0.0, "Starting ck" if self._settings.backend == "ck" else "Starting Python")
         self.clip_started.emit(clip)
 
         proc = QProcess(self)
@@ -98,14 +110,15 @@ class QueueRunner(QObject):
         proc.setWorkingDirectory(str(ROOT))
         env = QProcessEnvironment.systemEnvironment()
         for key, value in (("PYTHONUNBUFFERED", "1"), ("PYTHONIOENCODING", "utf-8"),
-                           ("HF_HUB_OFFLINE", "1"), ("TRANSFORMERS_OFFLINE", "1")):
+                           ("HF_HUB_OFFLINE", "1"), ("TRANSFORMERS_OFFLINE", "1"),
+                           *extra.items()):
             env.insert(key, value)
         proc.setProcessEnvironment(env)
         proc.readyReadStandardOutput.connect(self._read)
         proc.finished.connect(self._on_finished)
         proc.errorOccurred.connect(self._on_error)
         self._proc = proc
-        exe = python_exe()
+        self._exe = exe
         self.log.emit(f"\n=== {clip.name} ===\n{command_line([exe, *args])}")
         proc.start(exe, args)
 
@@ -129,9 +142,12 @@ class QueueRunner(QObject):
         if line.strip():
             self._last_line = line.strip()
         clip = self._clip
-        window = _WINDOW.search(line)
+        window = _WINDOW.search(line) or _CK_WINDOW.search(line)
         auto_vram = _AUTO_VRAM.search(line)
-        if window:
+        stage2 = _CK_STAGE2.search(line)
+        if stage2:
+            self._update(clip, clip.progress, f"{stage2[1]} frames keyed")
+        elif window:
             done, total = int(window[1]), int(window[2])
             end = KEY_END_LOW_VRAM if self._low_vram else KEY_END
             detail = f"Keying {done}/{total}"
@@ -141,7 +157,7 @@ class QueueRunner(QObject):
             elif self._low_vram:
                 detail = "Writing outputs"
             self._update(clip, KEY_START + (end - KEY_START) * done / total, detail)
-        elif _STAGE1.search(line):
+        elif _STAGE1.search(line) or _CK_CLIP.search(line):
             self._keying_since = time.monotonic()
             self._update(clip, KEY_START, "Keying")
         elif auto_vram:
@@ -152,7 +168,7 @@ class QueueRunner(QObject):
             self._update(clip, 0.08, "Motion prepass")
         elif _PROBED.search(line):
             self._update(clip, 0.06, "Reading clip")
-        elif _LOADING.search(line):
+        elif _LOADING.search(line) or _CK_GPU.search(line):
             self._update(clip, 0.02, "Loading model")
 
     def _on_finished(self, exit_code: int, exit_status: QProcess.ExitStatus) -> None:
@@ -171,7 +187,7 @@ class QueueRunner(QObject):
         else:
             self._remove_scratch(clip)
             self._set(clip, FAILED, clip.progress,
-                      self._last_line or f"infer.py exited with code {exit_code}")
+                      self._last_line or f"{Path(self._exe).name} exited with code {exit_code}")
         self._start_next()
 
     def _on_error(self, error: QProcess.ProcessError) -> None:
@@ -181,7 +197,7 @@ class QueueRunner(QObject):
         message = proc.errorString() if proc is not None else ""
         if proc is not None:
             proc.deleteLater()
-        self._set(self._clip, FAILED, 0.0, f"Could not start {python_exe()}: {message}")
+        self._set(self._clip, FAILED, 0.0, f"Could not start {self._exe}: {message}")
         self._start_next()
 
     def _remove_scratch(self, clip: Clip) -> None:

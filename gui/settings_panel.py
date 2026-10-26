@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .command import ALL_OUTPUTS, DEFAULT_TEMP_DIR, JobSettings
+from .command import ALL_OUTPUTS, DEFAULT_TEMP_DIR, JobSettings, ck_binary
 from .widgets import PathEdit, Section, SliderSpin, combo, select
 
 OUTPUT_LABELS = {"alpha": "Alpha matte", "fg": "Foreground",
@@ -30,6 +30,9 @@ OUTPUT_TIPS = {
 }
 WINDOWS = [("80 / 40 · max continuity", "80/40"), ("48 / 24", "48/24"), ("24 / 12", "24/12"),
            ("8 / 4", "8/4"), ("1 / 1 · single frames", "1/1"), ("Custom", "custom")]
+BACKENDS = [("ck · Rust launcher", "ck"), ("Python · our kernels", "python-ptx"),
+            ("Python · stock kernels", "stock")]
+CODECS = [("x264 · CPU", "libx264"), ("HEVC · NVENC on the GPU", "hevc_nvenc")]
 SETTINGS_KEY = "job"
 
 
@@ -43,7 +46,7 @@ class SettingsPanel(QScrollArea):
         column = QVBoxLayout(body)
         column.setContentsMargins(0, 0, 6, 0)
         column.setSpacing(0)
-        for section in (self._outputs_group(), self._hints_group(), self._memory_group(),
+        for section in (self._backend_group(), self._outputs_group(), self._hints_group(), self._memory_group(),
                         self._frames_group(), self._range_group(), self._folder_group()):
             column.addWidget(section)
         column.addStretch(1)
@@ -56,6 +59,25 @@ class SettingsPanel(QScrollArea):
         except (TypeError, ValueError):
             saved = {}
         self.load(JobSettings.from_dict(saved if isinstance(saved, dict) else {}))
+
+    def _backend_group(self) -> Section:
+        box = Section("Backend")
+        form = box.form
+        self.backend = combo(BACKENDS)
+        self.backend.setToolTip("ck: the Rust launcher, fastest.\n"
+                                "Python · our kernels: infer.py with corridorkey/ptx.\n"
+                                "Python · stock kernels: infer.py on PyTorch's own kernels.")
+        if ck_binary() is None:
+            self.backend.model().item(0).setEnabled(False)
+            self.backend.setItemData(0, "Not built: cargo build --release -p ck in launcher/",
+                                     Qt.ItemDataRole.ToolTipRole)
+        self.codec = combo(CODECS)
+        self.codec.setToolTip("Encoder for ck's preview videos. NVENC is far faster at 4K.")
+        form.addRow("Run with", self.backend)
+        form.addRow("Encoder", self.codec)
+        self.backend.currentIndexChanged.connect(self._on_change)
+        self.codec.currentIndexChanged.connect(self._on_change)
+        return box
 
     def _outputs_group(self) -> Section:
         box = Section("Outputs")
@@ -183,6 +205,8 @@ class SettingsPanel(QScrollArea):
     def settings(self) -> JobSettings:
         custom_folder = self.out_mode.currentData() == "custom"
         return JobSettings(
+            backend=self.backend.currentData(),
+            codec=self.codec.currentData(),
             outputs=[key for key in ALL_OUTPUTS if self.outputs[key].isChecked()],
             output_format=self.format.currentData(),
             exr_dtype=self.exr_dtype.currentData(),
@@ -205,6 +229,10 @@ class SettingsPanel(QScrollArea):
 
     def load(self, s: JobSettings) -> None:
         self._loading = True
+        select(self.backend, s.backend)
+        if not self.backend.model().item(self.backend.currentIndex()).isEnabled():
+            select(self.backend, "python-ptx")
+        select(self.codec, s.codec)
         for key, check in self.outputs.items():
             check.setChecked(key in s.outputs)
         if not any(check.isChecked() for check in self.outputs.values()):
@@ -278,9 +306,12 @@ class SettingsPanel(QScrollArea):
         self.despill.setEnabled(bool(outputs & {"cutout", "checker"}))
         self.carry_quality.setEnabled(self.carry.isChecked())
         manual = self.vram_mode.currentData() == "manual"
-        self.low_vram.setEnabled(manual)
+        ck = self.backend.currentData() == "ck"
+        self.codec.setEnabled(ck and not exr)
+        self.low_vram.setEnabled(manual and not ck)
+        self.temp_dir.setEnabled(not ck)
         self.window.setEnabled(manual)
         self.chunk.setEnabled(manual)
         self.stride.setEnabled(manual)
-        self.start_mode.setEnabled(self.num_frames.value() > 0)
+        self.start_mode.setEnabled(self.num_frames.value() > 0 and not ck)
         self.out_parent.setEnabled(self.out_mode.currentData() == "custom")
