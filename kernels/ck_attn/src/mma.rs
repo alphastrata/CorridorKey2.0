@@ -9,7 +9,9 @@ use tune::{RB, STAGES};
 
 use crate::{BC, BR, Shape, span};
 
-#[cfg_attr(feature = "sm_80", path = "tune/sm120.rs")]
+#[cfg_attr(feature = "sm_86", path = "tune/sm86.rs")]
+#[cfg_attr(feature = "sm_89", path = "tune/sm89.rs")]
+#[cfg_attr(all(feature = "sm_80", not(any(feature = "sm_86", feature = "sm_89"))), path = "tune/sm120.rs")]
 #[cfg_attr(not(feature = "sm_80"), path = "tune/sm75.rs")]
 mod tune;
 

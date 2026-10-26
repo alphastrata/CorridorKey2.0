@@ -1484,7 +1484,7 @@ $L__BB0_54:
 	.param .u32 any_f32_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @any_f32_acc
 {
 	.reg .pred 	%p<35>;
 	.reg .b16 	%rs<5>;
@@ -2983,7 +2983,7 @@ $L__BB1_54:
 	.param .u32 any_f32_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @any_f32_acc_bias
 {
 	.reg .pred 	%p<36>;
 	.reg .b16 	%rs<5>;
@@ -4594,7 +4594,7 @@ $L__BB2_56:
 	.param .u32 any_f32_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @any_f32_bias
 {
 	.reg .pred 	%p<36>;
 	.reg .b16 	%rs<5>;
@@ -6141,7 +6141,7 @@ $L__BB3_56:
 	.param .u32 any_f32in_f32_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @any_f32in_f32
 {
 	.reg .pred 	%p<35>;
 	.reg .b32 	%r<457>;
@@ -7555,7 +7555,7 @@ $L__BB4_54:
 	.param .u32 any_f32in_f32_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @any_f32in_f32_acc
 {
 	.reg .pred 	%p<35>;
 	.reg .b32 	%r<489>;
@@ -9033,7 +9033,7 @@ $L__BB5_54:
 	.param .u32 any_f32in_f32_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @any_f32in_f32_acc_bias
 {
 	.reg .pred 	%p<36>;
 	.reg .b32 	%r<521>;
@@ -10623,7 +10623,7 @@ $L__BB6_56:
 	.param .u32 any_f32in_f32_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @any_f32in_f32_bias
 {
 	.reg .pred 	%p<36>;
 	.reg .b32 	%r<489>;
@@ -12149,7 +12149,7 @@ $L__BB7_56:
 	.param .u32 gemm_small_bf16_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_small_bf16
 {
 	.reg .pred 	%p<24>;
 	.reg .b32 	%r<379>;
@@ -12959,7 +12959,7 @@ $L__BB8_29:
 	.param .u32 gemm_small_bf16_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_small_bf16_acc
 {
 	.reg .pred 	%p<24>;
 	.reg .b32 	%r<403>;
@@ -13791,7 +13791,7 @@ $L__BB9_29:
 	.param .u32 gemm_small_bf16_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_small_bf16_acc_bias
 {
 	.reg .pred 	%p<25>;
 	.reg .b32 	%r<411>;
@@ -14669,7 +14669,7 @@ $L__BB10_30:
 	.param .u32 gemm_small_bf16_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_small_bf16_bias
 {
 	.reg .pred 	%p<25>;
 	.reg .b32 	%r<387>;
@@ -15525,7 +15525,7 @@ $L__BB11_30:
 	.param .u32 gemm_small_f32_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_small_f32
 {
 	.reg .pred 	%p<28>;
 	.reg .b32 	%r<315>;
@@ -16299,7 +16299,7 @@ $L__BB12_33:
 	.param .u32 gemm_small_f32_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_small_f32_acc
 {
 	.reg .pred 	%p<28>;
 	.reg .b32 	%r<331>;
@@ -17085,7 +17085,7 @@ $L__BB13_33:
 	.param .u32 gemm_small_f32_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_small_f32_acc_bias
 {
 	.reg .pred 	%p<29>;
 	.reg .b32 	%r<339>;
@@ -17917,7 +17917,7 @@ $L__BB14_34:
 	.param .u32 gemm_small_f32_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_small_f32_bias
 {
 	.reg .pred 	%p<29>;
 	.reg .b32 	%r<323>;
@@ -18737,7 +18737,7 @@ $L__BB15_34:
 	.param .u32 gemm_square_bf16_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_square_bf16
 {
 	.reg .pred 	%p<40>;
 	.reg .b32 	%r<1086>;
@@ -20595,7 +20595,7 @@ $L__BB16_52:
 	.param .u32 gemm_square_bf16_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_square_bf16_acc
 {
 	.reg .pred 	%p<40>;
 	.reg .b32 	%r<1182>;
@@ -22541,7 +22541,7 @@ $L__BB17_52:
 	.param .u32 gemm_square_bf16_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_square_bf16_acc_bias
 {
 	.reg .pred 	%p<41>;
 	.reg .b32 	%r<1190>;
@@ -24533,7 +24533,7 @@ $L__BB18_53:
 	.param .u32 gemm_square_bf16_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_square_bf16_bias
 {
 	.reg .pred 	%p<41>;
 	.reg .b32 	%r<1094>;
@@ -26437,7 +26437,7 @@ $L__BB19_53:
 	.param .u32 gemm_square_f32_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_square_f32
 {
 	.reg .pred 	%p<56>;
 	.reg .b32 	%r<830>;
@@ -28151,7 +28151,7 @@ $L__BB20_68:
 	.param .u32 gemm_square_f32_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_square_f32_acc
 {
 	.reg .pred 	%p<56>;
 	.reg .b32 	%r<894>;
@@ -29913,7 +29913,7 @@ $L__BB21_68:
 	.param .u32 gemm_square_f32_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_square_f32_acc_bias
 {
 	.reg .pred 	%p<57>;
 	.reg .b32 	%r<902>;
@@ -31721,7 +31721,7 @@ $L__BB22_69:
 	.param .u32 gemm_square_f32_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_square_f32_bias
 {
 	.reg .pred 	%p<57>;
 	.reg .b32 	%r<838>;
@@ -33481,7 +33481,7 @@ $L__BB23_69:
 	.param .u32 gemm_thin_bf16_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_thin_bf16
 {
 	.reg .pred 	%p<38>;
 	.reg .b32 	%r<300>;
@@ -34317,7 +34317,7 @@ $L__BB24_55:
 	.param .u32 gemm_thin_bf16_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_thin_bf16_acc
 {
 	.reg .pred 	%p<38>;
 	.reg .b32 	%r<312>;
@@ -35164,7 +35164,7 @@ $L__BB25_55:
 	.param .u32 gemm_thin_bf16_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_thin_bf16_acc_bias
 {
 	.reg .pred 	%p<39>;
 	.reg .b32 	%r<313>;
@@ -36048,7 +36048,7 @@ $L__BB26_56:
 	.param .u32 gemm_thin_bf16_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_thin_bf16_bias
 {
 	.reg .pred 	%p<39>;
 	.reg .b32 	%r<301>;
@@ -36921,7 +36921,7 @@ $L__BB27_56:
 	.param .u32 gemm_thin_f32_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_thin_f32
 {
 	.reg .pred 	%p<40>;
 	.reg .b32 	%r<268>;
@@ -37741,7 +37741,7 @@ $L__BB28_57:
 	.param .u32 gemm_thin_f32_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_thin_f32_acc
 {
 	.reg .pred 	%p<40>;
 	.reg .b32 	%r<276>;
@@ -38567,7 +38567,7 @@ $L__BB29_57:
 	.param .u32 gemm_thin_f32_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_thin_f32_acc_bias
 {
 	.reg .pred 	%p<41>;
 	.reg .b32 	%r<277>;
@@ -39430,7 +39430,7 @@ $L__BB30_58:
 	.param .u32 gemm_thin_f32_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @gemm_thin_f32_bias
 {
 	.reg .pred 	%p<41>;
 	.reg .b32 	%r<269>;
@@ -40287,7 +40287,7 @@ $L__BB31_58:
 	.param .u32 gemm_wide_bf16_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @gemm_wide_bf16
 {
 	.reg .pred 	%p<58>;
 	.reg .b32 	%r<1998>;
@@ -43491,7 +43491,7 @@ $L__BB32_82:
 	.param .u32 gemm_wide_bf16_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @gemm_wide_bf16_acc
 {
 	.reg .pred 	%p<58>;
 	.reg .b32 	%r<2190>;
@@ -46871,7 +46871,7 @@ $L__BB33_82:
 	.param .u32 gemm_wide_bf16_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @gemm_wide_bf16_acc_bias
 {
 	.reg .pred 	%p<59>;
 	.reg .b32 	%r<2206>;
@@ -50325,7 +50325,7 @@ $L__BB34_83:
 	.param .u32 gemm_wide_bf16_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @gemm_wide_bf16_bias
 {
 	.reg .pred 	%p<59>;
 	.reg .b32 	%r<2014>;
@@ -53603,7 +53603,7 @@ $L__BB35_83:
 	.param .u32 gemm_wide_f32_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @gemm_wide_f32
 {
 	.reg .pred 	%p<90>;
 	.reg .b32 	%r<1486>;
@@ -56519,7 +56519,7 @@ $L__BB36_114:
 	.param .u32 gemm_wide_f32_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @gemm_wide_f32_acc
 {
 	.reg .pred 	%p<90>;
 	.reg .b32 	%r<1614>;
@@ -59531,7 +59531,7 @@ $L__BB37_114:
 	.param .u32 gemm_wide_f32_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @gemm_wide_f32_acc_bias
 {
 	.reg .pred 	%p<91>;
 	.reg .b32 	%r<1630>;
@@ -62617,7 +62617,7 @@ $L__BB38_115:
 	.param .u32 gemm_wide_f32_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @gemm_wide_f32_bias
 {
 	.reg .pred 	%p<91>;
 	.reg .b32 	%r<1502>;
@@ -65607,7 +65607,7 @@ $L__BB39_115:
 	.param .u32 reduce_bf16_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @reduce_bf16
 {
 	.reg .pred 	%p<12>;
 	.reg .b32 	%r<62>;
@@ -65838,7 +65838,7 @@ $L__BB40_20:
 	.param .u32 reduce_bf16_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @reduce_bf16_acc
 {
 	.reg .pred 	%p<12>;
 	.reg .b32 	%r<73>;
@@ -66084,7 +66084,7 @@ $L__BB41_20:
 	.param .u32 reduce_bf16_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @reduce_bf16_acc_bias
 {
 	.reg .pred 	%p<13>;
 	.reg .b32 	%r<81>;
@@ -66356,7 +66356,7 @@ $L__BB42_22:
 	.param .u32 reduce_bf16_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @reduce_bf16_bias
 {
 	.reg .pred 	%p<13>;
 	.reg .b32 	%r<70>;
@@ -66613,7 +66613,7 @@ $L__BB43_22:
 	.param .u32 reduce_f32_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @reduce_f32
 {
 	.reg .pred 	%p<12>;
 	.reg .b32 	%r<44>;
@@ -66826,7 +66826,7 @@ $L__BB44_20:
 	.param .u32 reduce_f32_acc_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @reduce_f32_acc
 {
 	.reg .pred 	%p<12>;
 	.reg .b32 	%r<52>;
@@ -67046,7 +67046,7 @@ $L__BB45_20:
 	.param .u32 reduce_f32_acc_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @reduce_f32_acc_bias
 {
 	.reg .pred 	%p<13>;
 	.reg .b32 	%r<60>;
@@ -67292,7 +67292,7 @@ $L__BB46_22:
 	.param .u32 reduce_f32_bias_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @reduce_f32_bias
 {
 	.reg .pred 	%p<13>;
 	.reg .b32 	%r<52>;
