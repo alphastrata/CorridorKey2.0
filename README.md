@@ -86,25 +86,16 @@ python run_interactive.py /path/to/clip.mp4
 
 ## Desktop App
 
-There is also a desktop UI in `gui/`: a clip queue, a viewer for the input and
-every output, and the settings described below as controls. It runs one clip at
-a time through the backend chosen under **Backend**: `ck` (once built), `infer.py`
-with our kernels, or `infer.py` on PyTorch's stock kernels.
-
-![The CorridorKey 2.0 desktop UI](gui/screenshot.png)
-
-- **Windows:** double-click `gui/CorridorKey.bat`, or drag clips onto it
-- **Linux:** `gui/CorridorKey.sh`
-- **Any platform:** `python -m gui [clip_or_folder ...]` from the repository root
-
-The launchers install PySide6, the UI toolkit, into the venv the first time
-they run; otherwise `uv sync --group gui`. To add a Start Menu entry
-and a desktop shortcut with the CorridorKey icon (an applications-menu entry on
-Linux), run this once:
+A desktop UI (Slint, in `launcher/crates/ck-gui`): a clip queue, a viewer for the
+input and every output, and the settings below as controls. It runs one clip at a
+time through the chosen **Backend**: `ck`, `infer.py` with our kernels, or
+`infer.py` on stock PyTorch kernels.
 
 ```
-python -m gui.shortcut
+just gui [clip_or_folder ...]
 ```
+
+Drop clips or folders anywhere in the window. Ctrl+Shift+S shows stats for nerds.
 
 Companion hint files are picked up the same way the drag-and-drop launcher
 finds them, and each clip's hint can be changed in the inspector.

@@ -1,0 +1,1092 @@
+import { ComboBox, CheckBox, Slider, LineEdit, SpinBox, ListView, ScrollView, Palette } from "std-widgets.slint";
+import { T, Btn, Toggle, Tab, Pill, PanelTitle, Section, Row, Bar } from "theme.slint";
+
+export struct ClipRow {
+    name: string,
+    hint: string,
+    status: string,
+    progress: float,
+    detail: string,
+}
+
+export global Job {
+    in-out property <int> backend;
+    in-out property <bool> ck-built: true;
+    in-out property <int> codec;
+    in-out property <bool> out-alpha: true;
+    in-out property <bool> out-fg: true;
+    in-out property <bool> out-cutout;
+    in-out property <bool> out-checker: true;
+    in-out property <int> format;
+    in-out property <int> exr-type;
+    in-out property <int> cutout-colour;
+    in-out property <float> despill: 0.5;
+    in-out property <float> hint-quality: 0.75;
+    in-out property <bool> carry: true;
+    in-out property <float> carry-quality: 0.95;
+    in-out property <int> vram-mode;
+    in-out property <bool> low-vram;
+    in-out property <int> chunk: 48;
+    in-out property <int> stride: 24;
+    in-out property <string> temp-dir;
+    in-out property <int> frame-colour;
+    in-out property <string> fps: "24";
+    in-out property <int> num-frames;
+    in-out property <int> start-mode;
+    in-out property <int> out-mode;
+    in-out property <string> out-parent;
+    callback changed();
+    callback browse-out-parent();
+    callback browse-temp-dir();
+}
+
+export global View {
+    in property <image> frame;
+    in property <int> src-w;
+    in property <int> src-h;
+    in property <int> count;
+    in-out property <int> index;
+    in property <[bool]> has: [false, false, false, false, false];
+    in-out property <int> view;
+    in-out property <bool> playing;
+    in property <float> fps: 24;
+    in property <string> message: "Drop clips, frame folders or a folder of clips anywhere in this window.";
+    in property <bool> busy;
+    in-out property <int> fit-request;
+    callback show(int, int);
+    callback detail(bool);
+    callback open-folder();
+}
+
+export global Queue {
+    in property <[ClipRow]> rows;
+    in-out property <int> selected: -1;
+    in property <string> clip-name: "No clip selected";
+    in property <string> clip-where: "Drop videos or frame folders anywhere in the window.";
+    in-out property <int> hint-kind;
+    in-out property <string> hint-path;
+    in property <bool> editable;
+    callback select(int);
+    callback remove();
+    callback add-clips();
+    callback add-folder();
+    callback choose-hint();
+    callback hint-edited();
+}
+
+component ImageView inherits Rectangle {
+    in property <image> frame;
+    in property <int> src-w;
+    in property <int> src-h;
+    in property <string> placeholder;
+    in-out property <float> zoom: 1;
+    in-out property <length> pan-x;
+    in-out property <length> pan-y;
+    out property <float> fit: root.src-w > 0 && root.src-h > 0
+        ? min(root.width / (root.src-w * 1px), root.height / (root.src-h * 1px)) : 1;
+    out property <float> scale: root.fit * root.zoom;
+    property <length> drag-x;
+    property <length> drag-y;
+    callback focus-me();
+    background: #000000;
+    clip: true;
+    changed src-w => { root.zoom = 1; root.pan-x = 0; root.pan-y = 0; }
+    changed scale => { View.detail(root.src-w > 0 && root.scale * root.src-w * 1px > root.frame.width * 1px * 1.05); }
+    if root.src-w > 0: Image {
+        source: root.frame;
+        width: root.src-w * 1px * root.scale;
+        height: root.src-h * 1px * root.scale;
+        x: (root.width - self.width) / 2 + root.pan-x;
+        y: (root.height - self.height) / 2 + root.pan-y;
+        image-fit: fill;
+        image-rendering: root.scale < 2 ? smooth : pixelated;
+    }
+    if root.src-w <= 0: Text {
+        text: root.placeholder;
+        color: T.subtle;
+        font-size: T.body;
+        wrap: word-wrap;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width - 48px;
+        x: 24px;
+    }
+    if root.src-w > 0: Rectangle {
+        x: parent.width - 62px;
+        y: parent.height - 28px;
+        width: 54px;
+        height: 20px;
+        border-radius: 2px;
+        background: #000000aa;
+        Text {
+            text: round(root.scale * 100) + "%";
+            color: T.muted;
+            font-size: T.small;
+        }
+    }
+    TouchArea {
+        mouse-cursor: self.pressed ? grabbing : default;
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                root.drag-x = root.pan-x - self.mouse-x;
+                root.drag-y = root.pan-y - self.mouse-y;
+                root.focus-me();
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.pan-x = root.drag-x + self.mouse-x;
+                root.pan-y = root.drag-y + self.mouse-y;
+            }
+        }
+        double-clicked => {
+            root.zoom = 1;
+            root.pan-x = 0;
+            root.pan-y = 0;
+        }
+        scroll-event(e) => {
+            if root.src-w <= 0 {
+                return reject;
+            }
+            let old = root.scale;
+            let x0 = (root.width - root.src-w * 1px * old) / 2 + root.pan-x;
+            let y0 = (root.height - root.src-h * 1px * old) / 2 + root.pan-y;
+            let u = (self.mouse-x - x0) / old;
+            let v = (self.mouse-y - y0) / old;
+            root.zoom = clamp(root.zoom * pow(1.25, e.delta-y / 120px), 0.1, 64);
+            let s = root.scale;
+            root.pan-x = self.mouse-x - u * s + root.src-w * 1px * s / 2 - root.width / 2;
+            root.pan-y = self.mouse-y - v * s + root.src-h * 1px * s / 2 - root.height / 2;
+            return accept;
+        }
+    }
+}
+
+component Scrubber inherits Rectangle {
+    in property <int> count;
+    in-out property <int> index;
+    callback seek(int);
+    height: 22px;
+    property <float> at: root.count > 1 ? root.index / (root.count - 1) : 0;
+    Rectangle {
+        y: (parent.height - 3px) / 2;
+        height: 3px;
+        background: T.line;
+    }
+    Rectangle {
+        y: (parent.height - 3px) / 2;
+        height: 3px;
+        width: parent.width * root.at;
+        x: 0;
+        background: T.chroma;
+    }
+    Rectangle {
+        x: (parent.width - 3px) * root.at;
+        width: 3px;
+        height: 16px;
+        y: (parent.height - 16px) / 2;
+        border-radius: 1px;
+        background: T.text;
+    }
+    TouchArea {
+        enabled: root.count > 0;
+        function pick() {
+            root.seek(round(clamp(self.mouse-x / root.width, 0, 1) * max(root.count - 1, 0)));
+        }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                self.pick();
+            }
+        }
+        moved => {
+            if self.pressed {
+                self.pick();
+            }
+        }
+    }
+}
+
+component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <bool> enabled: true;
+    callback clicked();
+    width: 26px;
+    height: 26px;
+    border-radius: 2px;
+    border-width: 1px;
+    border-color: touch.has-hover ? T.line-strong : transparent;
+    background: touch.has-hover ? T.button-hover : transparent;
+    opacity: root.enabled ? 1 : 0.35;
+    Image {
+        source: root.icon;
+        width: 16px;
+        height: 16px;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component Viewer inherits Rectangle {
+    in property <bool> stats-visible;
+    in property <string> stats;
+    callback focus-me();
+    background: T.canvas;
+    VerticalLayout {
+        padding: 10px;
+        spacing: 8px;
+        HorizontalLayout {
+            spacing: 8px;
+            Rectangle {
+                border-width: 1px;
+                border-color: T.line;
+                border-radius: 2px;
+                background: T.canvas-2;
+                HorizontalLayout {
+                    for name[i] in ["Input", "Alpha", "Foreground", "Checker", "Cutout"]: Tab {
+                        text: name;
+                        checked: View.view == i;
+                        enabled: View.has[i];
+                        clicked => {
+                            View.view = i;
+                            View.show(i, View.index);
+                        }
+                    }
+                }
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            Btn {
+                text: "Fit";
+                enabled: View.src-w > 0;
+                clicked => {
+                    image.zoom = 1;
+                    image.pan-x = 0;
+                    image.pan-y = 0;
+                }
+            }
+            Btn {
+                text: "1:1";
+                enabled: View.src-w > 0;
+                clicked => {
+                    image.zoom = 1 / image.fit;
+                    image.pan-x = 0;
+                    image.pan-y = 0;
+                }
+            }
+            Btn {
+                text: "Open folder";
+                clicked => { View.open-folder(); }
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            image := ImageView {
+                frame: View.frame;
+                src-w: View.src-w;
+                src-h: View.src-h;
+                placeholder: View.message;
+                focus-me => { root.focus-me(); }
+            }
+            if root.stats-visible: Rectangle {
+                x: 12px;
+                y: 12px;
+                width: min(stats-text.preferred-width + 20px, parent.width - 24px);
+                height: stats-text.preferred-height + 16px;
+                background: #080a0ccd;
+                border-width: 1px;
+                border-color: #ffffff28;
+                border-radius: 6px;
+                stats-text := Text {
+                    x: 10px;
+                    y: 8px;
+                    text: root.stats;
+                    font-family: T.mono;
+                    font-size: 11px;
+                    color: #d8f5d0;
+                }
+            }
+            if View.busy && View.src-w > 0: Rectangle {
+                x: parent.width - 90px;
+                y: 12px;
+                width: 78px;
+                height: 20px;
+                border-radius: 2px;
+                background: #000000aa;
+                Text {
+                    text: "decoding…";
+                    color: T.muted;
+                    font-size: T.small;
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            IconButton {
+                icon: @image-url("icons/step-back.svg");
+                enabled: View.count > 0;
+                clicked => { View.show(View.view, max(View.index - 1, 0)); }
+            }
+            IconButton {
+                icon: View.playing ? @image-url("icons/pause.svg") : @image-url("icons/play.svg");
+                enabled: View.count > 1;
+                clicked => { View.playing = !View.playing; }
+            }
+            IconButton {
+                icon: @image-url("icons/step-forward.svg");
+                enabled: View.count > 0;
+                clicked => { View.show(View.view, min(View.index + 1, View.count - 1)); }
+            }
+            Scrubber {
+                horizontal-stretch: 1;
+                count: View.count;
+                index: View.index;
+                seek(i) => { View.show(View.view, i); }
+            }
+            Text {
+                text: View.count > 0 ? (View.index + 1) + " / " + View.count : "";
+                color: T.muted;
+                font-size: T.body;
+                vertical-alignment: center;
+                min-width: 80px;
+                horizontal-alignment: right;
+            }
+        }
+    }
+    public function fit() {
+        image.zoom = 1;
+        image.pan-x = 0;
+        image.pan-y = 0;
+    }
+    public function actual() {
+        image.zoom = 1 / image.fit;
+        image.pan-x = 0;
+        image.pan-y = 0;
+    }
+}
+
+component QueuePanel inherits Rectangle {
+    background: T.surface;
+    VerticalLayout {
+        padding: 12px;
+        padding-right: 10px;
+        spacing: 8px;
+        PanelTitle {
+            text: "QUEUE";
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            background: T.canvas-2;
+            border-width: 1px;
+            border-color: T.line;
+            border-radius: 2px;
+            VerticalLayout {
+                Rectangle {
+                    height: 26px;
+                    background: T.surface;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        for h[i] in ["CLIP", "HINT", "STATUS"]: Text {
+                            text: h;
+                            color: T.subtle;
+                            font-size: T.small;
+                            font-weight: 700;
+                            letter-spacing: 1px;
+                            vertical-alignment: center;
+                            horizontal-stretch: i == 0 ? 2 : 1;
+                        }
+                    }
+                    Rectangle {
+                        y: parent.height - 1px;
+                        height: 1px;
+                        background: T.line;
+                    }
+                }
+                ListView {
+                    for row[i] in Queue.rows: Rectangle {
+                        height: 34px;
+                        background: Queue.selected == i ? T.surface-brand : touch.has-hover ? #161614
+                            : mod(i, 2) == 1 ? #121211 : transparent;
+                        border-width: Queue.selected == i ? 1px : 0;
+                        border-color: T.line-brand;
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 6px;
+                            Text {
+                                text: row.name;
+                                color: T.text;
+                                font-size: T.body;
+                                overflow: elide;
+                                vertical-alignment: center;
+                                horizontal-stretch: 2;
+                            }
+                            Text {
+                                text: row.hint;
+                                color: T.muted;
+                                font-size: T.small;
+                                overflow: elide;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                if row.status == "Running": VerticalLayout {
+                                    alignment: center;
+                                    spacing: 3px;
+                                    Text {
+                                        text: row.detail;
+                                        color: T.text;
+                                        font-size: T.small;
+                                        overflow: elide;
+                                    }
+                                    Bar {
+                                        value: row.progress;
+                                    }
+                                }
+                                if row.status != "Running": Pill {
+                                    x: 0;
+                                    status: row.status;
+                                }
+                            }
+                        }
+                        touch := TouchArea {
+                            clicked => { Queue.select(i); }
+                        }
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            Btn {
+                text: "Add clips…";
+                horizontal-stretch: 1;
+                clicked => { Queue.add-clips(); }
+            }
+            Btn {
+                text: "Add folder…";
+                horizontal-stretch: 1;
+                clicked => { Queue.add-folder(); }
+            }
+            Btn {
+                text: "Remove";
+                horizontal-stretch: 1;
+                enabled: Queue.selected >= 0;
+                clicked => { Queue.remove(); }
+            }
+        }
+    }
+}
+
+component Value inherits Text {
+    in property <float> value;
+    text: round(root.value * 100) / 100;
+    width: 40px;
+    color: T.text;
+    font-size: T.body;
+    font-weight: 600;
+    horizontal-alignment: right;
+    vertical-alignment: center;
+}
+
+component Inspector inherits Rectangle {
+    in property <bool> locked;
+    property <bool> ck: Job.backend == 0;
+    property <bool> exr: Job.format == 1;
+    property <bool> manual: Job.vram-mode == 1;
+    property <[string]> presets: ["80 / 40 · max continuity", "48 / 24", "24 / 12", "8 / 4", "1 / 1 · single frames", "Custom"];
+    property <[int]> chunks: [80, 48, 24, 8, 1];
+    property <[int]> strides: [40, 24, 12, 4, 1];
+    property <int> preset: Job.chunk == 80 && Job.stride == 40 ? 0 : Job.chunk == 48 && Job.stride == 24 ? 1
+        : Job.chunk == 24 && Job.stride == 12 ? 2 : Job.chunk == 8 && Job.stride == 4 ? 3
+        : Job.chunk == 1 && Job.stride == 1 ? 4 : 5;
+    background: T.surface;
+    VerticalLayout {
+        padding-left: 14px;
+        padding-top: 12px;
+        padding-right: 8px;
+        spacing: 8px;
+        PanelTitle {
+            text: "INSPECTOR";
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                padding-right: 10px;
+                spacing: 6px;
+                Section {
+                    title: "Clip";
+                    Text {
+                        text: Queue.clip-name;
+                        color: T.text;
+                        font-size: 15px;
+                        font-weight: 700;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: Queue.clip-where;
+                        color: T.subtle;
+                        font-size: T.small;
+                        overflow: elide;
+                    }
+                    Row {
+                        label: "Alpha hint";
+                        enabled: Queue.editable;
+                        ComboBox {
+                            model: ["No hint", "First-frame matte", "Full hint video or folder"];
+                            current-index <=> Queue.hint-kind;
+                            enabled: Queue.editable;
+                            selected => { Queue.hint-edited(); }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        LineEdit {
+                            text <=> Queue.hint-path;
+                            placeholder-text: "None attached";
+                            enabled: Queue.editable && Queue.hint-kind != 0;
+                            edited => { Queue.hint-edited(); }
+                        }
+                        Btn {
+                            text: "Choose…";
+                            enabled: Queue.editable && Queue.hint-kind != 0;
+                            clicked => { Queue.choose-hint(); }
+                        }
+                    }
+                }
+                Section {
+                    title: "Backend";
+                    Row {
+                        label: "Run with";
+                        enabled: !root.locked;
+                        ComboBox {
+                            model: [Job.ck-built ? "ck · Rust launcher" : "ck · not built", "Python · our kernels", "Python · stock kernels"];
+                            current-index <=> Job.backend;
+                            enabled: !root.locked;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Encoder";
+                        enabled: !root.locked && root.ck && !root.exr;
+                        ComboBox {
+                            model: ["x264 · CPU", "HEVC · NVENC on the GPU"];
+                            current-index <=> Job.codec;
+                            enabled: !root.locked && root.ck && !root.exr;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                }
+                Section {
+                    title: "Outputs";
+                    GridLayout {
+                        spacing: 8px;
+                        Row {
+                            CheckBox {
+                                text: "Alpha matte";
+                                checked <=> Job.out-alpha;
+                                enabled: !root.locked;
+                                toggled => { Job.changed(); }
+                            }
+                            CheckBox {
+                                text: "Foreground";
+                                checked <=> Job.out-fg;
+                                enabled: !root.locked;
+                                toggled => { Job.changed(); }
+                            }
+                        }
+                        Row {
+                            CheckBox {
+                                text: "Cutout (RGBA)";
+                                checked <=> Job.out-cutout;
+                                enabled: !root.locked;
+                                toggled => { Job.changed(); }
+                            }
+                            CheckBox {
+                                text: "Checker preview";
+                                checked <=> Job.out-checker;
+                                enabled: !root.locked;
+                                toggled => { Job.changed(); }
+                            }
+                        }
+                    }
+                    Row {
+                        label: "Format";
+                        enabled: !root.locked;
+                        ComboBox {
+                            model: ["Preview video", "EXR sequence · HDR"];
+                            current-index <=> Job.format;
+                            enabled: !root.locked;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "EXR type";
+                        enabled: !root.locked && root.exr;
+                        ComboBox {
+                            model: ["Half float", "Full float"];
+                            current-index <=> Job.exr-type;
+                            enabled: !root.locked && root.exr;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Cutout colour";
+                        enabled: !root.locked && Job.out-cutout && !root.exr;
+                        ComboBox {
+                            model: ["Straight sRGB", "Straight linear"];
+                            current-index <=> Job.cutout-colour;
+                            enabled: !root.locked && Job.out-cutout && !root.exr;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Despill";
+                        enabled: !root.locked && (Job.out-cutout || Job.out-checker);
+                        Slider {
+                            minimum: 0;
+                            maximum: 1;
+                            value <=> Job.despill;
+                            enabled: !root.locked && (Job.out-cutout || Job.out-checker);
+                            released => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.despill;
+                        }
+                    }
+                }
+                Section {
+                    title: "Hint trust";
+                    Row {
+                        label: "Provided hint";
+                        enabled: !root.locked;
+                        Slider {
+                            minimum: 0;
+                            maximum: 1;
+                            value <=> Job.hint-quality;
+                            enabled: !root.locked;
+                            released => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.hint-quality;
+                        }
+                    }
+                    CheckBox {
+                        text: "Carry the model's own matte between windows";
+                        checked <=> Job.carry;
+                        enabled: !root.locked;
+                        toggled => { Job.changed(); }
+                    }
+                    Row {
+                        label: "Carried hint";
+                        enabled: !root.locked && Job.carry;
+                        Slider {
+                            minimum: 0;
+                            maximum: 1;
+                            value <=> Job.carry-quality;
+                            enabled: !root.locked && Job.carry;
+                            released => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.carry-quality;
+                        }
+                    }
+                }
+                Section {
+                    title: "GPU memory";
+                    Row {
+                        label: "Mode";
+                        enabled: !root.locked;
+                        ComboBox {
+                            model: ["Auto · fit to free memory", "Manual"];
+                            current-index <=> Job.vram-mode;
+                            enabled: !root.locked;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    CheckBox {
+                        text: "Low-VRAM mode (staged, slower)";
+                        checked <=> Job.low-vram;
+                        enabled: !root.locked && root.manual && !root.ck;
+                        toggled => { Job.changed(); }
+                    }
+                    Row {
+                        label: "Window";
+                        enabled: !root.locked && root.manual;
+                        ComboBox {
+                            model: root.presets;
+                            current-index: root.preset;
+                            enabled: !root.locked && root.manual;
+                            selected => {
+                                if self.current-index < 5 {
+                                    Job.chunk = root.chunks[self.current-index];
+                                    Job.stride = root.strides[self.current-index];
+                                    Job.changed();
+                                }
+                            }
+                        }
+                    }
+                    Row {
+                        label: "Chunk / stride";
+                        enabled: !root.locked && root.manual;
+                        SpinBox {
+                            minimum: 1;
+                            maximum: 400;
+                            value <=> Job.chunk;
+                            enabled: !root.locked && root.manual;
+                            edited => { Job.changed(); }
+                        }
+                        SpinBox {
+                            minimum: 1;
+                            maximum: 400;
+                            value <=> Job.stride;
+                            enabled: !root.locked && root.manual;
+                            edited => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Scratch";
+                        enabled: !root.locked && !root.ck;
+                        LineEdit {
+                            text <=> Job.temp-dir;
+                            placeholder-text: "System temp";
+                            enabled: !root.locked && !root.ck;
+                            edited => { Job.changed(); }
+                        }
+                        Btn {
+                            text: "…";
+                            enabled: !root.locked && !root.ck;
+                            clicked => { Job.browse-temp-dir(); }
+                        }
+                    }
+                }
+                Section {
+                    title: "Frame sequences";
+                    expanded: false;
+                    Row {
+                        label: "Colour";
+                        enabled: !root.locked;
+                        ComboBox {
+                            model: ["Auto · EXR linear, PNG/JPG sRGB", "Scene-linear", "sRGB"];
+                            current-index <=> Job.frame-colour;
+                            enabled: !root.locked;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Frame rate";
+                        enabled: !root.locked;
+                        LineEdit {
+                            text <=> Job.fps;
+                            input-type: decimal;
+                            enabled: !root.locked;
+                            edited => { Job.changed(); }
+                        }
+                    }
+                }
+                Section {
+                    title: "Frame range";
+                    expanded: false;
+                    Row {
+                        label: "Length";
+                        enabled: !root.locked;
+                        SpinBox {
+                            minimum: 0;
+                            maximum: 1000000;
+                            value <=> Job.num-frames;
+                            enabled: !root.locked;
+                            edited => { Job.changed(); }
+                        }
+                        Text {
+                            text: Job.num-frames == 0 ? "all frames" : "frames";
+                            color: T.muted;
+                            font-size: T.body;
+                            vertical-alignment: center;
+                        }
+                    }
+                    Row {
+                        label: "Take";
+                        enabled: !root.locked && Job.num-frames > 0 && !root.ck;
+                        ComboBox {
+                            model: ["From the start", "Centred segment", "Random segment"];
+                            current-index <=> Job.start-mode;
+                            enabled: !root.locked && Job.num-frames > 0 && !root.ck;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                }
+                Section {
+                    title: "Output folder";
+                    ComboBox {
+                        model: ["Next to each clip · out_<name>", "All in one folder"];
+                        current-index <=> Job.out-mode;
+                        enabled: !root.locked;
+                        selected => { Job.changed(); }
+                    }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        LineEdit {
+                            text <=> Job.out-parent;
+                            placeholder-text: "Folder for every out_<name>";
+                            enabled: !root.locked && Job.out-mode == 1;
+                            edited => { Job.changed(); }
+                        }
+                        Btn {
+                            text: "…";
+                            enabled: !root.locked && Job.out-mode == 1;
+                            clicked => { Job.browse-out-parent(); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "CorridorKey 2.0";
+    icon: @image-url("icons/glyph.svg");
+    preferred-width: 1480px;
+    preferred-height: 900px;
+    min-width: 960px;
+    min-height: 600px;
+    background: T.canvas;
+    default-font-family: T.sans;
+    default-font-size: T.body;
+    in property <string> status: "Ready · drop clips to begin.";
+    in property <float> progress;
+    in property <string> gpu;
+    in property <bool> running;
+    in property <[string]> log;
+    in property <int> log-count;
+    in-out property <bool> log-visible: true;
+    in-out property <bool> stats-visible;
+    in property <string> stats;
+    callback run();
+    callback stop();
+    callback stats-toggled(bool);
+    init => {
+        Palette.color-scheme = ColorScheme.dark;
+        keys.focus();
+    }
+    keys := FocusScope {
+        key-pressed(e) => {
+            if e.modifiers.control && (e.text == "o" || e.text == "O") {
+                Queue.add-clips();
+                return accept;
+            }
+            if e.modifiers.control && e.text == Key.Return {
+                if !root.running {
+                    root.run();
+                }
+                return accept;
+            }
+            if e.modifiers.control && e.modifiers.shift && (e.text == "s" || e.text == "S") {
+                root.stats-visible = !root.stats-visible;
+                root.stats-toggled(root.stats-visible);
+                return accept;
+            }
+            if e.modifiers.control && (e.text == "l" || e.text == "L") {
+                root.log-visible = !root.log-visible;
+                return accept;
+            }
+            if e.text == " " {
+                View.playing = View.count > 1 && !View.playing;
+                return accept;
+            }
+            if e.text == Key.LeftArrow {
+                View.show(View.view, max(View.index - (e.modifiers.shift ? 10 : 1), 0));
+                return accept;
+            }
+            if e.text == Key.RightArrow {
+                View.show(View.view, min(View.index + (e.modifiers.shift ? 10 : 1), View.count - 1));
+                return accept;
+            }
+            if e.text == Key.Home {
+                View.show(View.view, 0);
+                return accept;
+            }
+            if e.text == Key.End {
+                View.show(View.view, View.count - 1);
+                return accept;
+            }
+            if e.text == Key.UpArrow {
+                Queue.select(max(Queue.selected - 1, 0));
+                return accept;
+            }
+            if e.text == Key.DownArrow {
+                Queue.select(min(Queue.selected + 1, Queue.rows.length - 1));
+                return accept;
+            }
+            if e.text == Key.Delete {
+                Queue.remove();
+                return accept;
+            }
+            if e.text == "f" || e.text == "F" {
+                viewer.fit();
+                return accept;
+            }
+            if e.text == "1" || e.text == "2" || e.text == "3" || e.text == "4" || e.text == "5" {
+                let i = e.text.to-float() - 1;
+                if View.has[i] {
+                    View.view = i;
+                    View.show(i, View.index);
+                }
+                return accept;
+            }
+            reject
+        }
+        VerticalLayout {
+            Rectangle {
+                height: 44px;
+                background: T.canvas;
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    spacing: 10px;
+                    alignment: start;
+                    Image {
+                        source: @image-url("icons/glyph.svg");
+                        width: 22px;
+                        height: 22px;
+                        y: (parent.height - 22px) / 2;
+                    }
+                    Text {
+                        text: "CORRIDORKEY";
+                        color: T.brand;
+                        font-size: 13px;
+                        font-weight: 900;
+                        letter-spacing: 2.6px;
+                        vertical-alignment: center;
+                    }
+                    Rectangle {
+                        y: (parent.height - 18px) / 2;
+                        height: 18px;
+                        width: 28px;
+                        border-radius: 2px;
+                        background: T.brand;
+                        Text {
+                            text: "2.0";
+                            color: T.brand-ink;
+                            font-size: T.small;
+                            font-weight: 700;
+                        }
+                    }
+                }
+                Rectangle {
+                    y: parent.height - 1px;
+                    height: 1px;
+                    background: T.line;
+                }
+            }
+            HorizontalLayout {
+                vertical-stretch: 1;
+                QueuePanel {
+                    width: 340px;
+                }
+                Rectangle {
+                    width: 1px;
+                    background: T.line;
+                }
+                viewer := Viewer {
+                    horizontal-stretch: 1;
+                    stats-visible: root.stats-visible;
+                    stats: root.stats;
+                    focus-me => { keys.focus(); }
+                }
+                Rectangle {
+                    width: 1px;
+                    background: T.line;
+                }
+                Inspector {
+                    width: 380px;
+                    locked: root.running;
+                }
+            }
+            if root.log-visible: Rectangle {
+                property <int> lines: root.log-count;
+                changed lines => {
+                    log-view.content-y = min(0px, log-view.visible-height - self.lines * 17px);
+                }
+                height: 150px;
+                background: T.canvas;
+                Rectangle {
+                    y: 0;
+                    height: 1px;
+                    background: T.line;
+                }
+                log-view := ListView {
+                    for line in root.log: Text {
+                        text: line;
+                        color: T.muted;
+                        font-family: T.mono;
+                        font-size: 12px;
+                        x: 10px;
+                        height: 17px;
+                    }
+                }
+            }
+            Rectangle {
+                height: 46px;
+                background: T.canvas;
+                Rectangle {
+                    y: 0;
+                    height: 1px;
+                    background: T.line;
+                }
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    padding-top: 9px;
+                    padding-bottom: 9px;
+                    spacing: 10px;
+                    Bar {
+                        width: 200px;
+                        y: (parent.height - 4px) / 2;
+                        value: root.progress;
+                    }
+                    Text {
+                        text: root.status;
+                        color: T.muted;
+                        font-size: T.body;
+                        overflow: elide;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                    Text {
+                        text: root.gpu;
+                        color: T.subtle;
+                        font-size: T.body;
+                        vertical-alignment: center;
+                    }
+                    Toggle {
+                        text: "Stats";
+                        checked <=> root.stats-visible;
+                        toggled(on) => { root.stats-toggled(on); }
+                    }
+                    Toggle {
+                        text: "Log";
+                        checked <=> root.log-visible;
+                    }
+                    Btn {
+                        text: "Stop";
+                        danger: true;
+                        enabled: root.running;
+                        clicked => { root.stop(); }
+                    }
+                    Btn {
+                        text: "Run queue";
+                        primary: true;
+                        enabled: !root.running;
+                        clicked => { root.run(); }
+                    }
+                }
+            }
+        }
+    }
+}

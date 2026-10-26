@@ -1,0 +1,209 @@
+// corridorkey.com design tokens, as gui/theme.py had them.
+export global T {
+    out property <color> canvas: #0b0b0b;
+    out property <color> canvas-2: #0f0f0d;
+    out property <color> surface: #131312;
+    out property <color> surface-2: #17170f;
+    out property <color> surface-brand: #1c1c11;
+    out property <color> button: #171716;
+    out property <color> button-hover: #1c1c1a;
+    out property <color> line: #2c2c27;
+    out property <color> line-strong: #3a3a33;
+    out property <color> line-brand: #79781d;
+    out property <color> line-hover: #4d4d44;
+    out property <color> text: #f4f1e8;
+    out property <color> muted: #b3b1a6;
+    out property <color> subtle: #87877e;
+    out property <color> disabled: #5f5e57;
+    out property <color> brand: #fff203;
+    out property <color> brand-ink: #1a1a05;
+    out property <color> danger: #ff7a7a;
+    out property <color> danger-line: #5e3a37;
+    out property <color> chroma: #28e07c;
+    out property <color> chroma-line: #1d5a38;
+    out property <string> sans: "Inter";
+    out property <string> mono: "Cascadia Mono";
+    out property <length> body: 13px;
+    out property <length> small: 11px;
+}
+
+export component Btn inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <bool> primary;
+    in property <bool> danger;
+    in property <string> tip;
+    callback clicked();
+    min-height: 28px;
+    min-width: label.preferred-width + 24px;
+    border-radius: 2px;
+    border-width: 1px;
+    background: !root.enabled ? (root.primary ? T.line : T.surface)
+        : root.primary ? (touch.has-hover ? #ffffff : T.text)
+        : root.danger ? #ff4d4d14
+        : touch.pressed ? T.canvas-2 : touch.has-hover ? T.button-hover : T.button;
+    border-color: !root.enabled ? T.line
+        : root.primary ? T.text
+        : root.danger ? (touch.has-hover ? T.danger : T.danger-line)
+        : touch.has-hover ? T.line-hover : T.line-strong;
+    label := Text {
+        text: root.text;
+        font-size: T.body;
+        font-weight: root.primary ? 700 : 400;
+        color: !root.enabled ? (root.primary ? T.subtle : T.disabled)
+            : root.primary ? T.canvas : root.danger ? T.danger : T.text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component Toggle inherits Rectangle {
+    in property <string> text;
+    in-out property <bool> checked;
+    in property <string> tip;
+    callback toggled(bool);
+    min-height: 26px;
+    min-width: label.preferred-width + 20px;
+    border-radius: 2px;
+    border-width: 1px;
+    background: root.checked ? T.surface-brand : touch.has-hover ? T.button-hover : T.button;
+    border-color: root.checked ? T.line-brand : touch.has-hover ? T.line-hover : T.line-strong;
+    label := Text {
+        text: root.text;
+        font-size: T.body;
+        color: T.text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
+    }
+}
+
+export component Tab inherits Rectangle {
+    in property <string> text;
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    in property <string> key;
+    callback clicked();
+    min-width: label.preferred-width + 24px;
+    height: 26px;
+    label := Text {
+        text: root.text;
+        font-size: T.body;
+        color: !root.enabled ? #4f4e48 : root.checked || touch.has-hover ? T.text : T.muted;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    Rectangle {
+        y: parent.height - 2px;
+        height: 2px;
+        background: root.checked ? T.brand : transparent;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component Pill inherits Rectangle {
+    in property <string> status;
+    property <color> ink: root.status == "Done" ? T.chroma : root.status == "Failed" ? T.danger
+        : root.status == "Stopped" ? T.muted : T.subtle;
+    height: 18px;
+    width: label.preferred-width + 14px;
+    border-radius: 9px;
+    border-width: 1px;
+    border-color: root.status == "Done" ? T.chroma-line : root.status == "Failed" ? T.danger-line : T.line-strong;
+    label := Text {
+        text: root.status.to-uppercase();
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        color: root.ink;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component PanelTitle inherits Text {
+    font-size: T.small;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    color: T.subtle;
+}
+
+export component Section inherits VerticalLayout {
+    in property <string> title;
+    in-out property <bool> expanded: true;
+    spacing: 8px;
+    padding-bottom: 6px;
+    Rectangle {
+        height: 1px;
+        background: T.line;
+    }
+    HorizontalLayout {
+        spacing: 6px;
+        Text {
+            text: root.expanded ? "▾" : "▸";
+            color: T.subtle;
+            font-size: T.body;
+        }
+        Text {
+            text: root.title;
+            font-size: T.body;
+            font-weight: 700;
+            color: head.has-hover ? #ffffff : T.text;
+            horizontal-stretch: 1;
+        }
+        head := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.expanded = !root.expanded; }
+        }
+    }
+    Rectangle {
+        clip: true;
+        height: root.expanded ? body.preferred-height : 0;
+        body := VerticalLayout {
+            spacing: 8px;
+            @children
+        }
+    }
+}
+
+export component Row inherits HorizontalLayout {
+    in property <string> label;
+    in property <bool> enabled: true;
+    spacing: 10px;
+    Text {
+        text: root.label;
+        width: 96px;
+        font-size: T.body;
+        color: root.enabled ? T.muted : T.disabled;
+        vertical-alignment: center;
+    }
+    @children
+}
+
+export component Bar inherits Rectangle {
+    in property <float> value;
+    height: 4px;
+    border-radius: 1px;
+    background: T.line;
+    Rectangle {
+        x: 0;
+        width: parent.width * clamp(root.value, 0, 1);
+        border-radius: 1px;
+        background: T.brand;
+    }
+}
