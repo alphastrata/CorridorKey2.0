@@ -50,15 +50,14 @@ class Module:
         )
         self._fns: dict[str, ctypes.c_void_p] = {}
         self._shared: dict[str, int] = {}
+        self._globals: dict[str, int] = {}
 
     def _fn(self, name: str) -> ctypes.c_void_p:
         if name not in self._fns:
             drv = _driver()
             assert drv is not None, "CUDA driver not available"
             fn = ctypes.c_void_p()
-            _check(
-                drv.cuModuleGetFunction(ctypes.byref(fn), self._mod, name.encode())
-            )
+            _check(drv.cuModuleGetFunction(ctypes.byref(fn), self._mod, name.encode()))
             self._fns[name] = fn
         return self._fns[name]
 
@@ -74,9 +73,7 @@ class Module:
         assert drv is not None, "CUDA driver not available"
 
         if shared > self._shared.get(name, 48 * 1024):
-            _check(
-                drv.cuFuncSetAttribute(self._fn(name), MAX_DYNAMIC_SHARED, shared)
-            )
+            _check(drv.cuFuncSetAttribute(self._fn(name), MAX_DYNAMIC_SHARED, shared))
             self._shared[name] = shared
 
         params = [p for a in args for p in _lower(a)]
@@ -91,6 +88,22 @@ class Module:
             )
         )
 
+    def global_u32(self, name: str) -> int:
+        if name in self._globals:
+            return self._globals[name]
+        drv = _driver()
+        assert drv is not None, "CUDA driver not available"
+        ptr, size = ctypes.c_uint64(), ctypes.c_size_t()
+        _check(
+            drv.cuModuleGetGlobal_v2(
+                ctypes.byref(ptr), ctypes.byref(size), self._mod, name.encode()
+            )
+        )
+        out = ctypes.c_uint32()
+        _check(drv.cuMemcpyDtoH_v2(ctypes.byref(out), ptr, ctypes.c_size_t(4)))
+        self._globals[name] = out.value
+        return out.value
+
 
 def _lower(a: Arg) -> list[ctypes._SimpleCData]:
     if isinstance(a, torch.Tensor):
@@ -103,15 +116,21 @@ def _lower(a: Arg) -> list[ctypes._SimpleCData]:
     return [ctypes.c_uint32(a)]
 
 
+def _sm(name: str) -> tuple[int, bool]:
+    """``sm_90a`` → (90, True): arch-specific builds run only on that exact arch."""
+    return int(name[3:].removesuffix("a")), name.endswith("a")
+
+
 def best(crate: str, capability: tuple[int, int]) -> Path:
     """``bin/sm_XX/<crate>.ptx`` for the highest built ``XX`` the device can run."""
     cap = capability[0] * 10 + capability[1]
-    built = [
-        (int(d.name[3:]), d / f"{crate}.ptx")
+    fits = [
+        (sm, d / f"{crate}.ptx")
         for d in BIN.glob("sm_*")
         if (d / f"{crate}.ptx").exists()
+        for sm, exact in [_sm(d.name)]
+        if (sm == cap if exact else sm <= cap)
     ]
-    fits = [(sm, p) for sm, p in built if sm <= cap]
     if not fits:
         raise RuntimeError(f"no {crate} PTX for sm_{cap} in {BIN}")
     return max(fits)[1]
@@ -119,7 +138,7 @@ def best(crate: str, capability: tuple[int, int]) -> Path:
 
 def arch(crate: str, device: int) -> int:
     """The ``sm_XX`` that :func:`load` picks for ``crate`` on ``device``."""
-    return int(best(crate, torch.cuda.get_device_capability(device)).parent.name[3:])
+    return _sm(best(crate, torch.cuda.get_device_capability(device)).parent.name)[0]
 
 
 @functools.cache
