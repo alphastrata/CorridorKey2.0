@@ -141,6 +141,8 @@ def run(
     sampler.wait()
     watch.join()
     print(f"{label} → {log.name}: exit {rc}, {wall:.1f} s")
+    if rc:
+        print("".join(log.read_text(errors="replace").splitlines(True)[-15:]))
     return rc, wall, meter
 
 
@@ -200,6 +202,20 @@ def main() -> None:
     a = p.parse_args()
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     fetch(a.frames)
+    missing = [
+        str(tier(t)) for t in a.tiers if len(list(tier(t).glob("*.png"))) != a.frames
+    ]
+    missing += [
+        str(ROOT / f)
+        for f in ("weights/corridorkey_v2.safetensors", "vfms")
+        if not (ROOT / f).exists()
+    ]
+    if missing:
+        sys.exit(
+            "missing: "
+            + ", ".join(missing)
+            + "\nweights: uv run python scripts/download_weights.py; frames need ffmpeg on PATH"
+        )
     ck = ck_binary() if (ROOT / "launcher").is_dir() else None
     stock = stock_tree() / "infer.py"
     for sub in ("logs", "out"):
