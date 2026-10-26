@@ -1,4 +1,4 @@
-"""Python (stock kernels) and, where the launcher exists, ck on the sample clip per tier and GPU (and all GPUs
+"""Python with stock and with our kernels and, where the launcher exists, ck on the sample clip per tier and GPU (and all GPUs
 together): one csv, one table.
 
 uv run python bench/fps.py [--frames 50] [--tiers 720 1080 2160]
@@ -248,23 +248,24 @@ def main() -> None:
 
     for t in a.tiers:
         for g in sorted(names, key=int):
-            out = OUT / "out" / f"{g}_{t}p_python"
-            record(
-                g,
-                t,
-                "python",
-                [
-                    sys.executable,
-                    "infer.py",
-                    "--input",
-                    str(tier(t)),
-                    "--output_dir",
-                    str(out),
-                    "--num_frames",
-                    str(a.frames),
-                ],
-                {"CORRIDORKEY_PTX": "0"},
-            )
+            for launcher, ptx in (("python", "0"), ("python-ptx", "1")):
+                out = OUT / "out" / f"{g}_{t}p_{launcher}"
+                record(
+                    g,
+                    t,
+                    launcher,
+                    [
+                        sys.executable,
+                        "infer.py",
+                        "--input",
+                        str(tier(t)),
+                        "--output_dir",
+                        str(out),
+                        "--num_frames",
+                        str(a.frames),
+                    ],
+                    {"CORRIDORKEY_PTX": ptx},
+                )
             ck_run(g, t)
         if len(names) > 1:
             ck_run(",".join(sorted(names, key=int)), t)
