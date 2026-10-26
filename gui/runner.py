@@ -60,9 +60,19 @@ class QueueRunner(QObject):
         self._low_vram = False
         self._keying_since = 0.0
         self._exe = ""
+        self._keyed = 0
 
     def is_running(self) -> bool:
         return self._proc is not None
+
+    def pid(self) -> int:
+        return int(self._proc.processId()) if self._proc is not None else 0
+
+    def settings(self) -> JobSettings:
+        return self._settings
+
+    def program(self) -> str:
+        return self._exe
 
     def start(self, next_clip: Callable[[], Clip | None], settings: JobSettings) -> None:
         """Run clips until next_clip() returns None. Settings stay fixed for the run."""
@@ -94,6 +104,7 @@ class QueueRunner(QObject):
         self._clip = clip
         clip.output_dir = output_dir_for(clip, self._settings.output_parent)
         self._buffer, self._last_line = "", ""
+        self._keyed = 0
         self._low_vram = self._settings.low_vram and not self._settings.auto_vram
         self._keying_since = time.monotonic()
         try:
@@ -146,7 +157,9 @@ class QueueRunner(QObject):
         auto_vram = _AUTO_VRAM.search(line)
         stage2 = _CK_STAGE2.search(line)
         if stage2:
-            self._update(clip, clip.progress, f"{stage2[1]} frames keyed")
+            if int(stage2[1]) > self._keyed:
+                self._keyed = int(stage2[1])
+                self._update(clip, clip.progress, f"{self._keyed} frames keyed")
         elif window:
             done, total = int(window[1]), int(window[2])
             end = KEY_END_LOW_VRAM if self._low_vram else KEY_END
@@ -168,7 +181,7 @@ class QueueRunner(QObject):
             self._update(clip, 0.08, "Motion prepass")
         elif _PROBED.search(line):
             self._update(clip, 0.06, "Reading clip")
-        elif _LOADING.search(line) or _CK_GPU.search(line):
+        elif _LOADING.search(line) or (_CK_GPU.search(line) and clip.progress < KEY_START):
             self._update(clip, 0.02, "Loading model")
 
     def _on_finished(self, exit_code: int, exit_status: QProcess.ExitStatus) -> None:

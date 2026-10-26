@@ -39,6 +39,8 @@ from .frames import FrameLoader
 from .gpu import GpuMonitor
 from .runner import QueueRunner
 from .settings_panel import SettingsPanel
+from .stats_overlay import StatsOverlay
+from .telemetry import Telemetry
 from .theme import font, icon_path, panel_title
 from .viewer import ViewerPanel
 
@@ -57,6 +59,7 @@ class MainWindow(QMainWindow):
         self.loader = FrameLoader(self)
         self.runner = QueueRunner(self)
         self.gpu = GpuMonitor(self)
+        self.telemetry = Telemetry(self.runner, self)
         self.queue = ClipList()
         self.viewer = ViewerPanel(self.loader)
         self.clip_box = ClipBox()
@@ -69,6 +72,7 @@ class MainWindow(QMainWindow):
         self.log.setFont(font(12, mono=True))
 
         self.setCentralWidget(self._build())
+        self.stats = StatsOverlay(self.viewer.image)
         self._connect()
         self._restore()
         self._show_selection()
@@ -153,6 +157,10 @@ class MainWindow(QMainWindow):
         self.log_toggle.setText("Log")
         self.log_toggle.setCheckable(True)
         self.log_toggle.setChecked(True)
+        self.stats_toggle = QToolButton()
+        self.stats_toggle.setText("Stats")
+        self.stats_toggle.setCheckable(True)
+        self.stats_toggle.setToolTip("Stats for nerds (Ctrl+Shift+S)")
         self.stop_button = QPushButton("Stop")
         self.stop_button.setObjectName("danger")
         self.stop_button.setEnabled(False)
@@ -162,7 +170,7 @@ class MainWindow(QMainWindow):
         row.addWidget(self.status, 1)
         row.addWidget(self.gpu_label)
         row.addSpacing(6)
-        for widget in (self.log_toggle, self.stop_button, self.run_button):
+        for widget in (self.stats_toggle, self.log_toggle, self.stop_button, self.run_button):
             row.addWidget(widget)
 
         central = QWidget()
@@ -186,6 +194,10 @@ class MainWindow(QMainWindow):
         self.runner.finished.connect(self._on_run_finished)
         self.gpu.changed.connect(self.gpu_label.setText)
         self.log_toggle.toggled.connect(self.log.setVisible)
+        self.stats_toggle.toggled.connect(self._show_stats)
+        self.telemetry.changed.connect(self.stats.set_text)
+        stats = QShortcut(QKeySequence("Ctrl+Shift+S"), self)
+        stats.activated.connect(self.stats_toggle.toggle)
         self.run_button.clicked.connect(self.run_queue)
         self.stop_button.clicked.connect(self.runner.stop)
         add = QShortcut(QKeySequence(QKeySequence.StandardKey.Open), self)
@@ -193,6 +205,14 @@ class MainWindow(QMainWindow):
         remove = QShortcut(QKeySequence(QKeySequence.StandardKey.Delete), self.queue)
         remove.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         remove.activated.connect(self.queue.remove_selected)
+
+    def _show_stats(self, on: bool) -> None:
+        if on:
+            self.telemetry.start()
+            self.stats.show()
+        else:
+            self.telemetry.stop()
+            self.stats.hide()
 
     def add_paths(self, paths: list[Path]) -> None:
         if not paths:
@@ -322,6 +342,7 @@ class MainWindow(QMainWindow):
             if store.contains(key):
                 splitter.restoreState(store.value(key))
         self.log_toggle.setChecked(store.value("window/log", "true") in (True, "true"))
+        self.stats_toggle.setChecked(store.value("window/stats", "false") in (True, "true"))
 
     def closeEvent(self, event) -> None:
         if self.runner.is_running():
@@ -336,5 +357,6 @@ class MainWindow(QMainWindow):
         store.setValue("window/split", self.split.saveState())
         store.setValue("window/vsplit", self.vsplit.saveState())
         store.setValue("window/log", self.log_toggle.isChecked())
+        store.setValue("window/stats", self.stats_toggle.isChecked())
         self.loader.shutdown()
         event.accept()

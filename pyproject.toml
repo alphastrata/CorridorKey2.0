@@ -25,6 +25,7 @@ dev = [
     "ruff>=0.17.2",
 ]
 gui = [
+    "psutil>=7.2.2",
     "pyside6-essentials>=6.12.0",
 ]
 

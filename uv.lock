@@ -75,6 +75,7 @@ dev = [
     { name = "ruff" },
 ]
 gui = [
+    { name = "psutil" },
     { name = "pyside6-essentials" },
 ]
 pascal = [
@@ -107,7 +108,10 @@ dev = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.17.2" },
 ]
-gui = [{ name = "pyside6-essentials", specifier = ">=6.12.0" }]
+gui = [
+    { name = "psutil", specifier = ">=7.2.2" },
+    { name = "pyside6-essentials", specifier = ">=6.12.0" },
+]
 pascal = [
     { name = "torch", specifier = "==2.11.0", index = "https://download.pytorch.org/whl/cu126", conflict = { package = "corridorkey2", group = "pascal" } },
     { name = "torchvision", specifier = "==0.26.0", index = "https://download.pytorch.org/whl/cu126", conflict = { package = "corridorkey2", group = "pascal" } },
