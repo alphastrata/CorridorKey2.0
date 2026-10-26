@@ -212,6 +212,10 @@ fn best(bin: &Path, sm: u32) -> Result<(u32, PathBuf)> {
     std::fs::read_dir(bin)
         .wrap_err_with(|| bin.display().to_string())?
         .filter_map(Result::ok)
+        .filter(|e| {
+            std::fs::read_dir(e.path())
+                .is_ok_and(|mut d| d.any(|f| f.is_ok_and(|f| f.path().extension().is_some_and(|x| x == "ptx"))))
+        })
         .filter_map(|e| {
             let name = e.file_name().to_str()?.strip_prefix("sm_")?.to_owned();
             let exact = name.strip_suffix('a');

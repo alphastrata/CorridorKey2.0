@@ -19,8 +19,8 @@ Your change must build for all of them:
 | `sm_61` | GTX 10-series |
 | `sm_75` | RTX 20-series, TITAN RTX |
 | `sm_80` | A100, and any newer card without its own folder |
-| `sm_86` | RTX 30-series, A10, A40 |
-| `sm_89` | RTX 40-series, L4, L40S |
+| `sm_86` | RTX 30-series, A10, A40 (empty: these run `sm_80`) |
+| `sm_89` | RTX 40-series, L4, L40S (empty: these run `sm_80`) |
 | `sm_90a` | H100, H200 |
 | `sm_100a` | B200 |
 | `sm_120` | RTX 50-series |
