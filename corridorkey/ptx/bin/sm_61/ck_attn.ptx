@@ -34,6 +34,10 @@
 	.param .b64 _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero_param_0
 )
 .noreturn;
+.visible .global .align 4 .b8 ATTN_SHARED_64[4] = {0, 128};
+.visible .global .align 4 .b8 ATTN_SHARED_80[4] = {0, 160};
+.visible .global .align 4 .b8 ATTN_SHARED_96[4] = {0, 192};
+.visible .global .align 4 .b8 ATTN_THREADS[4] = {0, 1};
                                         // @attn64
 .visible .entry attn64(
 	.param .u64 .ptr .align 1 attn64_param_0,
@@ -9838,7 +9842,7 @@ $L__BB0_81:
 	.param .f32 attn64_masked_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @attn64_masked
 {
 	.reg .pred 	%p<161>;
 	.reg .b32 	%r<5339>;
@@ -20585,7 +20589,7 @@ $L__BB1_232:
 	.param .f32 attn80_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @attn80
 {
 	.reg .pred 	%p<88>;
 	.reg .b16 	%rs<26>;
@@ -32682,7 +32686,7 @@ $L__BB2_97:
 	.param .f32 attn80_masked_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @attn80_masked
 {
 	.reg .pred 	%p<171>;
 	.reg .b16 	%rs<26>;
@@ -45744,7 +45748,7 @@ $L__BB3_248:
 	.param .f32 attn96_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @attn96
 {
 	.reg .pred 	%p<96>;
 	.reg .b16 	%rs<31>;
@@ -60124,7 +60128,7 @@ $L__BB4_113:
 	.param .f32 attn96_masked_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 1
+.minnctapersm 1                                       // @attn96_masked
 {
 	.reg .pred 	%p<179>;
 	.reg .b16 	%rs<31>;

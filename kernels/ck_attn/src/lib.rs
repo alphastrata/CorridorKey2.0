@@ -9,9 +9,9 @@ mod mma;
 #[cfg(feature = "sm_61")]
 mod simt;
 #[cfg(not(feature = "sm_61"))]
-use mma::attn;
+use mma::{THREADS, attn, shared};
 #[cfg(feature = "sm_61")]
-use simt::attn;
+use simt::{THREADS, attn, shared};
 
 const BR: usize = 128;
 const BC: usize = 64;
@@ -60,6 +60,17 @@ entry!(attn96, 96, false);
 entry!(attn64_masked, 64, true);
 entry!(attn80_masked, 80, true);
 entry!(attn96_masked, 96, true);
+
+macro_rules! export {
+    ($($name:ident = $v:expr),*) => {
+        $(
+            #[unsafe(no_mangle)]
+            pub static $name: u32 = $v;
+        )*
+    };
+}
+
+export!(ATTN_THREADS = THREADS as u32, ATTN_SHARED_64 = shared(64), ATTN_SHARED_80 = shared(80), ATTN_SHARED_96 = shared(96));
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {

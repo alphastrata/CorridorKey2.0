@@ -10,6 +10,11 @@ use crate::{BC, BR, Shape, span};
 
 const HALF: usize = 48;
 const KEYS: usize = 32;
+pub const THREADS: usize = 256;
+
+pub const fn shared(d: usize) -> u32 {
+    (2 * BC * d * 4) as u32
+}
 
 fn widen(w: u32) -> (f32, f32) {
     (f32::from_bits(w << 16), f32::from_bits(w & 0xffff_0000))
@@ -18,8 +23,8 @@ fn widen(w: u32) -> (f32, f32) {
 #[inline(always)]
 fn load<const D: usize>((keys, values): (u64, u64), n: usize, kb: usize, smem: u32) {
     let tid = thread_idx_x() as usize;
-    ptx::unroll!(6, |it| if it < 2 * BC * D / 8 / 256 {
-        let i = tid + it * 256;
+    ptx::unroll!(6, |it| if it < 2 * BC * D / 8 / THREADS {
+        let i = tid + it * THREADS;
         let (which, rem) = (i / (BC * D / 8), i % (BC * D / 8));
         let (key, ch) = (rem / (D / 8), rem % (D / 8));
         let token = (kb * BC + key).min(n - 1);

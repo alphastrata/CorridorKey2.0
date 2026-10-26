@@ -120,7 +120,7 @@ pub fn attention(
     let split = [[qkv, &q, &k, &v].map(Arg::from).as_slice(), &dims].concat();
     ops(gpu, "heads", 3 * q.numel(), &split)?;
     let pairs = |t: &Tensor| Arg::Buf(t.ptr(), t.numel() / 2);
-    let (shared, threads) = crate::attn::launch(gpu, dp);
+    let (shared, threads) = crate::attn::launch(gpu, dp)?;
     let args = [
         pairs(&q),
         pairs(&k),

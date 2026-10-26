@@ -185,12 +185,8 @@ pub struct Qk<'a> {
 
 const HEAD_BYTES: usize = 512 << 20;
 
-pub fn launch(gpu: &Gpu, d: usize) -> (u32, u32) {
-    if gpu.sm < 70 {
-        return ((64 * d * 8) as u32, 256);
-    }
-    let (stages, threads) = if gpu.sm >= 80 { (2, 128) } else { (1, 256) };
-    ((stages * (2 * 64 * (d + 8) * 2 + 4 * 64)) as u32, threads)
+pub fn launch(gpu: &Gpu, d: usize) -> Result<(u32, u32)> {
+    Ok((gpu.global_u32("ck_attn", &format!("ATTN_SHARED_{d}"))?, gpu.global_u32("ck_attn", "ATTN_THREADS")?))
 }
 
 pub fn attend(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk: &Qk, g: Group) -> Result<()> {
@@ -240,7 +236,7 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
     let (rid, sp, rows) = mask.as_ref().map_or((Arg::from(&zeros), Arg::from(&zeros), 0), |m| {
         (Arg::from(&m.rid), Arg::from(&m.spans), m.rid.shape[0])
     });
-    let (shared, threads) = launch(gpu, d);
+    let (shared, threads) = launch(gpu, d)?;
     let name = format!("attn{d}{}", if mask.is_some() { "_masked" } else { "" });
     let scale = std::f32::consts::LOG2_E / (d as f32).sqrt();
     let args = [

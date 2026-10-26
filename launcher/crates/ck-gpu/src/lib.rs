@@ -46,6 +46,7 @@ pub struct Gpu {
     modules: HashMap<String, Arc<CudaModule>>,
     functions: RefCell<HashMap<(String, String), CudaFunction>>,
     tiles: RefCell<HashMap<&'static str, (u32, usize)>>,
+    globals: RefCell<HashMap<String, u32>>,
     pub sms: usize,
     staging: RefCell<staging::Staging>,
     pub meter: Arc<Meter>,
@@ -97,6 +98,7 @@ impl Gpu {
             modules,
             functions: RefCell::default(),
             tiles: RefCell::default(),
+            globals: RefCell::default(),
             sms,
             staging: RefCell::default(),
             meter: Arc::default(),
@@ -128,9 +130,15 @@ impl Gpu {
     }
 
     pub fn global_u32(&self, module: &str, name: &str) -> Result<u32> {
+        let key = format!("{module}::{name}");
+        if let Some(&v) = self.globals.borrow().get(&key) {
+            return Ok(v);
+        }
         let m = self.modules.get(module).ok_or_eyre(format!("no PTX module {module}"))?;
-        let bytes = self.stream.clone_dtoh(&m.get_global(name, &self.stream).wrap_err_with(|| format!("{module}::{name}"))?)?;
-        Ok(u32::from_le_bytes(bytes.get(..4).ok_or_eyre(format!("{module}::{name} is not a u32"))?.try_into()?))
+        let bytes = self.stream.clone_dtoh(&m.get_global(name, &self.stream).wrap_err_with(|| key.clone())?)?;
+        let v = u32::from_le_bytes(bytes.get(..4).ok_or_eyre(format!("{key} is not a u32"))?.try_into()?);
+        self.globals.borrow_mut().insert(key, v);
+        Ok(v)
     }
 
     pub fn launch(

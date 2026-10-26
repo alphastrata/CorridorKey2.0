@@ -13,7 +13,7 @@ use crate::{BC, BR, Shape, span};
 #[cfg_attr(not(feature = "sm_80"), path = "tune/sm75.rs")]
 mod tune;
 
-const THREADS: usize = BR / (16 * RB) * 32;
+pub const THREADS: usize = BR / (16 * RB) * 32;
 const KS: usize = 6;
 const DN: usize = 12;
 
@@ -27,6 +27,10 @@ const fn tile(d: usize) -> u32 {
 
 const fn slot_bytes(d: usize) -> u32 {
     2 * tile(d) + 4 * BC as u32
+}
+
+pub const fn shared(d: usize) -> u32 {
+    STAGES as u32 * slot_bytes(d)
 }
 
 #[derive(Clone, Copy)]
