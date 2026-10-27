@@ -37,21 +37,21 @@ pub struct Meter {
 impl Meter {
     #[must_use]
     pub fn live(&self) -> usize {
-        self.live.load(Ordering::Relaxed)
+        self.live.load(Ordering::Acquire)
     }
 
     #[must_use]
     pub fn peak(&self) -> usize {
-        self.peak.load(Ordering::Relaxed)
+        self.peak.load(Ordering::Acquire)
     }
 
     pub fn reset(&self) {
-        self.peak.store(self.live(), Ordering::Relaxed);
+        self.peak.store(self.live(), Ordering::Release);
     }
 
     fn add(&self, n: usize) {
-        let live = self.live.fetch_add(n, Ordering::Relaxed) + n;
-        self.peak.fetch_max(live, Ordering::Relaxed);
+        let live = self.live.fetch_add(n, Ordering::AcqRel) + n;
+        self.peak.fetch_max(live, Ordering::AcqRel);
     }
 }
 
@@ -62,7 +62,7 @@ struct Buf {
 
 impl Drop for Buf {
     fn drop(&mut self) {
-        self.meter.live.fetch_sub(self.slice.len(), Ordering::Relaxed);
+        self.meter.live.fetch_sub(self.slice.len(), Ordering::AcqRel);
     }
 }
 
