@@ -6,7 +6,13 @@ use ptx::prelude::*;
 use ptx::slice::GpuSlice;
 
 const WIDTH: usize = 24;
-const LOW: usize = 7;
+#[cfg(feature = "sm_80")]
+const PIX: usize = 4;
+#[cfg(not(feature = "sm_80"))]
+const PIX: usize = 1;
+
+#[unsafe(no_mangle)]
+pub static REFINE_PIX: u32 = PIX as u32;
 
 fn ld(s: GpuSlice<f32>, i: usize) -> f32 {
     unsafe { *s.get_unchecked(i) }
@@ -289,30 +295,38 @@ pub fn refine_conv(
 ) {
     let i = gid();
     let [cin, width, rows, cols, dil] = [cin, width, rows, cols, dil].map(|v| v as usize);
-    let plane = rows * cols;
-    if i >= plane {
+    let (plane, groups) = (rows * cols, cols.div_ceil(PIX));
+    if i >= rows * groups {
         return;
     }
-    let (y, xx) = (i / cols, i % cols);
-    let mut acc: [f32; WIDTH] = core::array::from_fn(|o| ld(bias, o));
+    let (y, x0) = (i / groups, i % groups * PIX);
+    let mut acc: [[f32; WIDTH]; PIX] = [core::array::from_fn(|o| ld(bias, o)); PIX];
     (0..cin * 9).for_each(|k| {
         let (c, t) = (k / 9, k % 9);
         let sy = (y + (t / 3) * dil).wrapping_sub(dil);
-        let sx = (xx + (t % 3) * dil).wrapping_sub(dil);
-        if sy < rows && sx < cols {
-            let v = ld(x, c * plane + sy * cols + sx);
+        if sy < rows {
+            let row = c * plane + sy * cols;
+            let v: [f32; PIX] = core::array::from_fn(|p| {
+                let sx = (x0 + p + (t % 3) * dil).wrapping_sub(dil);
+                if sx < cols { ld(x, row + sx) } else { 0.0 }
+            });
             ptx::unroll!(6, |q| {
                 let w4 = unsafe { ld_global_nc_v4_f32(wt.addr_at(k * WIDTH + 4 * q)) };
-                acc[4 * q] = w4.0.fma_rn(v, acc[4 * q]);
-                acc[4 * q + 1] = w4.1.fma_rn(v, acc[4 * q + 1]);
-                acc[4 * q + 2] = w4.2.fma_rn(v, acc[4 * q + 2]);
-                acc[4 * q + 3] = w4.3.fma_rn(v, acc[4 * q + 3]);
+                ptx::unroll!(4, |p| if p < PIX {
+                    acc[p][4 * q] = w4.0.fma_rn(v[p], acc[p][4 * q]);
+                    acc[p][4 * q + 1] = w4.1.fma_rn(v[p], acc[p][4 * q + 1]);
+                    acc[p][4 * q + 2] = w4.2.fma_rn(v[p], acc[p][4 * q + 2]);
+                    acc[p][4 * q + 3] = w4.3.fma_rn(v[p], acc[p][4 * q + 3]);
+                });
             });
         }
     });
-    ptx::unroll!(24, |o| if o < width {
-        let g = gelu(acc[o]);
-        out.set(o * plane + i, if residual == 0 { g } else { ld(x, o * plane + i) + g });
+    ptx::unroll!(4, |p| if p < PIX && x0 + p < cols {
+        let at = y * cols + x0 + p;
+        ptx::unroll!(24, |o| if o < width {
+            let g = gelu(acc[p][o]);
+            out.set(o * plane + at, if residual == 0 { g } else { ld(x, o * plane + at) + g });
+        });
     });
 }
 

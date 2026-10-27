@@ -48,6 +48,12 @@ struct Args {
     #[argh(description = "scale of the frames the model sees, by Lanczos-4 (outputs stay native)")]
     #[argh(option, default = "1.0")]
     model_scale: f64,
+    #[argh(description = "how outputs return to native size below model scale 1: `lanczos` or `refine` (the real-time edge refiner)")]
+    #[argh(option, default = "String::from(\"lanczos\")")]
+    upscale: String,
+    #[argh(description = "edge refiner weights")]
+    #[argh(option, default = "PathBuf::from(\"weights/corridorkey_edge_refiner_v10w.safetensors\")")]
+    refiner: PathBuf,
     #[argh(
         description = "frames per stage-1 window; by default (`auto`) picked with the stride per clip from free GPU memory"
     )]
@@ -225,6 +231,7 @@ fn main() -> Result<()> {
         "--quantum must be a multiple of 64"
     );
     ensure!(a.vfm_batch > 0, "--vfm-batch must be positive");
+    ensure!(["lanczos", "refine"].contains(&a.upscale.as_str()), "--upscale wants lanczos or refine");
     let cfg = Config {
         chunk,
         stride,
@@ -234,6 +241,7 @@ fn main() -> Result<()> {
         carry_quality: a.carry_quality,
         quantum: a.quantum,
         scale: a.model_scale,
+        refine: (a.upscale == "refine" && a.model_scale < 1.0).then(|| a.refiner.clone()),
         frames: a.frames,
         dir_fps: a.fps,
         outputs: outputs(&a.outputs)?,

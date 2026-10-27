@@ -1,6 +1,6 @@
 mod common;
 
-use ck::frame::{Adjust, Geometry};
+use ck::frame::{Adjust, Geometry, Input};
 use ck::refine::Refiner;
 use ck::weights::Weights;
 use ck_gpu::{Dtype, Gpu};
@@ -47,11 +47,9 @@ fn refine_matches_reference() -> Result<()> {
     let out = net.native(
         &gpu,
         &gpu.upload_f32(&logits, &[1, 4, h, w], Dtype::F32)?,
-        &gpu.upload_f32(&gbr(&rgb), &[3, hn, wn], Dtype::F32)?,
-        &gpu.upload_f32(&gbr(&rgb_low), &[3, h, w], Dtype::F32)?,
+        (&gpu.upload_f32(&gbr(&rgb), &[3, hn, wn], Dtype::F32)?, &gpu.upload_f32(&gbr(&rgb_low), &[3, h, w], Dtype::F32)?),
         g,
-        false,
-        adj,
+        Input { adjust: adj, linear: false },
     )?;
     let out = gpu.download_f32(&out)?;
     let n = hn * wn;

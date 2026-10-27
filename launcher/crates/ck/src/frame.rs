@@ -107,21 +107,26 @@ pub fn lanczos(gpu: &Gpu, x: &Tensor, (oh, ow): (usize, usize)) -> Result<Tensor
     resize(gpu, x, (oh, ow), step, Resize::Lanczos, (&unit.0, &unit.1))
 }
 
+/// The native frame as `[n, 3, hn, wn]` planes (G, B, R) and those planes at the model's scale.
+pub fn planes(gpu: &Gpu, raw: &Tensor, g: Geometry) -> Result<(Tensor, Tensor)> {
+    let n = raw.numel() / (g.hn * g.wn * 3);
+    let native = if raw.dtype == Dtype::F32 {
+        raw.reshape(&[n, 3, g.hn, g.wn])?
+    } else {
+        planar(gpu, raw, (g.hn, g.wn), 3)?
+    };
+    let scaled = lanczos(gpu, &native, (g.h0, g.w0))?;
+    Ok((native, scaled))
+}
+
 pub fn prep(gpu: &Gpu, raw: &Tensor, out: &Tensor, g: Geometry, ld: usize, enc: Encoding, input: Input) -> Result<()> {
     let float = raw.dtype == Dtype::F32;
     if !g.native() {
-        let n = raw.numel() / (g.hn * g.wn * 3);
-        let planes = if float {
-            raw.reshape(&[n, 3, g.hn, g.wn])?
-        } else {
-            planar(gpu, raw, (g.hn, g.wn), 3)?
-        };
-        let scaled = lanczos(gpu, &planes, (g.h0, g.w0))?;
         let input = Input {
             linear: float && input.linear,
             ..input
         };
-        return prep_planes(gpu, &scaled, out, g, ld, enc, input);
+        return prep_planes(gpu, &planes(gpu, raw, g)?.1, out, g, ld, enc, input);
     }
     if float {
         return prep_planes(gpu, raw, out, g, ld, enc, input);
@@ -137,7 +142,7 @@ pub fn prep(gpu: &Gpu, raw: &Tensor, out: &Tensor, g: Geometry, ld: usize, enc: 
     launch(gpu, "prep", n * 3 * g.h * g.w, &args)
 }
 
-fn prep_planes(
+pub fn prep_planes(
     gpu: &Gpu,
     raw: &Tensor,
     out: &Tensor,

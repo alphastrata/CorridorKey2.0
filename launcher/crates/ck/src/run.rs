@@ -6,6 +6,7 @@ use eyre::Result;
 use crate::attn::Cache;
 use crate::frame::{Input, Look, Output};
 use crate::io::Source;
+use crate::refine::Refiner;
 use crate::stage1::Stage1;
 use crate::stage2::Stage2;
 use crate::vfm::Vfms;
@@ -19,6 +20,7 @@ pub struct Front {
 
 pub struct Models {
     pub s2: Stage2,
+    pub refiner: Option<Refiner>,
     pub cache: Cache,
     front: std::cell::OnceCell<Front>,
     paths: (PathBuf, PathBuf),
@@ -34,9 +36,10 @@ fn loader<'a>(gpu: &'a Gpu, weights: &'a Weights, prefix: &'a str) -> Loader<'a>
 }
 
 impl Models {
-    pub fn load(gpu: &Gpu, model: &Path, vfms: &Path) -> Result<Self> {
+    pub fn load(gpu: &Gpu, model: &Path, vfms: &Path, refiner: Option<&Path>) -> Result<Self> {
         Ok(Self {
             s2: Stage2::load(&loader(gpu, &Weights::open(model)?, "stage2."))?,
+            refiner: refiner.map(|p| Refiner::load(gpu, p)).transpose()?,
             cache: Cache::default(),
             front: std::cell::OnceCell::new(),
             paths: (model.to_path_buf(), vfms.to_path_buf()),
@@ -68,6 +71,7 @@ pub struct Config {
     pub carry_quality: f32,
     pub quantum: usize,
     pub scale: f64,
+    pub refine: Option<PathBuf>,
     pub frames: Option<usize>,
     pub dir_fps: f64,
     pub outputs: Vec<Output>,

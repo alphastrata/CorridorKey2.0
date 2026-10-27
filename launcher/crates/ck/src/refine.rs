@@ -3,7 +3,7 @@ use std::path::Path;
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::{Result, ensure};
 
-use crate::frame::{Adjust, Geometry};
+use crate::frame::{Adjust, Geometry, Input};
 use crate::weights::Weights;
 
 const WIDTH: usize = 24;
@@ -74,7 +74,8 @@ impl Refiner {
 
     /// Native `[1, 4, hn, wn]` logits from the model's `[1, 4, h, w]` (padded) logits, the native frame's
     /// `[3, hn, wn]` planes and the reduced `[3, h0, w0]` planes the model saw (both in G, B, R order).
-    pub fn native(&self, gpu: &Gpu, logits: &Tensor, native: &Tensor, low: &Tensor, g: Geometry, linear: bool, adj: Adjust) -> Result<Tensor> {
+    pub fn native(&self, gpu: &Gpu, logits: &Tensor, (native, low): (&Tensor, &Tensor), g: Geometry, input: Input) -> Result<Tensor> {
+        let (linear, adj) = (input.linear, input.adjust);
         let (h, w) = (g.h0, g.w0);
         let n = h * w;
         let crop = gpu.empty(&[4, h, w], Dtype::F32)?;
@@ -100,6 +101,7 @@ impl Refiner {
         let core = (BUDGET / (4 * wn * (11 + 2 * WIDTH))).saturating_sub(2 * HALO).max(16).min(hn);
         let mut hid = (gpu.empty(&[WIDTH * (core + 2 * HALO) * wn], Dtype::F32)?, gpu.empty(&[WIDTH * (core + 2 * HALO) * wn], Dtype::F32)?);
         let x = gpu.empty(&[11 * (core + 2 * HALO) * wn], Dtype::F32)?;
+        let pix = gpu.global_u32("ck_ops", "REFINE_PIX")? as usize;
         (0..hn).step_by(core).try_for_each(|c0| -> Result<()> {
             let take = core.min(hn - c0);
             let y0 = c0.saturating_sub(HALO);
@@ -113,7 +115,7 @@ impl Refiner {
                 self.layers.iter().enumerate().try_for_each(|(i, l)| {
                     let src = if i == 0 { &x } else { &hid.0 };
                     let args = [[src, &hid.1, &l.w, &l.b].map(Arg::from).as_slice(), &[l.cin, self.width, rows, wn, l.dil, usize::from(i > 0)].map(Arg::from)].concat();
-                    launch(gpu, "refine_conv", plane, &args)?;
+                    launch(gpu, "refine_conv", rows * wn.div_ceil(pix), &args)?;
                     std::mem::swap(&mut hid.0, &mut hid.1);
                     Ok::<_, eyre::Report>(())
                 })?;
