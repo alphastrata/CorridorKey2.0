@@ -24,8 +24,7 @@ struct Layer {
     dil: usize,
 }
 
-/// The real-time edge refiner (mantelmoritz/CorridorKey-Realtime-EdgeRefiner): restores native edge detail on a
-/// matte keyed at reduced resolution, in place of plain upsampling.
+/// The real-time edge refiner (mantelmoritz/CorridorKey-Realtime-EdgeRefiner): native edge detail on a reduced-res matte.
 pub struct Refiner {
     layers: Vec<Layer>,
     out: (Tensor, Tensor),
@@ -85,8 +84,7 @@ impl Refiner {
         })
     }
 
-    /// Native `[1, 4, hn, wn]` logits from the model's `[1, 4, h, w]` (padded) logits, the native frame's
-    /// `[3, hn, wn]` planes and the reduced `[3, h0, w0]` planes the model saw (both in G, B, R order).
+    /// Native `[1, 4, hn, wn]` logits from padded `[1, 4, h, w]` logits plus the native and reduced GB,R planes.
     pub fn native(&self, gpu: &Gpu, logits: &Tensor, (native, low): (&Tensor, &Tensor), g: Geometry, input: Input) -> Result<Tensor> {
         let (linear, adj) = (input.linear, input.adjust);
         let (h, w) = (g.h0, g.w0);
