@@ -12,7 +12,7 @@ use crate::clips::{self, Clip, Hint, Status};
 use crate::command;
 use crate::frames::{Frames, Shown};
 use crate::runner::{self, Event, Job as Running, Progress};
-use crate::settings::{Backend, Settings};
+use crate::settings::Settings;
 use crate::telemetry::{self, Probe, Snapshot};
 use crate::{AppWindow, ClipRow, Job, Queue, View};
 
@@ -61,11 +61,6 @@ fn row(c: &Clip) -> ClipRow {
 }
 
 fn settings_to_ui(s: &Settings, j: &Job) {
-    j.set_backend(match s.backend {
-        Backend::Ck => 0,
-        Backend::PythonPtx => 1,
-        Backend::Stock => 2,
-    });
     j.set_codec(i32::from(s.nvenc));
     j.set_out_alpha(s.outputs[0]);
     j.set_out_fg(s.outputs[1]);
@@ -82,12 +77,9 @@ fn settings_to_ui(s: &Settings, j: &Job) {
     let (chunk, stride) = s.window.unwrap_or((48, 24));
     j.set_chunk(chunk as i32);
     j.set_stride(stride as i32);
-    j.set_low_vram(s.low_vram);
-    j.set_temp_dir(s.temp_dir.clone().into());
     j.set_frame_colour(i32::from(s.frame_colour));
     j.set_fps(format!("{}", s.fps).into());
     j.set_num_frames(s.frames as i32);
-    j.set_start_mode(i32::from(s.start_mode));
     j.set_out_mode(i32::from(s.out_parent.is_some()));
     j.set_out_parent(s.out_parent.clone().unwrap_or_default().into());
 }
@@ -98,11 +90,6 @@ fn settings_from_ui(j: &Job) -> Settings {
         outputs[0] = true;
     }
     Settings {
-        backend: match j.get_backend() {
-            1 => Backend::PythonPtx,
-            2 => Backend::Stock,
-            _ => Backend::Ck,
-        },
         nvenc: j.get_codec() == 1,
         outputs,
         exr: (j.get_format() == 1).then_some(j.get_exr_type() == 1),
@@ -111,12 +98,9 @@ fn settings_from_ui(j: &Job) -> Settings {
         hint_quality: (j.get_hint_quality() * 1000.0).round() / 1000.0,
         carry: j.get_carry().then(|| (j.get_carry_quality() * 1000.0).round() / 1000.0),
         window: (j.get_vram_mode() == 1).then(|| (j.get_chunk().max(1) as u32, j.get_stride().clamp(1, j.get_chunk().max(1)) as u32)),
-        low_vram: j.get_low_vram(),
-        temp_dir: j.get_temp_dir().into(),
         frame_colour: j.get_frame_colour().clamp(0, 2) as u8,
         fps: j.get_fps().parse().ok().filter(|f: &f32| *f > 0.0).unwrap_or(24.0),
         frames: j.get_num_frames().max(0) as u32,
-        start_mode: j.get_start_mode().clamp(0, 2) as u8,
         out_parent: (j.get_out_mode() == 1).then(|| j.get_out_parent().into()),
     }
 }
@@ -327,7 +311,7 @@ impl State {
             }
             Ok(job) => {
                 (c.status, c.progress) = (Status::Running, 0.0);
-                c.detail = if self.settings.backend == Backend::Ck { "Starting ck" } else { "Starting Python" }.into();
+                c.detail = "Starting ck".into();
                 self.probe.pid.store(job.pid, Ordering::Relaxed);
                 let now = Instant::now();
                 self.run = Some(Run { index: i, job, progress: Progress::default(), started: now, phases: vec![("Starting".into(), now)], last: String::new() });
@@ -430,12 +414,6 @@ impl State {
 
     fn stats(&self) -> String {
         let mut l = vec!["Stats for nerds".to_owned(), String::new()];
-        let backend = match self.settings.backend {
-            Backend::Ck => "ck",
-            Backend::PythonPtx => "python-ptx",
-            Backend::Stock => "stock",
-        };
-        l.push(format!("backend    {backend}"));
         let live = self.run.as_ref().map(|r| (self.clips[r.index].status.label().to_owned(), r.progress.clone(), r.started, r.phases.clone(), None, r.index));
         let done = self.finished.clone().map(|(s, p, t, ph, end)| (s, p, t, ph, Some(end), usize::MAX));
         match live.or(done) {
@@ -502,9 +480,6 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
     let settings = Settings::load();
     settings_to_ui(&settings, &ui.global::<Job>());
     ui.global::<Job>().set_ck_built(command::ck_binary().is_some());
-    if command::ck_binary().is_none() && settings.backend == Backend::Ck {
-        ui.global::<Job>().set_backend(1);
-    }
     let state = Rc::new(RefCell::new(State {
         ui: ui.as_weak(),
         clips: vec![],
@@ -700,17 +675,6 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
         later(async move {
             if let (Some(d), Some(ui)) = (picked.await, w.upgrade()) {
                 ui.global::<Job>().set_out_parent(d.path().display().to_string().into());
-                ui.global::<Job>().invoke_changed();
-            }
-        });
-    });
-    let w = ui.as_weak();
-    j.on_browse_temp_dir(move || {
-        let w = w.clone();
-        let picked = rfd::AsyncFileDialog::new().set_title("Scratch folder").pick_folder();
-        later(async move {
-            if let (Some(d), Some(ui)) = (picked.await, w.upgrade()) {
-                ui.global::<Job>().set_temp_dir(d.path().display().to_string().into());
                 ui.global::<Job>().invoke_changed();
             }
         });

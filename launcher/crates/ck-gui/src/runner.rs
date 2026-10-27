@@ -98,7 +98,6 @@ pub fn stop(job: &Job) {
 pub struct Progress {
     pub value: f32,
     pub detail: String,
-    pub low_vram: bool,
     pub frames: usize,
     pub size: String,
     pub window: String,
@@ -108,7 +107,6 @@ pub struct Progress {
 
 const KEY_START: f32 = 0.15;
 const KEY_END: f32 = 0.97;
-const KEY_END_LOW: f32 = 0.65;
 
 fn nums(s: &str) -> Vec<usize> {
     s.split(|c: char| !c.is_ascii_digit()).filter(|t| !t.is_empty()).filter_map(|t| t.parse().ok()).collect()
@@ -119,7 +117,7 @@ fn after<'a>(s: &'a str, key: &str) -> Option<&'a str> {
 }
 
 impl Progress {
-    /// Updates from one line of ck or infer.py output; true if progress or detail moved.
+    /// Updates from one line of ck output; true if progress or detail moved.
     pub fn feed(&mut self, line: &str) -> bool {
         let t = line.trim();
         let before = (self.value, self.detail.clone());
@@ -134,9 +132,8 @@ impl Progress {
             if let [done, total, ..] = n[..]
                 && total > 0 && (t.starts_with("window") || rest.contains(" [")) {
                     self.at = (done, total);
-                    let end = if self.low_vram { KEY_END_LOW } else { KEY_END };
-                    self.value = KEY_START + (end - KEY_START) * done as f32 / total as f32;
-                    self.detail = if done == total && self.low_vram { "Writing outputs".into() } else { format!("Keying {done}/{total}") };
+                    self.value = KEY_START + (KEY_END - KEY_START) * done as f32 / total as f32;
+                    self.detail = format!("Keying {done}/{total}");
                 }
         } else if t.contains(" frames ") && t.contains(" → ") && t.contains(", window ") {
             let n = nums(t);
@@ -147,27 +144,7 @@ impl Progress {
             }
             self.value = KEY_START;
             self.detail = "Keying".into();
-        } else if let Some(rest) = after(t, "Hann stage1: ") {
-            if let [chunk, stride, windows, ..] = nums(rest)[..] {
-                self.window = format!("chunk {chunk} · stride {stride} · {windows} windows");
-            }
-            self.value = KEY_START;
-            self.detail = "Keying".into();
-        } else if let Some(rest) = after(t, "Auto VRAM: ") {
-            self.low_vram = rest.contains("low_vram=True");
-        } else if t.contains("frozen VFM prepass") {
-            (self.value, self.detail) = (0.12, "Feature prepass".into());
-        } else if t.contains("RVM continuous prepass") {
-            (self.value, self.detail) = (0.08, "Motion prepass".into());
-        } else if let Some(rest) = after(t, "probed ") {
-            self.frames = nums(rest).first().copied().unwrap_or(0);
-            if let Some([mw, mh, w, h, ..]) = after(rest, "@ ").map(nums).as_deref() {
-                self.size = format!("{w}x{h} → model {mw}x{mh}");
-            }
-            (self.value, self.detail) = (0.06, "Reading clip".into());
-        } else if t.starts_with("Loading CorridorKey v2 runtime weights")
-            || (t.contains("GiB free") && t.contains("sm_") && !t.contains('→') && self.value < KEY_START)
-        {
+        } else if t.contains("GiB free") && t.contains("sm_") && !t.contains('→') && self.value < KEY_START {
             (self.value, self.detail) = (0.02, "Loading model".into());
         }
         (self.value, self.detail.as_str()) != (before.0, before.1.as_str())

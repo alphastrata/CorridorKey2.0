@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::clips::{Clip, Hint, OUTPUTS};
-use crate::settings::{Backend, Settings};
+use crate::settings::Settings;
 
 pub struct Command {
     pub program: PathBuf,
@@ -29,11 +29,6 @@ pub fn ck_binary() -> Option<PathBuf> {
     let on_path = std::env::var_os("PATH").and_then(|p| std::env::split_paths(&p).map(|d| d.join(exe("ck"))).find(|c| c.is_file()));
     let built = repo().map(|r| r.join("launcher/target/release").join(exe("ck")));
     [std::env::var_os("CK_BIN").map(PathBuf::from), beside, on_path, built].into_iter().flatten().find(|p| p.is_file())
-}
-
-fn python() -> PathBuf {
-    let venv = repo().map(|r| if cfg!(windows) { r.join(".venv/Scripts/python.exe") } else { r.join(".venv/bin/python") });
-    venv.filter(|p| p.is_file()).unwrap_or_else(|| PathBuf::from(if cfg!(windows) { "python" } else { "python3" }))
 }
 
 fn linear(clip: &Clip, s: &Settings) -> bool {
@@ -87,63 +82,7 @@ fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
     a
 }
 
-fn infer(clip: &Clip, s: &Settings, out: &Path, root: &Path) -> Vec<String> {
-    let mut a = vec![
-        root.join("infer.py").display().to_string(),
-        "--input".into(),
-        clip.source.display().to_string(),
-        "--output_dir".into(),
-        out.display().to_string(),
-    ];
-    a.extend(hint(clip, ["--hint_first_frame", "--hint_video"]));
-    a.extend(["--hint_quality".into(), format!("{}", s.hint_quality)]);
-    match s.carry {
-        Some(q) => a.extend(["--carry_hint_quality".into(), format!("{q}")]),
-        None => a.push("--no_carry_hint".into()),
-    }
-    a.push("--outputs".into());
-    a.extend(outputs(s).into_iter().map(Into::into));
-    if let Some(float) = s.exr { a.extend(["--output_format".into(), "exr".into(), "--exr_dtype".into(), if float { "float" } else { "half" }.into()]) } else {
-        a.extend(["--output_format".into(), "video".into()]);
-        if s.cutout_linear {
-            a.push("--cutout_linear".into());
-        }
-    }
-    a.extend(["--despill_strength".into(), format!("{}", s.despill)]);
-    if clip.frames {
-        a.extend(["--frame_dir_fps".into(), format!("{}", s.fps)]);
-        if linear(clip, s) {
-            a.push("--frame_dir_linear".into());
-        }
-    }
-    if let Some((chunk, stride)) = s.window {
-        if s.low_vram {
-            a.push("--low_vram".into());
-        }
-        a.extend(["--hann_chunk".into(), chunk.to_string(), "--hann_stride".into(), stride.to_string()]);
-    }
-    a.extend(["--temp_dir".into(), s.temp_dir().display().to_string()]);
-    if s.frames > 0 {
-        let take = ["begin", "middle", "random_middle"][usize::from(s.start_mode.min(2))];
-        a.extend(["--num_frames".into(), s.frames.to_string(), "--start_mode".into(), take.into()]);
-    }
-    a
-}
-
 pub fn build(clip: &Clip, s: &Settings, out: &Path) -> Result<Command, String> {
-    match s.backend {
-        Backend::Ck => {
-            let program = ck_binary().ok_or("ck is not built: cargo build --release -p ck in launcher/")?;
-            Ok(Command { program, args: ck(clip, s, out), env: vec![] })
-        }
-        Backend::PythonPtx | Backend::Stock => {
-            let root = repo().ok_or("cannot find the repository (set CK_REPO)")?;
-            let ptx = if s.backend == Backend::PythonPtx { "1" } else { "0" };
-            Ok(Command {
-                program: python(),
-                args: infer(clip, s, out, &root),
-                env: vec![("CORRIDORKEY_PTX", ptx), ("PYTHONUNBUFFERED", "1"), ("PYTHONIOENCODING", "utf-8"), ("HF_HUB_OFFLINE", "1"), ("TRANSFORMERS_OFFLINE", "1")],
-            })
-        }
-    }
+    let program = ck_binary().ok_or("ck is not built: cargo build --release -p ck in launcher/")?;
+    Ok(Command { program, args: ck(clip, s, out), env: vec![] })
 }

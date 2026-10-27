@@ -88,8 +88,7 @@ python run_interactive.py /path/to/clip.mp4
 
 A desktop UI (Slint, in `launcher/crates/ck-gui`): a clip queue, a viewer for the
 input and every output, and the settings below as controls. It runs one clip at a
-time through the chosen **Backend**: `ck`, `infer.py` with our kernels, or
-`infer.py` on stock PyTorch kernels.
+time through `ck`.
 
 ```
 just gui [clip_or_folder ...]

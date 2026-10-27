@@ -10,7 +10,6 @@ export struct ClipRow {
 }
 
 export global Job {
-    in-out property <int> backend;
     in-out property <bool> ck-built: true;
     in-out property <int> codec;
     in-out property <bool> out-alpha: true;
@@ -25,19 +24,15 @@ export global Job {
     in-out property <bool> carry: true;
     in-out property <float> carry-quality: 0.95;
     in-out property <int> vram-mode;
-    in-out property <bool> low-vram;
     in-out property <int> chunk: 48;
     in-out property <int> stride: 24;
-    in-out property <string> temp-dir;
     in-out property <int> frame-colour;
     in-out property <string> fps: "24";
     in-out property <int> num-frames;
-    in-out property <int> start-mode;
     in-out property <int> out-mode;
     in-out property <string> out-parent;
     callback changed();
     callback browse-out-parent();
-    callback browse-temp-dir();
 }
 
 export global View {
@@ -502,7 +497,6 @@ component Value inherits Text {
 
 component Inspector inherits Rectangle {
     in property <bool> locked;
-    property <bool> ck: Job.backend == 0;
     property <bool> exr: Job.format == 1;
     property <bool> manual: Job.vram-mode == 1;
     property <[string]> presets: ["80 / 40 · max continuity", "48 / 24", "24 / 12", "8 / 4", "1 / 1 · single frames", "Custom"];
@@ -570,26 +564,21 @@ component Inspector inherits Rectangle {
                     }
                 }
                 Section {
-                    title: "Backend";
-                    Row {
-                        label: "Run with";
-                        enabled: !root.locked;
-                        ComboBox {
-                            min-width: 0;
-                            model: [Job.ck-built ? "ck · Rust launcher" : "ck · not built", "Python · our kernels", "Python · stock kernels"];
-                            current-index <=> Job.backend;
-                            enabled: !root.locked;
-                            selected => { Job.changed(); }
-                        }
+                    title: "Encoder";
+                    if !Job.ck-built: Text {
+                        text: "ck is not built: cargo build --release -p ck";
+                        color: T.danger;
+                        font-size: T.small;
+                        wrap: word-wrap;
                     }
                     Row {
-                        label: "Encoder";
-                        enabled: !root.locked && root.ck && !root.exr;
+                        label: "Codec";
+                        enabled: !root.locked && !root.exr;
                         ComboBox {
                             min-width: 0;
                             model: ["x264 · CPU", "HEVC · NVENC on the GPU"];
                             current-index <=> Job.codec;
-                            enabled: !root.locked && root.ck && !root.exr;
+                            enabled: !root.locked && !root.exr;
                             selected => { Job.changed(); }
                         }
                     }
@@ -733,13 +722,6 @@ component Inspector inherits Rectangle {
                             selected => { Job.changed(); }
                         }
                     }
-                    CheckBox {
-                        min-width: 0;
-                        text: "Low-VRAM (staged, slower)";
-                        checked <=> Job.low-vram;
-                        enabled: !root.locked && root.manual && !root.ck;
-                        toggled => { Job.changed(); }
-                    }
                     Row {
                         label: "Window";
                         enabled: !root.locked && root.manual;
@@ -775,22 +757,6 @@ component Inspector inherits Rectangle {
                             value <=> Job.stride;
                             enabled: !root.locked && root.manual;
                             edited => { Job.changed(); }
-                        }
-                    }
-                    Row {
-                        label: "Scratch";
-                        enabled: !root.locked && !root.ck;
-                        LineEdit {
-                            min-width: 0;
-                            text <=> Job.temp-dir;
-                            placeholder-text: "System temp";
-                            enabled: !root.locked && !root.ck;
-                            edited => { Job.changed(); }
-                        }
-                        Btn {
-                            text: "…";
-                            enabled: !root.locked && !root.ck;
-                            clicked => { Job.browse-temp-dir(); }
                         }
                     }
                 }
@@ -839,17 +805,6 @@ component Inspector inherits Rectangle {
                             color: T.muted;
                             font-size: T.body;
                             vertical-alignment: center;
-                        }
-                    }
-                    Row {
-                        label: "Take";
-                        enabled: !root.locked && Job.num-frames > 0 && !root.ck;
-                        ComboBox {
-                            min-width: 0;
-                            model: ["From the start", "Centred segment", "Random segment"];
-                            current-index <=> Job.start-mode;
-                            enabled: !root.locked && Job.num-frames > 0 && !root.ck;
-                            selected => { Job.changed(); }
                         }
                     }
                 }
