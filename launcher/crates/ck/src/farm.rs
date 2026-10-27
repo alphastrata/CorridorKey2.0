@@ -1,3 +1,4 @@
+use crate::convert::{Metric, Narrow};
 use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -8,7 +9,7 @@ use std::time::{Duration, Instant};
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::{Result, bail, ensure, eyre};
 use flume::RecvTimeoutError;
-use tracing::{info, info_span, warn};
+use tracing::{info, instrument, warn};
 
 use crate::clip::{Clip, upload};
 use crate::frame::{self, Encoding, Geometry, Input, Output};
@@ -87,6 +88,7 @@ struct Shared<'a> {
     clips: Mutex<VecDeque<(PathBuf, String)>>,
     jobs: (flume::Sender<Job>, flume::Receiver<Job>),
     queued: AtomicUsize,
+
     leading: Vec<AtomicBool>,
     alive: Vec<AtomicBool>,
     active: AtomicUsize,
@@ -147,6 +149,7 @@ fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job<Tensor>) -> Result<()> 
     let linear = job.meta.pix == Dtype::F32 && cfg.linear_input;
     let planes = match &m.refiner {
         Some(_) if !g.native() => Some(frame::planes(gpu, &raw, g)?),
+
         _ => None,
     };
     match &planes {
@@ -158,9 +161,23 @@ fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job<Tensor>) -> Result<()> 
     }
     let logits = m.s2.forward(gpu, &m.cache, &rgb, Baton::Nhwc(acc, job.scale))?;
     let (logits, g) = match (&m.refiner, &planes) {
-        (Some(r), Some((native, low))) => (r.native(gpu, &logits, (native, low), g, Input { linear, adjust: cfg.look.adjust })?, g.output()),
+        (Some(r), Some((native, low))) => (
+            r.native(
+
+                gpu,
+                &logits,
+                (native, low),
+                g,
+                Input {
+                    linear,
+                    adjust: cfg.look.adjust,
+                },
+            )?,
+            g.output(),
+        ),
         _ => (logits, g),
     };
+
     let rendered = cfg
         .outputs
         .iter()
@@ -173,6 +190,7 @@ fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job<Tensor>) -> Result<()> 
         .iter()
         .map(|img| gpu.download(img))
         .collect::<Result<Vec<_>>>()?;
+
     job.meta
         .done
         .send(Done {
@@ -190,6 +208,7 @@ fn sink(
 ) -> Result<()> {
     let mut pending = BTreeMap::new();
     let mut next = 0;
+
     let (start, mut told) = (Instant::now(), Instant::now());
     while next < total {
         ensure!(!abort.load(Ordering::Acquire), Aborted);
@@ -198,6 +217,7 @@ fn sink(
             Err(RecvTimeoutError::Timeout) => continue,
             Err(RecvTimeoutError::Disconnected) => bail!("{} frames never arrived", total - next),
         };
+
         while let Some(images) = pending.remove(&next) {
             if let Some(p) = preview.as_mut() {
                 p.offer(writers.iter().map(|(o, _)| *o).zip(images.iter().map(Vec::as_slice)))?;
@@ -207,7 +227,11 @@ fn sink(
             written.store(next, Ordering::Release);
             if told.elapsed() >= TELL || next == total {
                 told = Instant::now();
-                info!("{next}/{total} frames written · {:.2} fps", next as f64 / start.elapsed().as_secs_f64());
+
+                info!(
+                    "{next}/{total} frames written · {:.2} fps",
+                    next.f64() / start.elapsed().as_secs_f64()
+                );
             }
         }
     }
@@ -223,6 +247,7 @@ fn submit((gpu, m, k): (&Gpu, &Models, usize), sh: &Shared, job: Job<Tensor>) ->
         .any(|(a, l)| a.load(Ordering::Acquire) && !l.load(Ordering::Acquire));
     loop {
         ensure!(!sh.abort.load(Ordering::Acquire), Aborted);
+
         if free && sh.queued.load(Ordering::Acquire) + bytes <= QUEUE_BYTES {
             sh.queued.fetch_add(bytes, Ordering::AcqRel);
             let baton = gpu.download(&job.baton)?;
@@ -235,6 +260,8 @@ fn submit((gpu, m, k): (&Gpu, &Models, usize), sh: &Shared, job: Job<Tensor>) ->
     }
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
+#[instrument(name = "clip", skip_all, fields(input = %input.display()))]
 fn lead<'s, 'e>(
     (gpu, m, k): (&Gpu, &Models, usize),
     sh: &'e Shared<'e>,
@@ -242,11 +269,11 @@ fn lead<'s, 'e>(
     (input, name): (&Path, String),
     free: f64,
 ) -> Result<()> {
-    let _clip = info_span!("clip", %name).entered();
     let src = Source::open(input, sh.cfg.dir_fps)?;
     let total = sh.cfg.frames.map_or(src.frames, |n| n.min(src.frames));
     ensure!(total > 0, "{}: no frames", input.display());
     let g = Geometry::scaled(src.h, src.w, sh.cfg.scale, sh.cfg.quantum);
+
     let mut cfg = sh.cfg.clone();
     if cfg.auto {
         let free = free - cfg.encoder_gib((src.w, src.h));
@@ -260,13 +287,19 @@ fn lead<'s, 'e>(
     if src.float() && !cfg.linear_input {
         warn!("float frames read as display-coded and clipped to [0, 1]; pass --linear for scene-linear");
     }
+
     std::fs::create_dir_all(sh.out_dir)?;
     let writers = cfg
         .outputs
         .iter()
         .map(|&o| Ok((o, cfg.writer(sh.out_dir, &name, &src, o)?)))
         .collect::<Result<Vec<_>>>()?;
-    let preview = cfg.preview.as_deref().map(|d| Preview::new(d, (src.w, src.h), cfg.exr.is_some())).transpose()?;
+    let preview = cfg
+        .preview
+        .as_deref()
+        .map(|d| Preview::new(d, (src.w, src.h), cfg.exr.is_some()))
+        .transpose()?;
+
     let (done, rx) = flume::unbounded();
     let written = Arc::new(AtomicUsize::new(0));
     let sunk = written.clone();
@@ -275,6 +308,7 @@ fn lead<'s, 'e>(
         if r.is_err() {
             sh.abort.store(true, Ordering::Release);
         }
+
         drop(sh.sinks.send(r));
     });
     info!(
@@ -291,16 +325,17 @@ fn lead<'s, 'e>(
     Clip::open((gpu, m, &cfg), &src, total, sh.hints, meta)?.run(total, |job| submit((gpu, m, k), sh, job))
 }
 
+#[instrument(name = "gpu", skip_all, fields(id = device))]
 fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 'e>) -> Result<()> {
-    let _gpu = info_span!("gpu", id = device).entered();
     while k > 0 && !sh.loaded.load(Ordering::Acquire) && !sh.abort.load(Ordering::Acquire) {
         std::thread::sleep(Duration::from_millis(10));
     }
     if sh.abort.load(Ordering::Acquire) {
         return Ok(());
     }
+
     let gpu = Gpu::open(device, &sh.assets.ptx)?;
-    let free = gpu.ctx.mem_get_info()?.0 as f64 / f64::from(1u32 << 30);
+    let free = gpu.ctx.mem_get_info()?.0.f64() / f64::from(1u32 << 30);
     let m = Models::load(&gpu, &sh.assets.weights, &sh.assets.vfms, sh.cfg.refine.as_deref())?;
     if k == 0 {
         m.front(&gpu)?;
@@ -308,31 +343,55 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
     sh.loaded.store(true, Ordering::Release);
     info!("sm_{}, {free:.1} GiB free", gpu.sm);
     loop {
-        if sh.abort.load(Ordering::Acquire) {
+        if matches!(tick((&gpu, &m, k), sh, s, free)?, Tick::Finish) {
             return Ok(());
-        }
-        if let Some(job) = sh.take(k, Duration::ZERO) {
-            queued(&gpu, &m, sh.cfg, job)?;
-            continue;
-        }
-        let next = if sh.may_lead(k) { sh.clips()?.pop_front() } else { None };
-        if let Some((input, name)) = next {
-            sh.leading[k].store(true, Ordering::Release);
-            sh.active.fetch_add(1, Ordering::AcqRel);
-            let r = lead((&gpu, &m, k), sh, s, (&input, name), free);
-            sh.leading[k].store(false, Ordering::Release);
-            sh.active.fetch_sub(1, Ordering::AcqRel);
-            r?;
-            continue;
-        }
-        if sh.idle()? {
-            info!("{} frames through stage 2", KEYED.get());
-            return Ok(());
-        }
-        if let Some(job) = sh.take(k, Duration::from_millis(5)) {
-            queued(&gpu, &m, sh.cfg, job)?;
         }
     }
+}
+
+enum Tick {
+    Finish,
+    CarryOn,
+}
+
+fn tick<'s, 'e>(
+    (gpu, m, key): (&Gpu, &Models, usize),
+    sh: &'e Shared<'e>,
+    s: &'s Scope<'s, 'e>,
+    free: f64,
+) -> Result<Tick> {
+    if sh.abort.load(Ordering::Acquire) {
+        return Ok(Tick::Finish);
+    }
+
+    if let Some(job) = sh.take(key, Duration::ZERO) {
+        queued(gpu, m, sh.cfg, job)?;
+        return Ok(Tick::CarryOn);
+    }
+    let next = if sh.may_lead(key) {
+        sh.clips()?.pop_front()
+    } else {
+        None
+    };
+
+    if let Some((input, name)) = next {
+        sh.leading[key].store(true, Ordering::Release);
+        sh.active.fetch_add(1, Ordering::AcqRel);
+        let r = lead((gpu, m, key), sh, s, (&input, name), free);
+        sh.leading[key].store(false, Ordering::Release);
+        sh.active.fetch_sub(1, Ordering::AcqRel);
+        r?;
+        return Ok(Tick::CarryOn);
+    }
+
+    if sh.idle()? {
+        info!("{} frames through stage 2", KEYED.get());
+        return Ok(Tick::Finish);
+    }
+    if let Some(job) = sh.take(key, Duration::from_millis(5)) {
+        queued(gpu, m, sh.cfg, job)?;
+    }
+    Ok(Tick::CarryOn)
 }
 
 pub fn run(
@@ -344,14 +403,19 @@ pub fn run(
     hints: &Hints,
 ) -> Result<()> {
     ensure!(!devices.is_empty(), "no CUDA devices");
+
     let mut ranked = devices
         .iter()
         .map(|&d| Ok((Gpu::speed(d)?, d)))
         .collect::<Result<Vec<_>>>()?;
     ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let depth: Vec<usize> = ranked.iter().map(|r| (ranked[0].0 / r.0).ceil().max(0.0) as usize).collect();
+    let depth: Vec<usize> = ranked
+        .iter()
+        .map(|r| (ranked[0].0 / r.0).ceil().max(0.0).usize())
+        .collect();
     let devices: Vec<usize> = ranked.into_iter().map(|(_, d)| d).collect();
     let (sinks, results) = flume::unbounded();
+
     let sh = Shared {
         assets,
         cfg,
@@ -360,6 +424,7 @@ pub fn run(
         clips: Mutex::new(inputs.iter().cloned().zip(clip_names(inputs)).collect()),
         jobs: flume::unbounded(),
         queued: AtomicUsize::new(0),
+
         leading: devices.iter().map(|_| AtomicBool::new(false)).collect(),
         alive: devices.iter().map(|_| AtomicBool::new(true)).collect(),
         active: AtomicUsize::new(0),
@@ -368,6 +433,7 @@ pub fn run(
         depth,
         sinks,
     };
+
     let workers: Vec<Result<()>> = std::thread::scope(|s| {
         let sh = &sh;
         let handles: Vec<_> = devices
@@ -376,6 +442,7 @@ pub fn run(
             .map(|(k, &dev)| {
                 s.spawn(move || {
                     let r = worker(k, dev, sh, s).map_err(|e| e.wrap_err(format!("GPU {dev}")));
+
                     if r.is_err() {
                         sh.abort.store(true, Ordering::Release);
                     }
@@ -384,6 +451,7 @@ pub fn run(
                 })
             })
             .collect();
+
         handles
             .into_iter()
             .map(|h| h.join().map_err(|_| eyre!("worker panicked"))?)
