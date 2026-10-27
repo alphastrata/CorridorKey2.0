@@ -32,6 +32,7 @@ struct Run {
     started: Instant,
     phases: Vec<(String, Instant)>,
     last: String,
+    error: Vec<String>,
 }
 
 type Finished = (String, Progress, Instant, Vec<(String, Instant)>, Instant);
@@ -50,6 +51,7 @@ struct State {
     runs: Vec<Run>,
     catalogue: Catalogue,
     live: Option<SystemTime>,
+    jumped: bool,
     launches: usize,
     mode: Mode,
     counts: [usize; 3],
@@ -141,6 +143,10 @@ fn settings_from_ui(j: &Job, cat: &Catalogue) -> Settings {
     }
 }
 
+fn is_ppm(p: &std::path::Path) -> bool {
+    p.extension().is_some_and(|e| e == "ppm")
+}
+
 fn clock(d: Duration) -> String {
     let s = d.as_secs();
     if s >= 3600 { format!("{}:{:02}:{:02}", s / 3600, s / 60 % 60, s % 60) } else { format!("{}:{:02}", s / 60, s % 60) }
@@ -157,9 +163,7 @@ impl State {
     }
 
     fn log(&self, line: impl Into<SharedString>) {
-        let line: SharedString = line.into();
-        eprintln!("LOG {line}");
-        self.log.push(line);
+        self.log.push(line.into());
         if self.log.row_count() > LOG_LINES {
             self.log.remove(0);
         }
@@ -244,12 +248,14 @@ impl State {
             None => c.outputs(&self.output_dir(c)).to_vec(),
         };
         self.views = [Some(c.source.clone()), outs[0].clone(), outs[1].clone(), outs[2].clone(), outs[3].clone()];
-        v.set_has(ModelRc::new(VecModel::from(self.views.iter().map(Option::is_some).collect::<Vec<_>>())));
+        let ready = self.ready();
+        v.set_has(ModelRc::new(VecModel::from(ready.clone())));
+        self.jumped = false;
         let mut view = usize::try_from(v.get_view()).unwrap_or(0);
-        if self.views[view].is_none() {
+        if !ready.get(view).copied().unwrap_or(false) {
             view = 0;
         }
-        if matches!(c.status, Status::Done | Status::Running) {
+        if c.status == Status::Done {
             view = [3, 1, 2].into_iter().find(|&k| self.views[k].is_some()).unwrap_or(view);
         }
         v.set_view(i32::try_from(view).unwrap_or_default());
@@ -266,7 +272,7 @@ impl State {
 
     fn request(&mut self, view: usize, index: usize) {
         let Some(path) = self.views.get(view).cloned().flatten() else { return };
-        if path.extension().is_some_and(|e| e == "ppm") {
+        if is_ppm(&path) {
             self.live = None;
             self.live();
             return;
@@ -278,17 +284,30 @@ impl State {
         self.frames.show(&path, index, self.linear(view), self.detail);
     }
 
+    fn ready(&self) -> Vec<bool> {
+        self.views.iter().map(|p| p.as_ref().is_some_and(|p| !is_ppm(p) || p.is_file())).collect()
+    }
+
     fn live(&mut self) {
-        if let Some(ui) = self.ui() { let v = ui.global::<View>(); eprintln!("LIVE view={} src_w={} live={:?}", v.get_view(), v.get_src_w(), self.live); }
         let Some(ui) = self.ui() else { return };
-        let v = ui.global::<View>();
-        let current = usize::try_from(v.get_view()).ok().and_then(|k| self.views.get(k).cloned().flatten());
-        let Some(path) = current.filter(|p| p.extension().is_some_and(|e| e == "ppm")) else { return };
-        let stamp = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
-        if stamp.is_none() {
-            v.set_message("Waiting for the first keyed frame…".into());
-            v.set_src_w(0);
+        if !self.views.iter().flatten().any(|p| is_ppm(p)) {
+            return;
         }
+        let v = ui.global::<View>();
+        let ready = self.ready();
+        if v.get_has().iter().collect::<Vec<_>>() != ready {
+            v.set_has(ModelRc::new(VecModel::from(ready.clone())));
+        }
+        let mut view = usize::try_from(v.get_view()).unwrap_or(0);
+        if let Some(k) = [3, 1, 2, 4].into_iter().find(|&k| ready[k]).filter(|_| view == 0 && !self.jumped) {
+            self.jumped = true;
+            view = k;
+            v.set_playing(false);
+            v.set_view(i32::try_from(k).unwrap_or_default());
+            self.live = None;
+        }
+        let Some(path) = self.views.get(view).cloned().flatten().filter(|p| is_ppm(p)) else { return };
+        let stamp = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
         if stamp.is_none() || stamp == self.live {
             return;
         }
@@ -408,7 +427,7 @@ impl State {
                 (c.status, c.progress) = (Status::Running, 0.0);
                 c.detail = if gpus.is_empty() { "Starting ck".into() } else { format!("Starting ck on GPU {}", gpus.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")) };
                 let now = Instant::now();
-                self.runs.push(Run { index: i, gpus, preview, job, progress: Progress::default(), started: now, phases: vec![("Starting".into(), now)], last: String::new() });
+                self.runs.push(Run { index: i, gpus, preview, job, progress: Progress::default(), started: now, phases: vec![("Starting".into(), now)], last: String::new(), error: vec![] });
                 self.watch();
                 self.finished = None;
                 self.refresh_row(i);
@@ -430,8 +449,14 @@ impl State {
         let tag = self.runs.iter().filter(|_| self.runs.len() > 1).find(|r| r.job.pid == pid).map(|r| format!("[{}] ", self.clips[r.index].name()));
         self.log(format!("{}{text}", tag.unwrap_or_default()));
         let Some(run) = self.runs.iter_mut().find(|r| r.job.pid == pid) else { return };
-        if !text.trim().is_empty() {
-            run.last = text.trim().chars().rev().take(110).collect::<Vec<_>>().into_iter().rev().collect();
+        let t = text.trim();
+        if t == "Error:" {
+            run.error.clear();
+            run.error.push(String::new());
+        } else if let Some(cause) = t.split_once(": ").filter(|(n, _)| !run.error.is_empty() && n.parse::<u8>().is_ok()).map(|(_, c)| c) {
+            run.error.push(cause.to_owned());
+        } else if !t.is_empty() {
+            run.last = t.chars().rev().take(110).collect::<Vec<_>>().into_iter().rev().collect();
         }
         if run.progress.feed(text) {
             let phase = if run.progress.detail.starts_with(|c: char| c.is_ascii_digit()) {
@@ -462,7 +487,10 @@ impl State {
         match (status, stopping) {
             (_, true) => (c.status, c.progress, c.detail) = (Status::Stopped, 0.0, "Stopped".into()),
             (Ok(0), _) => (c.status, c.progress, c.detail) = (Status::Done, 1.0, "Done".into()),
-            (Ok(code), _) => (c.status, c.detail) = (Status::Failed, if run.last.is_empty() { format!("exited with code {code}") } else { run.last.clone() }),
+            (Ok(code), _) => {
+                let why = run.error.iter().filter(|e| !e.is_empty()).cloned().collect::<Vec<_>>().join(" · ");
+                (c.status, c.detail) = (Status::Failed, [why, run.last.clone(), format!("exited with code {code}")].into_iter().find(|w| !w.is_empty()).unwrap_or_default());
+            }
             (Err(sig), _) => (c.status, c.detail) = (Status::Failed, format!("killed by {sig}")),
         }
         let k = match c.status {
@@ -818,6 +846,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
         runs: vec![],
         catalogue,
         live: None,
+        jumped: false,
         launches: 0,
         mode: Mode::Idle,
         counts: [0; 3],
@@ -833,7 +862,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
         events: flume::unbounded(),
     }));
 
-    drop(wire_timers(&state, shown_rx, snap_rx));
+    let timers = wire_timers(&state, shown_rx, snap_rx);
     wire_actions(&ui, &state);
     wire_queue(&ui, &state);
     wire_view(&ui, &state);
@@ -841,7 +870,8 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
     wire_window(&ui, &state);
     if !paths.is_empty() {
         state.borrow_mut().add(paths);
-        state.borrow_mut().start();
     }
-    ui.run()
+    let shown = ui.run();
+    drop(timers);
+    shown
 }
