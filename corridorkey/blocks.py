@@ -18,7 +18,7 @@ Publicly exported:
   • Depatchify — Linear(d → C·r²) + PixelShuffle(r) for /16 → /1 and /16 → /2.
   • icnr_init_ — Aitken 2017 ICNR init for conv feeding PixelShuffle.
 
-Residual blocks use pre-norm plus zero-initialized output projections/gates so
+Residual blocks use pre-norm plus zero-initialised output projections/gates so
 every block is near-identity at t=0 and grows responsibility with training.
 """
 
@@ -40,7 +40,7 @@ class LayerNorm2d(nn.Module):
 
     Kept the historical class name for backward compat of state-dict keys,
     but the implementation is now RMSNorm: mean subtraction dropped, no
-    learnable bias, variance-only normalization. ~10-15% faster than
+    learnable bias, variance-only normalisation. ~10-15% faster than
     LayerNorm, and matches the EUPE / DINOv3 convention used by our
     frozen foundations.
     """
@@ -74,12 +74,12 @@ class RMSNorm(nn.Module):
     """
     def __init__(self, dim: int, eps: float = 1e-6):
         super().__init__()
-        self.normalized_shape = (dim,)
+        self.normalised_shape = (dim,)
         self.weight = nn.Parameter(torch.ones(dim))
         self.eps = eps
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return F.rms_norm(x, self.normalized_shape,
+        return F.rms_norm(x, self.normalised_shape,
                            self.weight.to(x.dtype), self.eps)
 
 
@@ -87,7 +87,7 @@ def icnr_init_(conv: nn.Conv2d, upscale_factor: int):
     """ICNR init (Aitken 2017) for a Conv2d that feeds a PixelShuffle.
 
     Writes a "tile" where each r² group of output channels shares the
-    same sub-kernel — the initial PixelShuffle becomes a nearest-neighbor
+    same sub-kernel — the initial PixelShuffle becomes a nearest-neighbour
     upsample, so zero high-freq at t=0.
     """
     r2 = upscale_factor * upscale_factor
@@ -110,7 +110,7 @@ def icnr_init_linear_(linear: nn.Linear, upscale_factor: int,
     `linear.weight` has shape `(out_dim, in_dim)` with
     `out_dim = out_channels_per_slot * upscale_factor²`. Groups of r² along
     out_dim share the same slot-weight so PixelShuffle at init is nearest-
-    neighbor.
+    neighbour.
     """
     r2 = upscale_factor * upscale_factor
     out_dim, in_dim = linear.weight.data.shape
@@ -142,7 +142,7 @@ def init_orthogonal_rgb_passthrough_(
     output_rgb_offset: int = 1,
     downsample: int = 1,
 ) -> bool:
-    """Initialize patchify/depatchify as an exact RGB passthrough.
+    """Initialise patchify/depatchify as an exact RGB passthrough.
 
     A full random orthogonal basis maps each native RGB patch to tokens when
     the token width is 768. For lower-width stage-1 aux heads, the encoded
@@ -248,7 +248,7 @@ class SwiGLU(nn.Module):
     `zero_init_down=True` (default) zeros `w_down.weight` and `w_down.bias`
     so the residual branch contributes exactly 0 at init, letting us drop
     LayerScale gating. Set `zero_init_down=False` to keep Kaiming init
-    (legacy behavior that relied on LayerScale for near-identity).
+    (legacy behaviour that relied on LayerScale for near-identity).
     """
 
     def __init__(
@@ -325,7 +325,7 @@ class SwiGLU(nn.Module):
 class DepthwiseSwiGLU2D(nn.Module):
     """Depthwise spatial SwiGLU branch for NHWC feature maps.
 
-    The branch is gated by a per-channel gamma initialized to exact zero, so it
+    The branch is gated by a per-channel gamma initialised to exact zero, so it
     is an exact residual identity at init.
     The value and gate kernels are both depthwise 7x7 filters. After gamma
     learns away from zero, they provide local translation-equivariant mixing
@@ -437,7 +437,7 @@ class FusionLinSwiglu(nn.Module):
     Two parallel paths, summed:
 
       • Straight linear shortcut:
-          Linear(vfm_dim + aux_dim → out_dim), initialized as
+          Linear(vfm_dim + aux_dim → out_dim), initialised as
           `[P | 0]`, where P is identity when dimensions match and otherwise
           a variance-preserving semi-orthogonal projection over every VFM
           channel. At t=0, the /64 stream is a stable VFM-derived latent and
@@ -452,7 +452,7 @@ class FusionLinSwiglu(nn.Module):
           genuine nonlinear mixing between the vfm and aux channels
           prior to collapse.
 
-    Combined behavior: at t=0, `output == P(vfm)`. During training the
+    Combined behaviour: at t=0, `output == P(vfm)`. During training the
     shortcut learns source weighting and the SwiGLU learns nonlinear
     interactions between VFM and aux features.
     """
@@ -613,7 +613,7 @@ def _shifted_region_ids_2d(
     exactly like the activations and partitioned into windows. Tokens with
     different non-negative ids must not attend to each other; id -1 denotes
     padding. This represents the standard Swin wraparound mask without
-    materializing a full N×N mask, which is critical for full-temporal 3D
+    materialising a full N×N mask, which is critical for full-temporal 3D
     windows.
     """
 
@@ -660,7 +660,7 @@ def _shifted_attention_mask_2d(
     """Standard Swin shifted-window bool mask for 2D SDPA.
 
     This is the high-throughput path used when the attention window is small
-    enough to materialize the per-window N x N mask. It also handles padded
+    enough to materialise the per-window N x N mask. It also handles padded
     tokens by masking padded keys from real queries; padded queries are cropped
     after reverse shift, so they are allowed to attend to real keys only to
     keep SDPA rows finite.
@@ -975,7 +975,7 @@ class HeadwiseAttentionGate(nn.Module):
 class QKVDepthwiseSpatial(nn.Module):
     """Depthwise spatial filter on fused QKV maps in NHWC/NTHWC layout.
 
-    The kernel is initialized to exact identity, so enabling this module is
+    The kernel is initialised to exact identity, so enabling this module is
     nondisruptive for existing weights while still giving every off-center
     tap an immediate gradient path.
     """
@@ -2162,7 +2162,7 @@ class FullResolutionRecurrentMemorySite(nn.Module):
     style gated transformer candidate. Unlike RVM, the candidate updates only
     the recurrent memory; the frame stream remains the current-frame features
     plus the explicit read residual. The read output projection is zero-
-    initialized, so adding the site to an existing checkpoint is behavior-
+    initialised, so adding the site to an existing checkpoint is behaviour-
     neutral.
     """
 
@@ -2981,20 +2981,20 @@ class PatchifyConv(nn.Module):
     `overlap_mult` controls the receptive field size:
       • 1 (default): kernel=patch, stride=patch — no overlap (pure ViT patch).
       • 2: kernel=2·patch, stride=patch, padding=patch/2 — each token's RF
-        covers its own 16×16 + half-width strips of the 4 axis neighbors +
-        quarter-size corners of the 4 diagonal neighbors. ("Half-overlap")
+        covers its own 16×16 + half-width strips of the 4 axis neighbours +
+        quarter-size corners of the 4 diagonal neighbours. ("Half-overlap")
       • 3: kernel=3·patch, stride=patch, padding=patch — immediate + 8
         surrounding 16×16 blocks fully covered. ("Full-overlap")
 
     `overlap=True` is kept as an alias for overlap_mult=3.
 
-    Init behavior for overlap_mult > 1: the CENTRAL patch×patch region of
+    Init behaviour for overlap_mult > 1: the CENTRAL patch×patch region of
     each kernel is Kaiming-inited (producing the "own block" features
     identically to the non-overlap baseline at step 0); the surrounding
-    spill regions that reach into neighboring 16×16 blocks are
+    spill regions that reach into neighbouring 16×16 blocks are
     ZERO-inited. This way at init a token is a pure function of its own
     block (same as non-overlap), and the overlap contribution from
-    neighbors emerges only as those spill weights train away from zero.
+    neighbours emerges only as those spill weights train away from zero.
     """
 
     def __init__(self, in_channels: int, out_channels: int, patch: int,
@@ -3175,9 +3175,9 @@ class Depatchify(nn.Module):
         is a function of ONE input token.
       • 2: ConvTranspose2d(d, C, kernel=2·r, stride=r, padding=r/2). Each
         input token paints a 2r×2r patch; output pixel is a sum of 2×2
-        neighboring tokens' contributions.
+        neighbouring tokens' contributions.
       • 3: ConvTranspose2d(d, C, kernel=3·r, stride=r, padding=r). Each
-        output pixel sums contributions from the 3×3 token neighborhood.
+        output pixel sums contributions from the 3×3 token neighbourhood.
 
     `overlap=True` is kept as an alias for overlap_mult=3.
 

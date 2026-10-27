@@ -97,7 +97,7 @@ class CorridorKeyV3(nn.Module):
         gradient_checkpoint: bool = True,
         # Architecture ablation knob: overlap patchify/depatchify.
         # overlap_patchify is a legacy bool alias (True → mult=3).
-        # overlap_mult: 1 (no overlap), 2 (half), 3 (full 3×3 neighborhood).
+        # overlap_mult: 1 (no overlap), 2 (half), 3 (full 3×3 neighbourhood).
         overlap_patchify: bool = False,
         overlap_mult: int = 2,
         depatch_fourier_features: int = 0,
@@ -226,7 +226,7 @@ class CorridorKeyV3(nn.Module):
         # RVM input: feed the same H/4-sized tensor C-RADIO sees. RVM has
         # patch 16, so the patch grid lands on /64 directly —
         # no resize, no aspect distortion. If caller supplied a custom
-        # rgb_rvm explicitly, honor that instead.
+        # rgb_rvm explicitly, honour that instead.
         if self.foundations.rvm is not None and rgb_rvm is None:
             assert rgb_cradio is not None, (
                 "RVM inline extraction requires an H/4 C-RADIO/RVM input")

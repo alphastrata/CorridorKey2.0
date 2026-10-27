@@ -157,7 +157,9 @@ impl State {
     }
 
     fn log(&self, line: impl Into<SharedString>) {
-        self.log.push(line.into());
+        let line: SharedString = line.into();
+        eprintln!("LOG {line}");
+        self.log.push(line);
         if self.log.row_count() > LOG_LINES {
             self.log.remove(0);
         }
@@ -277,6 +279,7 @@ impl State {
     }
 
     fn live(&mut self) {
+        if let Some(ui) = self.ui() { let v = ui.global::<View>(); eprintln!("LIVE view={} src_w={} live={:?}", v.get_view(), v.get_src_w(), self.live); }
         let Some(ui) = self.ui() else { return };
         let v = ui.global::<View>();
         let current = usize::try_from(v.get_view()).ok().and_then(|k| self.views.get(k).cloned().flatten());
@@ -566,7 +569,8 @@ fn dialog_dir() -> Option<PathBuf> {
     dirs::home_dir()
 }
 
-fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver<Snapshot>) {
+#[must_use]
+fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver<Snapshot>) -> [Timer; 3] {
     let s = state.clone();
     let pump = Timer::default();
     pump.start(TimerMode::Repeated, Duration::from_millis(15), move || {
@@ -616,6 +620,7 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
         let view = usize::try_from(v.get_view()).unwrap_or(0);
         st.request(view, usize::try_from((i + 1) % n).unwrap_or(0));
     });
+    [pump, refresh, play]
 }
 
 fn wire_actions(ui: &AppWindow, state: &StateRef) {
@@ -828,7 +833,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
         events: flume::unbounded(),
     }));
 
-    wire_timers(&state, shown_rx, snap_rx);
+    let _timers = wire_timers(&state, shown_rx, snap_rx);
     wire_actions(&ui, &state);
     wire_queue(&ui, &state);
     wire_view(&ui, &state);
@@ -836,6 +841,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
     wire_window(&ui, &state);
     if !paths.is_empty() {
         state.borrow_mut().add(paths);
+        state.borrow_mut().start();
     }
     ui.run()
 }

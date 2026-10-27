@@ -705,7 +705,7 @@ class ExrSequenceWriter:
 
     Accepts NHWC float32 batches with `channels` channels in BGR(A) order,
     matching the layout convention of ThreadedVideoWriter/cv2. Values are
-    written as-is: no clamping and no quantization. `dtype` selects the EXR
+    written as-is: no clamping and no quantisation. `dtype` selects the EXR
     pixel type: "half" (float16, VFX standard) or "float" (full float32).
     """
 

@@ -4,8 +4,8 @@ Produces per-token features at /64 of the input resolution:
   • C-RADIOv4-SO400M: input (H/4, W/4), patch 16 → /64 grid.
   • MoGe-ViT-B:     input (7H/32, 7W/32), patch 14 → /64 grid.
 
-Outputs are normalized per-channel via precomputed mean/std (loaded via
-`load_stats`); when stats aren't loaded, the normalization is pass-through
+Outputs are normalised per-channel via precomputed mean/std (loaded via
+`load_stats`); when stats aren't loaded, the normalisation is pass-through
 (mean=0, std=1).
 
 Stats are precomputed and shipped alongside the model weights.
@@ -111,11 +111,11 @@ def build_cradio_so400m(repo: str = 'nvidia/C-RADIOv4-SO400M', device='cuda'):
 class FrozenFoundations(nn.Module):
     """Frozen C-RADIO + MoGe/RVM feature extractor producing /64 features.
 
-    Stats normalization: outputs are normalized channel-wise with
-        normalized = (x - mean) / std
+    Stats normalisation: outputs are normalised channel-wise with
+        normalised = (x - mean) / std
     using precomputed per-channel buffers (`cradio_mean`, `cradio_std`,
     `moge_mean`, `moge_std`, `rvm_mean`, `rvm_std`). When stats file hasn't been loaded the
-    buffers hold (0, 1) so normalization is the identity.
+    buffers hold (0, 1) so normalisation is the identity.
     """
 
     def __init__(self, device='cuda',
@@ -230,7 +230,7 @@ class FrozenFoundations(nn.Module):
                       At training time, pass None (fresh per batch).
 
         Returns:
-            Dict with channel-normalized features:
+            Dict with channel-normalised features:
               'moge':      (B·T, C_m, H/64, W/64)
               'cradio':    (B·T, C_c, H/64, W/64)
               'rvm':       (B·T, C_r, h_rvm, w_rvm)  (grid at RVM input / 16)

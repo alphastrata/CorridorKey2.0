@@ -30,7 +30,7 @@ def _signed_pow(x, gamma):
     NaN) and lets gradient flow through negative inputs.
 
     For the physically-valid [0, 1] inputs produced by the dataset the
-    behavior is bit-for-bit identical to the previous clamp-based form.
+    behaviour is bit-for-bit identical to the previous clamp-based form.
     `to_srgb` uses its own epsilon-shifted branch because gamma < 1 has an
     infinite mathematical slope at zero.
     """
@@ -91,7 +91,7 @@ to_linear = srgb_to_linear
 def linear_to_asinh(x, knee=HDR_ASINH_KNEE, ref=HDR_ASINH_REF):
     """Signed asinh encoding for scene-linear RGB.
 
-    `ref` is a normalization reference, not a clamp. Values above `ref`
+    `ref` is a normalisation reference, not a clamp. Values above `ref`
     encode above 1.0 and remain reversible. This is the model RGB contract for
     HDR-capable training: physical compositing stays in decoded linear light,
     while the network sees a compressed but exact signed representation.

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::Scope;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::{Result, bail, ensure, eyre};
@@ -21,6 +21,7 @@ use crate::write::{Exr, Writer};
 
 const AHEAD: usize = 8;
 const QUEUE_BYTES: usize = 3 << 30;
+const TELL: Duration = Duration::from_secs(2);
 
 pub struct Meta {
     pub name: String,
@@ -189,6 +190,7 @@ fn sink(
 ) -> Result<()> {
     let mut pending = BTreeMap::new();
     let mut next = 0;
+    let (start, mut told) = (Instant::now(), Instant::now());
     while next < total {
         ensure!(!abort.load(Ordering::Acquire), Aborted);
         match rx.recv_timeout(Duration::from_millis(100)) {
@@ -203,6 +205,10 @@ fn sink(
             writers.iter().zip(images).try_for_each(|((_, w), img)| w.write(img))?;
             next += 1;
             written.store(next, Ordering::Release);
+            if told.elapsed() >= TELL || next == total {
+                told = Instant::now();
+                info!("{next}/{total} frames written · {:.2} fps", next as f64 / start.elapsed().as_secs_f64());
+            }
         }
     }
     writers.into_iter().try_for_each(|(_, w)| w.finish())

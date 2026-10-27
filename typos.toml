@@ -1,3 +1,6 @@
+[files]
+extend-exclude = ["third_party", "corridorkey/ptx", "vfms", "weights", "output", "bench", "LICENSE", "THIRD_PARTY_NOTICES.md"]
+
 [default.extend-identifiers]
 Color = "Color"
 color = "color"
@@ -7,7 +10,12 @@ utilization = "utilization"
 Serialize = "Serialize"
 Deserialize = "Deserialize"
 synchronize = "synchronize"
+optimizer = "optimizer"
+iy = "iy"
+THW = "THW"
 
 [default.extend-words]
 center = "center"
 color = "color"
+optimizer = "optimizer"
+utilization = "utilization"
