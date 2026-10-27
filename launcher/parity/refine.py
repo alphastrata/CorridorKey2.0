@@ -69,12 +69,18 @@ def main() -> None:
     k = rgb.shape[-1] // rgb_low.shape[-1]
     assert rgb.shape[-2:] == (rgb_low.shape[-2] * k, rgb_low.shape[-1] * k), "native must be an integer multiple"
     (lh, lw), (y, x) = a.low_size, window(alpha_low, a.low_size)
-    low = lambda t: t[..., y : y + lh, x : x + lw].contiguous()
+
+    def low(t: torch.Tensor) -> torch.Tensor:
+        return t[..., y : y + lh, x : x + lw].contiguous()
+
     rgb, rgb_low, alpha_low, fg_low = rgb[..., y * k : (y + lh) * k, x * k : (x + lw) * k].contiguous(), *map(low, (rgb_low, alpha_low, fg_low))
 
     net = ref.load_refiner(str(root / "corridorkey_edge_refiner_v10w.safetensors"), device="cpu", dtype=torch.float32)
     H, W = rgb.shape[-2:]
-    up = lambda z: F.interpolate(z, size=(H, W), mode="bilinear", align_corners=False)
+
+    def up(z: torch.Tensor) -> torch.Tensor:
+        return F.interpolate(z, size=(H, W), mode="bilinear", align_corners=False)
+
     with torch.inference_mode():
         coef = ref.guided_coef(rgb_low, alpha_low)
         bg = ref.background_low(rgb_low, alpha_low)
@@ -82,7 +88,8 @@ def main() -> None:
         a_gf = ((up(coef)[:, :3] * rgb).sum(1, keepdim=True) + up(coef)[:, 3:4]).clamp(0.0, 1.0)
         fg_in = (rgb + up(fg_low - rgb_low)).clamp(0.0, 1.0)
         alpha, fg = ref.refine(net, rgb, rgb_low, alpha_low, fg_low)
-    gbr = lambda t: t[:, [1, 2, 0]]
+    def gbr(t: torch.Tensor) -> torch.Tensor:
+        return t[:, [1, 2, 0]]
     z = ref.srgb_to_linear(fg_low) / KNEE
     tensors = {
         "native": gbr(rgb), "low": gbr(rgb_low), "logits": torch.cat([alpha_low, torch.asinh(z) / DENOM], 1),
