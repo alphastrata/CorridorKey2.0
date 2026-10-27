@@ -80,9 +80,9 @@ fn strings(v: impl IntoIterator<Item = String>) -> ModelRc<SharedString> {
 }
 
 fn settings_to_ui(s: &Settings, j: &Job, cat: &Catalogue) {
-    j.set_models(strings(cat.models.iter().map(|p| Catalogue::label(p))));
+    j.set_models(strings(cat.models.iter().map(PathBuf::as_path).map(Catalogue::label)));
     j.set_model(i32::try_from(Catalogue::index(&cat.models, &s.model, "corridorkey_v2.safetensors")).unwrap_or_default());
-    j.set_refiners(strings(cat.refiners.iter().map(|p| Catalogue::label(p))));
+    j.set_refiners(strings(cat.refiners.iter().map(PathBuf::as_path).map(Catalogue::label)));
     j.set_refiner(i32::try_from(Catalogue::index(&cat.refiners, &s.refiner, "corridorkey_edge_refiner_v10w.safetensors")).unwrap_or_default());
     j.set_gpu_names(strings(cat.gpus.iter().cloned()));
     let on: Vec<bool> = (0..cat.gpus.len()).map(|i| u32::try_from(i).is_ok_and(|i| !s.gpus_off.contains(&i))).collect();

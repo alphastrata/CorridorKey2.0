@@ -66,7 +66,7 @@ fn process(sys: &System, pids: &AHashSet<u32>, root: u32) -> String {
 fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<String>) {
     let count = nvml.device_count().unwrap_or(0);
     let mut label = String::new();
-    let mut lines = Vec::new();
+    let mut lines: Vec<String> = Vec::with_capacity(count);
     (0..count).filter_map(|i| Some((i, nvml.device_by_index(i).ok()?))).for_each(|(i, d)| {
         let name = short(&d.name().unwrap_or_default());
         let mem = d.memory_info().ok();

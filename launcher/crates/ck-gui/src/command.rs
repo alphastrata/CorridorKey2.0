@@ -31,8 +31,7 @@ pub fn ck_binary() -> Option<PathBuf> {
     [std::env::var_os("CK_BIN").map(PathBuf::from), beside, on_path, built].into_iter().flatten().find(|p| p.is_file())
 }
 
-/// Weights found under `weights/` and the GPUs NVML reports, in PCI order (as ck sees them under
-/// `CUDA_DEVICE_ORDER=PCI_BUS_ID`).
+/// Weights under `weights/` and the GPUs NVML reports, in PCI order (`CUDA_DEVICE_ORDER=PCI_BUS_ID`).
 #[derive(Default)]
 pub struct Catalogue {
     pub models: Vec<PathBuf>,

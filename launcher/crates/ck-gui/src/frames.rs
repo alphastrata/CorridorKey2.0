@@ -240,20 +240,24 @@ impl Worker {
 
     fn prefetch(&mut self, path: &Path, from: usize, linear: bool, rx: &Receiver<Req>) -> Option<Req> {
         let count = self.sources.get(path)?.count;
-        for i in from + 1..(from + 1 + AHEAD).min(count) {
+        let drained: Result<(), Option<Req>> = (from + 1..(from + 1 + AHEAD).min(count)).try_fold((), |(), i| {
             match rx.try_recv() {
-                Ok(req) => return Some(req),
-                Err(TryRecvError::Disconnected) => return None,
-                Err(TryRecvError::Empty) => {}
+                Ok(req) => Err(Some(req)),
+                Err(TryRecvError::Disconnected) => Err(None),
+                Err(TryRecvError::Empty) if !self.cache.contains_key(&(path.to_owned(), i)) => {
+                    let src = self.sources.get_mut(path).map_err(|_| ())?;
+                    let preview = src.preview;
+                    let px = src.decode(path, i, linear, preview).ok_or(None)?;
+                    self.keep((path.to_owned(), i), px);
+                    Ok(())
+                }
+                Err(TryRecvError::Empty) => Ok(()),
             }
-            if !self.cache.contains_key(&(path.to_owned(), i)) {
-                let src = self.sources.get_mut(path)?;
-                let preview = src.preview;
-                let px = src.decode(path, i, linear, preview).ok()?;
-                self.keep((path.to_owned(), i), px);
-            }
+        });
+        match drained {
+            Err(req) => req,
+            Ok(()) => None,
         }
-        None
     }
 
     fn run(mut self, rx: &Receiver<Req>, shown: &dyn Fn(eyre::Result<Shown>)) {

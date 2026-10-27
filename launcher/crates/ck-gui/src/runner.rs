@@ -1,3 +1,9 @@
+#[cfg(unix)]
+use nix::sys::signal::{Signal, killpg};
+#[cfg(unix)]
+use nix::unistd::Pid;
+#[cfg(unix)]
+use std::os::unix::process::ExitStatusExt;
 use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Stdio};
@@ -44,11 +50,11 @@ fn pump(mut from: impl Read + Send + 'static, pid: u32, tx: Sender<Event>) {
 
 fn describe(status: std::process::ExitStatus) -> eyre::Result<i32> {
     #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        if let Some(sig) = status.signal() {
-            return Err(eyre::eyre!("{}", nix::sys::signal::Signal::try_from(sig).map_or_else(|_| format!("signal {sig}"), |s| s.to_string())));
-        }
+    if let Some(sig) = status.signal() {
+        return Err(eyre::eyre!(
+            "{}",
+            nix::sys::signal::Signal::try_from(sig).map_or_else(|_| format!("signal {sig}"), |s| s.to_string())
+        ));
     }
     Ok(status.code().unwrap_or(-1))
 }
@@ -76,11 +82,16 @@ pub fn spawn(cmd: &Command, cwd: &Path, tx: &Sender<Event>) -> std::io::Result<J
     Ok(Job { pid })
 }
 
+#[cfg(unix)]
+use nix::sys::signal::{Signal, killpg};
+#[cfg(unix)]
+use nix::unistd::Pid;
+#[cfg(unix)]
+use std::os::unix::process::ExitStatusExt;
+
 pub fn stop(job: &Job) {
     #[cfg(unix)]
     {
-        use nix::sys::signal::{Signal, killpg};
-        use nix::unistd::Pid;
         let group = Pid::from_raw(job.pid.cast_signed());
         killpg(group, Signal::SIGTERM).ok();
         thread::spawn(move || {
