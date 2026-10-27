@@ -152,19 +152,21 @@ export component Section inherits VerticalLayout {
         height: 1px;
         background: T.line;
     }
-    HorizontalLayout {
-        spacing: 6px;
-        Text {
-            text: root.expanded ? "▾" : "▸";
-            color: T.subtle;
-            font-size: T.body;
-        }
-        Text {
-            text: root.title;
-            font-size: T.body;
-            font-weight: 700;
-            color: head.has-hover ? #ffffff : T.text;
-            horizontal-stretch: 1;
+    Rectangle {
+        HorizontalLayout {
+            spacing: 6px;
+            Text {
+                text: root.expanded ? "▾" : "▸";
+                color: T.subtle;
+                font-size: T.body;
+            }
+            Text {
+                text: root.title;
+                font-size: T.body;
+                font-weight: 700;
+                color: head.has-hover ? #ffffff : T.text;
+                horizontal-stretch: 1;
+            }
         }
         head := TouchArea {
             mouse-cursor: pointer;
