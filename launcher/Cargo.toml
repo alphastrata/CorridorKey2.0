@@ -9,6 +9,7 @@ authors = ["jer"]
 
 [workspace.lints.clippy]
 pedantic = {level = "warn", priority = -1}
+perf = {level = "deny", priority = -1}
 cast_possible_truncation = "allow"
 cast_precision_loss      = "allow"
 cast_sign_loss           = "allow"
