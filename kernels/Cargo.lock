@@ -38,6 +38,7 @@ dependencies = [
 name = "ck_dw"
 version = "0.1.0"
 dependencies = [
+ "ck_arch",
  "ptx",
 ]
 
@@ -53,6 +54,7 @@ dependencies = [
 name = "ck_glue"
 version = "0.1.0"
 dependencies = [
+ "ck_arch",
  "ptx",
 ]
 
@@ -60,6 +62,7 @@ dependencies = [
 name = "ck_ops"
 version = "0.1.0"
 dependencies = [
+ "ck_arch",
  "ptx",
 ]
 

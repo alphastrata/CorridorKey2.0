@@ -13,13 +13,8 @@ ptx        = {git = "https://codeberg.org/P-E-T-R-A/ptx.git", branch = "develop"
 
 [workspace.lints.clippy]
 pedantic          = {level = "warn", priority = -1}
-too_many_arguments = "allow"
-cast_possible_truncation = "allow"
-cast_possible_wrap       = "allow"
-cast_precision_loss      = "allow"
-cast_sign_loss           = "allow"
-inline_always            = "allow"
-missing_safety_doc       = "allow"
+perf              = {level = "deny", priority = -1}
+missing_safety_doc = "allow"
 
 [profile.release]
 debug = false
