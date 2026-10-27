@@ -14,7 +14,7 @@ pub(crate) struct Adjust {
 }
 
 impl Adjust {
-    fn apply(self, v: f32) -> f32 {
+    pub fn apply(self, v: f32) -> f32 {
         if self.on {
             self.gain * (self.pivot + self.contrast * (v - self.pivot))
         } else {
