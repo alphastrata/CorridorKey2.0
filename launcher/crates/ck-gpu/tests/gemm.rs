@@ -134,7 +134,8 @@ fn timing() -> eyre::Result<()> {
         let bt = gpu.upload_f32(&noise(n, 3), &[n], Dtype::F32)?;
         let yt = gpu.zeros(&[rows, ld], yd)?;
         let b = (epi == "Bias").then_some(&bt);
-        let reps = (2e11 / (2.0 * (rows * n * k) as f64)).ceil().clamp(3.0, 200.0).max(0.0) as usize;
+        let cycles = 2.0 * ((rows * n * k) as f64);
+        let reps = (2e11 / cycles).ceil().clamp(3.0, 200.0).max(0.0) as usize;
         let run = || gpu.linear_into(&xt, &wt, b, &yt, (ld, 0), acc == "true");
         let ms = (0..5).try_fold(f32::MAX, |best, _| {
             run()?;

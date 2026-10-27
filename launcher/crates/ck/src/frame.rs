@@ -21,7 +21,11 @@ impl Geometry {
 
     #[must_use]
     pub fn scaled(hn: usize, wn: usize, scale: f64, quantum: usize) -> Self {
-        let by = |n: usize| ((n as f64 * scale).round_ties_even().max(0.0) as usize).max(1);
+        let by = |n: usize| {
+            let scaled = n as f64 * scale;
+            scaled.round_ties_even().max(0.0) as usize
+        }
+        .max(1);
         let up = |n: usize| n.div_ceil(quantum).max(1) * quantum;
         let (h0, w0) = (by(hn), by(wn));
         Self {
