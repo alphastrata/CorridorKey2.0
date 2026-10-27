@@ -1,4 +1,6 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
+
+pub mod convert;
 
 #[cfg(feature = "sm_80")]
 mod sm120;
@@ -10,8 +12,7 @@ mod sm61;
 #[cfg(feature = "sm_61")]
 pub use sm61::*;
 
-#[cfg(not(any(feature = "sm_61", feature = "sm_80")))]
+#[cfg(all(feature = "device", not(any(feature = "sm_61", feature = "sm_80"))))]
 mod sm75;
-#[cfg(not(any(feature = "sm_61", feature = "sm_80")))]
+#[cfg(all(feature = "device", not(any(feature = "sm_61", feature = "sm_80"))))]
 pub use sm75::*;
-
