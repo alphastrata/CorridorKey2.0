@@ -13,6 +13,7 @@ use tracing::{info, info_span, warn};
 use crate::clip::{Clip, upload};
 use crate::frame::{self, Encoding, Geometry, Input, Output};
 use crate::io::Source;
+use crate::preview::Preview;
 use crate::run::{Config, Hints, Models, clip_names};
 use crate::stage2::Baton;
 use crate::vram;
@@ -182,7 +183,7 @@ fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job<Tensor>) -> Result<()> 
 
 fn sink(
     rx: &flume::Receiver<Done>,
-    writers: Vec<(Output, Writer)>,
+    (writers, mut preview): (Vec<(Output, Writer)>, Option<Preview>),
     (total, written): (usize, &AtomicUsize),
     abort: &AtomicBool,
 ) -> Result<()> {
@@ -196,6 +197,9 @@ fn sink(
             Err(RecvTimeoutError::Disconnected) => bail!("{} frames never arrived", total - next),
         };
         while let Some(images) = pending.remove(&next) {
+            if let Some(p) = preview.as_mut() {
+                p.offer(writers.iter().map(|(o, _)| *o).zip(images.iter().map(Vec::as_slice)))?;
+            }
             writers.iter().zip(images).try_for_each(|((_, w), img)| w.write(img))?;
             next += 1;
             written.store(next, Ordering::Release);
@@ -256,11 +260,12 @@ fn lead<'s, 'e>(
         .iter()
         .map(|&o| Ok((o, cfg.writer(sh.out_dir, &name, &src, o)?)))
         .collect::<Result<Vec<_>>>()?;
+    let preview = cfg.preview.as_deref().map(|d| Preview::new(d, (src.w, src.h), cfg.exr.is_some())).transpose()?;
     let (done, rx) = flume::unbounded();
     let written = Arc::new(AtomicUsize::new(0));
     let sunk = written.clone();
     s.spawn(move || {
-        let r = sink(&rx, writers, (total, &sunk), &sh.abort);
+        let r = sink(&rx, (writers, preview), (total, &sunk), &sh.abort);
         if r.is_err() {
             sh.abort.store(true, Ordering::Release);
         }

@@ -68,6 +68,9 @@ struct Args {
     #[argh(description = "frames per foundation-model batch")]
     #[argh(option, default = "8")]
     vfm_batch: usize,
+    #[argh(description = "write downscaled snapshots of the latest frame here (`<output>.ppm`), for a live view")]
+    #[argh(option)]
+    preview: Option<PathBuf>,
     #[argh(description = "do not carry each window's alpha into the next as a hint")]
     #[argh(switch)]
     no_carry: bool,
@@ -264,6 +267,7 @@ fn main() -> Result<()> {
             threads: a.threads,
         },
         vfm_batch: a.vfm_batch,
+        preview: a.preview,
     };
     let hints = Hints {
         first: a.hint,

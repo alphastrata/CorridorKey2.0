@@ -80,6 +80,7 @@ pub struct Config {
     pub encoder: Encoder,
     pub exr: Option<Exr>,
     pub vfm_batch: usize,
+    pub preview: Option<PathBuf>,
 }
 
 #[derive(Default)]

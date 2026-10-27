@@ -197,6 +197,11 @@ impl Output {
     pub fn planes(self) -> usize {
         if self == Self::Alpha { 1 } else { self.channels() }
     }
+
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        ["alpha", "fg", "cutout", "checker"][self as usize]
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
