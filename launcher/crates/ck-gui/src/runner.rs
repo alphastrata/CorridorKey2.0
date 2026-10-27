@@ -10,7 +10,7 @@ use crate::command::Command;
 
 pub enum Event {
     Line(String),
-    Exit(Result<i32, String>),
+    Exit(eyre::Result<i32>),
 }
 
 pub struct Job {
@@ -29,7 +29,7 @@ fn pump(mut from: impl Read + Send + 'static, tx: Sender<Event>) {
                     let text = String::from_utf8_lossy(&line).into_owned();
                     line.clear();
                     if !text.trim().is_empty() {
-                        let _ = tx.send(Event::Line(text));
+                        drop(tx.send(Event::Line(text)));
                     }
                 } else {
                     line.push(b);
@@ -37,17 +37,17 @@ fn pump(mut from: impl Read + Send + 'static, tx: Sender<Event>) {
             });
         }
         if !line.is_empty() {
-            let _ = tx.send(Event::Line(String::from_utf8_lossy(&line).into_owned()));
+            drop(tx.send(Event::Line(String::from_utf8_lossy(&line).into_owned())));
         }
     });
 }
 
-fn describe(status: std::process::ExitStatus) -> Result<i32, String> {
+fn describe(status: std::process::ExitStatus) -> eyre::Result<i32> {
     #[cfg(unix)]
     {
         use std::os::unix::process::ExitStatusExt;
         if let Some(sig) = status.signal() {
-            return Err(nix::sys::signal::Signal::try_from(sig).map_or_else(|_| format!("signal {sig}"), |s| s.to_string()));
+            return Err(eyre::eyre!("{}", nix::sys::signal::Signal::try_from(sig).map_or_else(|_| format!("signal {sig}"), |s| s.to_string())));
         }
     }
     Ok(status.code().unwrap_or(-1))
@@ -70,8 +70,8 @@ pub fn spawn(cmd: &Command, cwd: &Path, tx: &Sender<Event>) -> std::io::Result<J
     }
     let tx = tx.clone();
     thread::spawn(move || {
-        let status = child.wait().map_or_else(|e| Err(e.to_string()), describe);
-        let _ = tx.send(Event::Exit(status));
+        let status = child.wait().map_or_else(|e| Err(e.into()), describe);
+        drop(tx.send(Event::Exit(status)));
     });
     Ok(Job { pid })
 }
@@ -82,15 +82,15 @@ pub fn stop(job: &Job) {
         use nix::sys::signal::{Signal, killpg};
         use nix::unistd::Pid;
         let group = Pid::from_raw(job.pid.cast_signed());
-        let _ = killpg(group, Signal::SIGTERM);
+        killpg(group, Signal::SIGTERM).ok();
         thread::spawn(move || {
             thread::sleep(Duration::from_secs(3));
-            let _ = killpg(group, Signal::SIGKILL);
+            killpg(group, Signal::SIGKILL).ok();
         });
     }
     #[cfg(windows)]
     {
-        let _ = std::process::Command::new("taskkill").args(["/PID", &job.pid.to_string(), "/T", "/F"]).output();
+        drop(std::process::Command::new("taskkill").args(["/PID", &job.pid.to_string(), "/T", "/F"]).output());
     }
 }
 

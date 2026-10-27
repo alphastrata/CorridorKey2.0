@@ -72,6 +72,9 @@ def main() -> None:
     clip = load(min((REPO / "bench/frames").glob(f"*/{a.tier}p")), a.frames)
     x, display = clip.x.cuda().float(), clip.display.cuda()
     fm = model.foundations
+    assert fm.cradio is not None and fm.cradio.radio_model is not None
+    assert fm.moge is not None and fm.moge.encoder is not None
+    assert fm.rvm is not None
     named0 = [
         (f"{tag}{i}", b)
         for tag, blocks in (

@@ -183,7 +183,7 @@ impl Source {
                 Ok(())
             };
             if let Err(e) = run() {
-                let _ = tx.send(Err(e));
+                drop(tx.send(Err(e)));
             }
         });
         rx

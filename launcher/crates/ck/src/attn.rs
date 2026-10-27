@@ -49,7 +49,7 @@ fn regions(l: Layout, (sh, sw): (usize, usize), (h, w): (usize, usize)) -> Optio
         .for_each(|(id, (ys, xs))| {
             ys.flat_map(|y| xs.clone().map(move |x| (y, x)))
                 .filter(|&(y, x)| y < h && x < w)
-                .for_each(|(y, x)| grid[y * wp + x] = id as i32);
+                .for_each(|(y, x)| grid[y * wp + x] = i32::try_from(id).unwrap_or_default());
         });
     let rolled = |y: usize, x: usize| grid[(y + sh) % hp * wp + (x + sw) % wp];
     let (nh, nw) = (hp / k, wp / l.ww);

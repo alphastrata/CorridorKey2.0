@@ -320,7 +320,10 @@ pub fn swiglu(gpu: &Gpu, gu: &Tensor) -> Result<Tensor> {
 const TILE: u32 = (8 + 6) * (16 + 6) * 32 * 4;
 
 fn dw_grid(lead: usize, h: usize, w: usize, c: usize) -> (u32, u32, u32) {
-    (w.div_ceil(16) as u32, h.div_ceil(8) as u32, (lead * c / 32) as u32)
+    let gx = w.div_ceil(16) as u32;
+    let gy = h.div_ceil(8) as u32;
+    let gz = (lead * c / 32) as u32;
+    (gx, gy, gz)
 }
 
 pub struct Mix {

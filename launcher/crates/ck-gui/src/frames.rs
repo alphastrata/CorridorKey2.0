@@ -5,6 +5,7 @@ use std::process::{Child, ChildStdout, Command, Stdio};
 use std::thread;
 
 use ahash::AHashMap;
+use eyre::eyre;
 use flume::{Receiver, Sender, TryRecvError};
 use image::DynamicImage;
 use slint::{Rgb8Pixel, SharedPixelBuffer};
@@ -36,18 +37,18 @@ enum Req {
 pub struct Frames(Sender<Req>);
 
 impl Frames {
-    pub fn new(shown: impl Fn(Result<Shown, String>) + Send + 'static) -> Self {
+    pub fn new(shown: impl Fn(eyre::Result<Shown>) + Send + 'static) -> Self {
         let (tx, rx) = flume::unbounded();
         thread::Builder::new().name("frames".into()).spawn(move || Worker::default().run(&rx, &shown)).ok();
         Self(tx)
     }
 
     pub fn show(&self, path: &Path, index: usize, linear: bool, full: bool) {
-        let _ = self.0.send(Req::Show { path: path.to_owned(), index, linear, full });
+        drop(self.0.send(Req::Show { path: path.to_owned(), index, linear, full }));
     }
 
     pub fn release(&self) {
-        let _ = self.0.send(Req::Release);
+        drop(self.0.send(Req::Release));
     }
 }
 
@@ -59,8 +60,8 @@ struct Decoder {
 
 impl Drop for Decoder {
     fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        drop(self.child.kill());
+        drop(self.child.wait());
     }
 }
 
@@ -78,16 +79,16 @@ struct Source {
 
 fn fit(size: (u32, u32), bound: (u32, u32)) -> (u32, u32) {
     let s = (f64::from(bound.0) / f64::from(size.0)).min(f64::from(bound.1) / f64::from(size.1)).min(1.0);
-    let even = |v: f64| ((v.round() as u32) & !1).max(2);
+    let even = |v: f64| ((v.round().max(0.0) as u32) & !1).max(2);
     (even(f64::from(size.0) * s), even(f64::from(size.1) * s))
 }
 
-fn probe(path: &Path) -> Result<(u32, u32, f32, usize), String> {
+fn probe(path: &Path) -> eyre::Result<(u32, u32, f32, usize)> {
     let out = Command::new("ffprobe")
         .args(["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,avg_frame_rate,nb_frames:format=duration", "-of", "default=nw=1"])
         .arg(path)
         .output()
-        .map_err(|e| format!("ffprobe: {e}"))?;
+        .map_err(|e| eyre!("ffprobe: {e}"))?;
     let text = String::from_utf8_lossy(&out.stdout);
     let field = |k: &str| text.lines().find_map(|l| l.strip_prefix(&format!("{k}="))).unwrap_or("").trim().to_owned();
     let (w, h) = (field("width").parse().unwrap_or(0), field("height").parse().unwrap_or(0));
@@ -95,9 +96,12 @@ fn probe(path: &Path) -> Result<(u32, u32, f32, usize), String> {
         .split_once('/')
         .and_then(|(a, b)| Some(a.parse::<f32>().ok()? / b.parse::<f32>().ok().filter(|&d| d > 0.0)?))
         .unwrap_or(24.0);
-    let count = field("nb_frames").parse().ok().unwrap_or_else(|| (field("duration").parse::<f32>().unwrap_or(0.0) * fps).round() as usize);
+    let count = field("nb_frames")
+        .parse()
+        .ok()
+        .unwrap_or_else(|| (field("duration").parse::<f32>().unwrap_or(0.0) * fps).round().max(0.0) as usize);
     if w == 0 || h == 0 {
-        return Err(format!("cannot read {}", path.display()));
+        return Err(eyre!("cannot read {}", path.display()));
     }
     Ok((w, h, fps, count.max(1)))
 }
@@ -108,8 +112,8 @@ fn srgb(x: f32) -> u8 {
     (v * 255.0 + 0.5) as u8
 }
 
-fn decode_file(path: &Path, linear: bool, size: (u32, u32)) -> Result<Pixels, String> {
-    let img = image::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
+fn decode_file(path: &Path, linear: bool, size: (u32, u32)) -> eyre::Result<Pixels> {
+    let img = image::open(path).map_err(|e| eyre!("{}: {e}", path.display()))?;
     let float = matches!(img, DynamicImage::ImageRgb32F(_) | DynamicImage::ImageRgba32F(_));
     let rgb = if linear && float {
         let f = img.to_rgb32f();
@@ -126,11 +130,11 @@ fn decode_file(path: &Path, linear: bool, size: (u32, u32)) -> Result<Pixels, St
 }
 
 impl Source {
-    fn open(path: &Path) -> Result<Self, String> {
+    fn open(path: &Path) -> eyre::Result<Self> {
         if path.is_dir() {
             let files = frame_files(path);
-            let first = files.first().ok_or_else(|| format!("no frames in {}", path.display()))?;
-            let size = image::image_dimensions(first).map_err(|e| format!("{}: {e}", first.display()))?;
+            let first = files.first().ok_or_else(|| eyre!("no frames in {}", path.display()))?;
+            let size = image::image_dimensions(first).map_err(|e| eyre!("{}: {e}", first.display()))?;
             return Ok(Self { count: files.len(), kind: Kind::Sequence(files), size, preview: fit(size, PREVIEW) });
         }
         let (w, h, fps, count) = probe(path)?;
@@ -144,7 +148,7 @@ impl Source {
         }
     }
 
-    fn decode(&mut self, path: &Path, index: usize, linear: bool, size: (u32, u32)) -> Result<Pixels, String> {
+    fn decode(&mut self, path: &Path, index: usize, linear: bool, size: (u32, u32)) -> eyre::Result<Pixels> {
         match &mut self.kind {
             Kind::Sequence(files) => decode_file(&files[index], linear, size),
             Kind::Video { fps, decoder } => {
@@ -159,14 +163,14 @@ impl Source {
                         .stdout(Stdio::piped())
                         .stderr(Stdio::null())
                         .spawn()
-                        .map_err(|e| format!("ffmpeg: {e}"))?;
-                    let out = child.stdout.take().ok_or("ffmpeg: no stdout")?;
+                        .map_err(|e| eyre!("ffmpeg: {e}"))?;
+                    let out = child.stdout.take().ok_or_else(|| eyre!("ffmpeg: no stdout"))?;
                     *decoder = Some(Decoder { child, out, next: index });
                 }
-                let d = decoder.as_mut().ok_or("ffmpeg: no decoder")?;
+                let d = decoder.as_mut().ok_or_else(|| eyre!("ffmpeg: no decoder"))?;
                 let mut buf = vec![0u8; size.0 as usize * size.1 as usize * 3];
                 while d.next <= index {
-                    d.out.read_exact(&mut buf).map_err(|_| format!("frame {} is past the end", index + 1))?;
+                    d.out.read_exact(&mut buf).map_err(|_| eyre!("frame {} is past the end", index + 1))?;
                     d.next += 1;
                 }
                 if !streaming {
@@ -199,12 +203,12 @@ impl Worker {
         }
     }
 
-    fn frame(&mut self, path: &Path, index: usize, linear: bool, full: bool) -> Result<Shown, String> {
+    fn frame(&mut self, path: &Path, index: usize, linear: bool, full: bool) -> eyre::Result<Shown> {
         if !self.sources.contains_key(path) {
             let src = Source::open(path)?;
             self.sources.insert(path.to_owned(), src);
         }
-        let src = self.sources.get_mut(path).ok_or("source vanished")?;
+        let src = self.sources.get_mut(path).ok_or_else(|| eyre!("source vanished"))?;
         let index = index.min(src.count - 1);
         let (count, fps, size) = (src.count, src.fps(), src.size);
         let full = full && src.preview != size;
@@ -240,7 +244,7 @@ impl Worker {
         None
     }
 
-    fn run(mut self, rx: &Receiver<Req>, shown: &dyn Fn(Result<Shown, String>)) {
+    fn run(mut self, rx: &Receiver<Req>, shown: &dyn Fn(eyre::Result<Shown>)) {
         let mut pending = None;
         loop {
             let Some(mut req) = pending.take().or_else(|| rx.recv().ok()) else { return };

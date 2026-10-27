@@ -12,6 +12,7 @@ from pathlib import Path
 
 import torch
 from torch.utils._python_dispatch import TorchDispatchMode
+from torch.utils.hooks import RemovableHandle
 
 REPO = Path(__file__).parents[2]
 sys.path[:0] = [str(REPO), str(REPO / "bench")]
@@ -31,7 +32,7 @@ class Ops(TorchDispatchMode):
         return func(*args, **kwargs or {})
 
 
-def leaves(m: torch.nn.Module) -> collections.Counter[str]:
+def leaves(m: torch.nn.Module) -> tuple[collections.Counter[str], list[RemovableHandle]]:
     hit: collections.Counter[str] = collections.Counter()
     hooks = [
         s.register_forward_hook(lambda mod, *_: hit.update([type(mod).__name__]))

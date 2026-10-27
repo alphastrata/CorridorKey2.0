@@ -183,7 +183,8 @@ fn posenc(n: usize, d: usize) -> Vec<f32> {
     (0..n * d)
         .map(|i| {
             let (p, j) = (i / d, i % d);
-            let angle = p as f32 / 10000f32.powf(2.0 * (j / 2) as f32 / d as f32);
+            let half = (j / 2) as f32;
+            let angle = p as f32 / 10000f32.powf(2.0 * half / d as f32);
             if j % 2 == 0 { angle.sin() } else { angle.cos() }
         })
         .collect()

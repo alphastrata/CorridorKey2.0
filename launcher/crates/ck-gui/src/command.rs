@@ -56,9 +56,9 @@ fn hint(clip: &Clip, flags: [&str; 2]) -> Vec<String> {
 fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
     let mut a = vec!["-o".into(), out.display().to_string(), "--outputs".into(), outputs(s).join(",")];
     a.extend(hint(clip, ["--hint", "--hint-video"]));
-    a.extend(["--hint-quality".into(), format!("{}", s.hint_quality)]);
+    a.extend(["--hint-quality".into(), s.hint_quality.to_string()]);
     match s.carry {
-        Some(q) => a.extend(["--carry-quality".into(), format!("{q}")]),
+        Some(q) => a.extend(["--carry-quality".into(), q.to_string()]),
         None => a.push("--no-carry".into()),
     }
     if let Some(float) = s.exr { a.extend(["--exr".into(), if float { "float" } else { "half" }.into()]) } else {
@@ -67,9 +67,9 @@ fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
             a.push("--cutout-linear".into());
         }
     }
-    a.extend(["--despill".into(), format!("{}", s.despill)]);
+    a.extend(["--despill".into(), s.despill.to_string()]);
     if clip.frames {
-        a.extend(["--fps".into(), format!("{}", s.fps)]);
+        a.extend(["--fps".into(), s.fps.to_string()]);
         if linear(clip, s) {
             a.push("--linear".into());
         }
@@ -90,7 +90,7 @@ fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
     a
 }
 
-pub fn build(clip: &Clip, s: &Settings, out: &Path) -> Result<Command, String> {
-    let program = ck_binary().ok_or("ck is not built: cargo build --release -p ck in launcher/")?;
+pub fn build(clip: &Clip, s: &Settings, out: &Path) -> eyre::Result<Command> {
+    let program = ck_binary().ok_or_else(|| eyre::eyre!("ck is not built: cargo build --release -p ck in launcher/"))?;
     Ok(Command { program, args: ck(clip, s, out), env: vec![] })
 }

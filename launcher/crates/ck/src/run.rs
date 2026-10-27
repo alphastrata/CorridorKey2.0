@@ -107,7 +107,11 @@ pub fn taper(t: usize, overlap: usize, first: bool, last: bool) -> Vec<f32> {
         return w;
     }
     let n = overlap.min(t);
-    let ramp = |k: usize| (0.5 * (1.0 - (std::f64::consts::PI * (k + 1) as f64 / (overlap + 1) as f64).cos())) as f32;
+    let overlap_f = (overlap + 1) as f64;
+    let ramp = |k: usize| {
+        let t = std::f64::consts::PI * f64::from(u32::try_from(k + 1).unwrap_or(u32::MAX)) / overlap_f;
+        (0.5 * (1.0 - t.cos())) as f32
+    };
     if !first {
         (0..n).for_each(|k| w[k] = ramp(k));
     }
@@ -130,7 +134,7 @@ pub(crate) fn clip_name(input: &Path) -> String {
 
 pub(crate) fn clip_names(inputs: &[PathBuf]) -> Vec<String> {
     let dupes = |names: &[String], n: &String| names.iter().filter(|m| *m == n).count() > 1;
-    let base: Vec<String> = inputs.iter().map(|p| clip_name(p)).collect();
+    let base: Vec<String> = inputs.iter().map(|p| clip_name(p.as_path())).collect();
     let named: Vec<String> = inputs
         .iter()
         .zip(&base)
@@ -157,7 +161,7 @@ fn stem(o: Output, despill: f32) -> String {
         Output::Alpha => "alpha".into(),
         Output::Fg => "fg".into(),
         Output::Cutout => "cutout".into(),
-        Output::Checker => format!("checker_comp_despill{:03}", (despill * 100.0) as u32),
+        Output::Checker => format!("checker_comp_despill{:03}", (despill * 100.0).clamp(0.0, 100.0) as u32),
     }
 }
 

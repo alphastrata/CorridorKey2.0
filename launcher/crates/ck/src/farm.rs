@@ -264,7 +264,7 @@ fn lead<'s, 'e>(
         if r.is_err() {
             sh.abort.store(true, Ordering::Release);
         }
-        let _ = sh.sinks.send(r);
+        drop(sh.sinks.send(r));
     });
     info!(
         "{total} frames {}x{} → {}x{}, window {}, stride {}",
@@ -338,7 +338,7 @@ pub fn run(
         .map(|&d| Ok((Gpu::speed(d)?, d)))
         .collect::<Result<Vec<_>>>()?;
     ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let depth = ranked.iter().map(|r| (ranked[0].0 / r.0).ceil() as usize).collect();
+    let depth: Vec<usize> = ranked.iter().map(|r| (ranked[0].0 / r.0).ceil().max(0.0) as usize).collect();
     let devices: Vec<usize> = ranked.into_iter().map(|(_, d)| d).collect();
     let (sinks, results) = flume::unbounded();
     let sh = Shared {

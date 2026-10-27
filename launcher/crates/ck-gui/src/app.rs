@@ -4,7 +4,8 @@ use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
-use flume::Receiver;
+use eyre::Context as _;
+use flume::{Receiver, Sender};
 use slint::winit_030::{EventResult, WinitWindowAccessor, winit};
 use slint::{ComponentHandle, Image, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
 
@@ -19,6 +20,9 @@ use crate::{AppWindow, ClipRow, Job, Queue, View};
 const LOG_LINES: usize = 5000;
 const CLIP_FILTER: [&str; 5] = clips::VIDEO;
 
+type ShownMsg = Result<Shown, eyre::Report>;
+type StateRef = Rc<RefCell<State>>;
+
 struct Run {
     index: usize,
     job: Running,
@@ -30,13 +34,19 @@ struct Run {
 
 type Finished = (String, Progress, Instant, Vec<(String, Instant)>, Instant);
 
+#[derive(PartialEq)]
+enum Mode {
+    Idle,
+    Running,
+    Stopping,
+}
+
 struct State {
     ui: slint::Weak<AppWindow>,
     clips: Vec<Clip>,
     settings: Settings,
     run: Option<Run>,
-    running: bool,
-    stopping: bool,
+    mode: Mode,
     counts: [usize; 3],
     finished: Option<Finished>,
     log: Rc<VecModel<SharedString>>,
@@ -47,7 +57,7 @@ struct State {
     detail: bool,
     snapshot: Snapshot,
     probe: Probe,
-    events: (flume::Sender<Event>, Receiver<Event>),
+    events: (Sender<Event>, Receiver<Event>),
 }
 
 fn row(c: &Clip) -> ClipRow {
@@ -75,11 +85,11 @@ fn settings_to_ui(s: &Settings, j: &Job) {
     j.set_carry_quality(s.carry.unwrap_or(0.95));
     j.set_vram_mode(i32::from(s.window.is_some()));
     let (chunk, stride) = s.window.unwrap_or((48, 24));
-    j.set_chunk(chunk as i32);
-    j.set_stride(stride as i32);
+    j.set_chunk(chunk.cast_signed());
+    j.set_stride(stride.cast_signed());
     j.set_frame_colour(i32::from(s.frame_colour));
-    j.set_fps(format!("{}", s.fps).into());
-    j.set_num_frames(s.frames as i32);
+    j.set_fps(s.fps.to_string().into());
+    j.set_num_frames(s.frames.cast_signed());
     j.set_scale(i32::from(s.scale));
     j.set_refine(s.refine);
     j.set_out_mode(i32::from(s.out_parent.is_some()));
@@ -99,10 +109,11 @@ fn settings_from_ui(j: &Job) -> Settings {
         despill: (j.get_despill() * 1000.0).round() / 1000.0,
         hint_quality: (j.get_hint_quality() * 1000.0).round() / 1000.0,
         carry: j.get_carry().then(|| (j.get_carry_quality() * 1000.0).round() / 1000.0),
-        window: (j.get_vram_mode() == 1).then(|| (j.get_chunk().max(1) as u32, j.get_stride().clamp(1, j.get_chunk().max(1)) as u32)),
-        frame_colour: j.get_frame_colour().clamp(0, 2) as u8,
+        window: (j.get_vram_mode() == 1)
+            .then(|| (j.get_chunk().max(1).cast_unsigned(), j.get_stride().clamp(1, j.get_chunk().max(1)).cast_unsigned())),
+        frame_colour: u8::try_from(j.get_frame_colour().clamp(0, 2)).unwrap_or_default(),
         fps: j.get_fps().parse().ok().filter(|f: &f32| *f > 0.0).unwrap_or(24.0),
-        frames: j.get_num_frames().max(0) as u32,
+        frames: j.get_num_frames().max(0).cast_unsigned(),
         scale: u8::try_from(j.get_scale().clamp(0, 3)).unwrap_or_default(),
         refine: j.get_refine(),
         out_parent: (j.get_out_mode() == 1).then(|| j.get_out_parent().into()),
@@ -130,7 +141,7 @@ impl State {
             self.log.remove(0);
         }
         if let Some(ui) = self.ui() {
-            ui.set_log_count(self.log.row_count() as i32);
+            ui.set_log_count(i32::try_from(self.log.row_count()).unwrap_or(i32::MAX));
         }
     }
 
@@ -154,7 +165,7 @@ impl State {
         if let Some(ui) = self.ui() {
             ui.set_status(status.into());
             if self.selected().is_none() && self.clips.len() > first {
-                ui.global::<Queue>().set_selected(first as i32);
+                ui.global::<Queue>().set_selected(i32::try_from(first).unwrap_or(i32::MAX));
             }
         }
         self.show_selection();
@@ -171,7 +182,7 @@ impl State {
             r.index -= 1;
         }
         if let Some(ui) = self.ui() {
-            let next = if self.clips.is_empty() { -1 } else { i.min(self.clips.len() - 1) as i32 };
+            let next = if self.clips.is_empty() { -1 } else { i32::try_from(i.min(self.clips.len() - 1)).unwrap_or(i32::MAX) };
             ui.global::<Queue>().set_selected(next);
         }
         self.show_selection();
@@ -217,7 +228,7 @@ impl State {
         if c.status == Status::Done {
             view = [3, 1, 2].into_iter().find(|&k| self.views[k].is_some()).unwrap_or(view);
         }
-        v.set_view(view as i32);
+        v.set_view(i32::try_from(view).unwrap_or_default());
         v.set_src_w(0);
         v.set_count(0);
         v.set_index(0);
@@ -238,14 +249,14 @@ impl State {
         self.frames.show(&path, index, self.linear(view), self.detail);
     }
 
-    fn shown(&mut self, s: Result<Shown, String>) {
+    fn shown(&mut self, s: ShownMsg) {
         self.awaiting = false;
         let Some(ui) = self.ui() else { return };
         let v = ui.global::<View>();
         v.set_busy(false);
         match s {
             Err(e) => {
-                v.set_message(e.into());
+                v.set_message(e.to_string().into());
                 v.set_src_w(0);
             }
             Ok(s) => {
@@ -254,17 +265,17 @@ impl State {
                     return;
                 }
                 v.set_frame(Image::from_rgb8(s.pixels));
-                v.set_src_h(s.source.1 as i32);
-                v.set_src_w(s.source.0 as i32);
-                v.set_count(s.count as i32);
-                v.set_index(s.index as i32);
+                v.set_src_h(s.source.1.cast_signed());
+                v.set_src_w(s.source.0.cast_signed());
+                v.set_count(i32::try_from(s.count).unwrap_or(i32::MAX));
+                v.set_index(i32::try_from(s.index).unwrap_or(i32::MAX));
                 v.set_fps(s.fps);
             }
         }
     }
 
     fn start(&mut self) {
-        if self.running {
+        if self.mode != Mode::Idle {
             return;
         }
         self.settings = self.ui().map_or_default(|ui| settings_from_ui(&ui.global::<Job>()));
@@ -282,8 +293,7 @@ impl State {
             self.refresh_row(i);
         }
         self.counts = [0; 3];
-        self.running = true;
-        self.stopping = false;
+        self.mode = Mode::Running;
         self.frames.release();
         if let Some(ui) = self.ui() {
             ui.set_running(true);
@@ -302,21 +312,22 @@ impl State {
         let spawned = command::build(&self.clips[i], &self.settings, &out).and_then(|cmd| {
             self.log(format!("=== {} ===", self.clips[i].name()));
             self.log(std::iter::once(cmd.program.display().to_string()).chain(cmd.args.iter().cloned()).collect::<Vec<_>>().join(" "));
-            runner::spawn(&cmd, &cwd, &self.events.0).map_err(|e| format!("could not start {}: {e}", cmd.program.display()))
+            runner::spawn(&cmd, &cwd, &self.events.0).wrap_err_with(|| format!("could not start {}", cmd.program.display()))
         });
         let c = &mut self.clips[i];
         match spawned {
             Err(e) => {
-                (c.status, c.detail) = (Status::Failed, e.clone());
+                let why = e.to_string();
+                (c.status, c.detail) = (Status::Failed, why.clone());
                 self.counts[1] += 1;
-                self.log(e);
+                self.log(why);
                 self.refresh_row(i);
                 self.next();
             }
             Ok(job) => {
                 (c.status, c.progress) = (Status::Running, 0.0);
                 c.detail = "Starting ck".into();
-                self.probe.pid.store(job.pid, Ordering::Relaxed);
+                self.probe.pid.store(job.pid, Ordering::Release);
                 let now = Instant::now();
                 self.run = Some(Run { index: i, job, progress: Progress::default(), started: now, phases: vec![("Starting".into(), now)], last: String::new() });
                 self.finished = None;
@@ -335,13 +346,13 @@ impl State {
         ui.set_status(format!("{} · {}", c.name(), c.detail).into());
     }
 
-    fn line(&mut self, text: String) {
-        self.log(text.clone());
+    fn line(&mut self, text: &str) {
+        self.log(text);
         let Some(run) = self.run.as_mut() else { return };
         if !text.trim().is_empty() {
             run.last = text.trim().chars().rev().take(110).collect::<Vec<_>>().into_iter().rev().collect();
         }
-        if run.progress.feed(&text) {
+        if run.progress.feed(text) {
             let phase = if run.progress.detail.starts_with(|c: char| c.is_ascii_digit()) {
                 "Keying".to_owned()
             } else {
@@ -359,12 +370,13 @@ impl State {
         }
     }
 
-    fn exited(&mut self, status: Result<i32, String>) {
+    fn exited(&mut self, status: &Result<i32, eyre::Report>) {
         let Some(run) = self.run.take() else { return };
-        self.probe.pid.store(0, Ordering::Relaxed);
+        self.probe.pid.store(0, Ordering::Release);
         let i = run.index;
         let c = &mut self.clips[i];
-        match (&status, self.stopping) {
+        let stopping = self.mode == Mode::Stopping;
+        match (status, stopping) {
             (_, true) => (c.status, c.progress, c.detail) = (Status::Stopped, 0.0, "Stopped".into()),
             (Ok(0), _) => (c.status, c.progress, c.detail) = (Status::Done, 1.0, "Done".into()),
             (Ok(code), _) => (c.status, c.detail) = (Status::Failed, if run.last.is_empty() { format!("exited with code {code}") } else { run.last.clone() }),
@@ -391,7 +403,7 @@ impl State {
         if self.selected() == Some(i) {
             self.show_selection();
         }
-        if self.stopping {
+        if stopping {
             self.finish();
         } else {
             self.next();
@@ -399,7 +411,7 @@ impl State {
     }
 
     fn finish(&mut self) {
-        self.running = false;
+        self.mode = Mode::Idle;
         let Some(ui) = self.ui() else { return };
         ui.set_running(false);
         ui.set_progress(0.0);
@@ -411,7 +423,7 @@ impl State {
 
     fn stop(&mut self) {
         if let Some(run) = &self.run {
-            self.stopping = true;
+            self.mode = Mode::Stopping;
             runner::stop(&run.job);
         }
     }
@@ -432,20 +444,22 @@ impl State {
                     l.push(format!("window     {at}{}", p.window));
                 }
                 l.push(format!("progress   {:.0}% · {}", p.value * 100.0, p.detail));
-                let mut spent: Vec<(String, Duration)> = Vec::new();
-                phases.iter().enumerate().for_each(|(k, (name, t))| {
-                    let until = phases.get(k + 1).map_or(now, |n| n.1);
-                    if !name.is_empty() {
+                let spent = phases
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, (name, _))| !name.is_empty())
+                    .fold(Vec::new(), |mut spent: Vec<(String, Duration)>, (k, (name, t))| {
+                        let until = phases.get(k + 1).map_or(now, |n| n.1);
                         match spent.iter_mut().find(|(n, _)| n == name) {
                             Some((_, d)) => *d += until - *t,
                             None => spent.push((name.clone(), until - *t)),
                         }
-                    }
-                });
+                        spent
+                    });
                 let spent = spent.iter().map(|(n, d)| format!("{} {:.1}s", n.to_lowercase(), d.as_secs_f32())).collect::<Vec<_>>().join(" · ");
                 l.push(format!("elapsed    {} · {spent}", clock(now - started)));
                 if let Some((_, k)) = phases.iter().find(|(n, _)| n == "Keying").filter(|_| p.frames > 0) {
-                    let keyed = if p.keyed > 0 { p.keyed } else if p.at.1 > 0 { p.frames * p.at.0 / p.at.1 } else { 0 };
+                    let keyed = if p.keyed > 0 { p.keyed } else { p.frames.checked_mul(p.at.0).and_then(|n| n.checked_div(p.at.1)).unwrap_or_default() };
                     let rate = keyed as f32 / (now - *k).as_secs_f32().max(1e-3);
                     let overall = end.map_or(String::new(), |_| format!(" · {:.2} fps overall", p.frames as f32 / (now - started).as_secs_f32().max(1e-3)));
                     l.push(format!("throughput {keyed} frames keyed · {rate:.2} fps{overall}"));
@@ -462,57 +476,25 @@ impl State {
 }
 
 fn later(task: impl std::future::Future<Output = ()> + 'static) {
-    let _ = slint::spawn_local(task);
+    drop(slint::spawn_local(task));
 }
 
 fn dialog_dir() -> Option<PathBuf> {
     dirs::home_dir()
 }
 
-pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
-    let ui = AppWindow::new()?;
-    let (shown_tx, shown_rx) = flume::unbounded::<Result<Shown, String>>();
-    let (snap_tx, snap_rx) = flume::unbounded::<Snapshot>();
-    let frames = Frames::new(move |s| {
-        let _ = shown_tx.send(s);
-    });
-    let probe = telemetry::start(snap_tx);
-    let log = Rc::new(VecModel::default());
-    let rows = Rc::new(VecModel::default());
-    ui.set_log(ModelRc::from(log.clone()));
-    ui.global::<Queue>().set_rows(ModelRc::from(rows.clone()));
-    let settings = Settings::load();
-    settings_to_ui(&settings, &ui.global::<Job>());
-    ui.global::<Job>().set_ck_built(command::ck_binary().is_some());
-    let state = Rc::new(RefCell::new(State {
-        ui: ui.as_weak(),
-        clips: vec![],
-        settings,
-        run: None,
-        running: false,
-        stopping: false,
-        counts: [0; 3],
-        finished: None,
-        log,
-        rows,
-        frames,
-        views: Default::default(),
-        awaiting: false,
-        detail: false,
-        snapshot: Snapshot::default(),
-        probe,
-        events: flume::unbounded(),
-    }));
-
+fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver<Snapshot>) {
     let s = state.clone();
     let pump = Timer::default();
     pump.start(TimerMode::Repeated, Duration::from_millis(15), move || {
         let mut st = s.borrow_mut();
         let events: Vec<Event> = st.events.1.try_iter().take(500).collect();
-        events.into_iter().for_each(|e| match e {
-            Event::Line(l) => st.line(l),
-            Event::Exit(code) => st.exited(code),
-        });
+        for e in events {
+            match e {
+                Event::Line(l) => st.line(&l),
+                Event::Exit(code) => st.exited(&code),
+            }
+        }
         if let Some(last) = shown_rx.try_iter().last() {
             st.shown(last);
         }
@@ -542,8 +524,6 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
         if !v.get_playing() || st.awaiting {
             return;
         }
-        let due = st.detail || v.get_fps() <= 0.0;
-        let _ = due;
         let (i, n) = (v.get_index(), v.get_count());
         if n <= 1 {
             v.set_playing(false);
@@ -552,7 +532,9 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
         let view = usize::try_from(v.get_view()).unwrap_or(0);
         st.request(view, usize::try_from((i + 1) % n).unwrap_or(0));
     });
+}
 
+fn wire_actions(ui: &AppWindow, state: &StateRef) {
     let s = state.clone();
     ui.on_run(move || s.borrow_mut().start());
     let s = state.clone();
@@ -560,12 +542,14 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
     let s = state.clone();
     ui.on_stats_toggled(move |on| {
         let st = s.borrow();
-        st.probe.detailed.store(on, Ordering::Relaxed);
+        st.probe.detailed.store(on, Ordering::Release);
         if let Some(ui) = st.ui() {
             ui.set_stats(st.stats().into());
         }
     });
+}
 
+fn wire_queue(ui: &AppWindow, state: &StateRef) {
     let q = ui.global::<Queue>();
     let s = state.clone();
     q.on_select(move |i| {
@@ -627,14 +611,16 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
             }
         });
     });
+}
 
+fn wire_view(ui: &AppWindow, state: &StateRef) {
     let v = ui.global::<View>();
     let s = state.clone();
     v.on_show(move |view, index| {
         let mut st = s.borrow_mut();
         let (view, index) = (usize::try_from(view).unwrap_or(0), usize::try_from(index).unwrap_or(0));
         if let Some(ui) = st.ui() {
-            ui.global::<View>().set_index(index as i32);
+            ui.global::<View>().set_index(i32::try_from(index).unwrap_or(i32::MAX));
         }
         st.request(view, index);
     });
@@ -657,12 +643,14 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
         let dir = st.output_dir(&st.clips[i]);
         if dir.is_dir() {
             let opener = if cfg!(windows) { "explorer" } else if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
-            let _ = std::process::Command::new(opener).arg(&dir).spawn();
+            drop(std::process::Command::new(opener).arg(&dir).spawn());
         } else if let Some(ui) = st.ui() {
             ui.set_status(format!("{} has no output folder yet.", st.clips[i].name()).into());
         }
     });
+}
 
+fn wire_job(ui: &AppWindow, state: &StateRef) {
     let j = ui.global::<Job>();
     let s = state.clone();
     j.on_changed(move || {
@@ -683,7 +671,9 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
             }
         });
     });
+}
 
+fn wire_window(ui: &AppWindow, state: &StateRef) {
     let s = state.clone();
     let dropped: Rc<RefCell<Vec<PathBuf>>> = Rc::default();
     let batch = Rc::new(Timer::default());
@@ -700,15 +690,55 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
         EventResult::Propagate
     });
 
-    if !paths.is_empty() {
-        state.borrow_mut().add(&paths);
-    }
     let s = state.clone();
     ui.window().on_close_requested(move || {
-        let mut st = s.borrow_mut();
-        st.stop();
+        s.borrow_mut().stop();
         slint::CloseRequestResponse::HideWindow
     });
-    ui.run()
 }
 
+pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
+    let ui = AppWindow::new()?;
+    let (shown_tx, shown_rx) = flume::unbounded::<ShownMsg>();
+    let (snap_tx, snap_rx) = flume::unbounded::<Snapshot>();
+    let frames = Frames::new(move |s| {
+        drop(shown_tx.send(s));
+    });
+    let probe = telemetry::start(snap_tx);
+    let log = Rc::new(VecModel::default());
+    let rows = Rc::new(VecModel::default());
+    ui.set_log(ModelRc::from(log.clone()));
+    ui.global::<Queue>().set_rows(ModelRc::from(rows.clone()));
+    let settings = Settings::load();
+    settings_to_ui(&settings, &ui.global::<Job>());
+    ui.global::<Job>().set_ck_built(command::ck_binary().is_some());
+    let state = StateRef::new(RefCell::new(State {
+        ui: ui.as_weak(),
+        clips: vec![],
+        settings,
+        run: None,
+        mode: Mode::Idle,
+        counts: [0; 3],
+        finished: None,
+        log,
+        rows,
+        frames,
+        views: Default::default(),
+        awaiting: false,
+        detail: false,
+        snapshot: Snapshot::default(),
+        probe,
+        events: flume::unbounded(),
+    }));
+
+    wire_timers(&state, shown_rx, snap_rx);
+    wire_actions(&ui, &state);
+    wire_queue(&ui, &state);
+    wire_view(&ui, &state);
+    wire_job(&ui, &state);
+    wire_window(&ui, &state);
+    if !paths.is_empty() {
+        state.borrow_mut().add(paths);
+    }
+    ui.run()
+}

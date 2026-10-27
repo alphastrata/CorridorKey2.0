@@ -57,8 +57,22 @@ impl Settings {
     pub fn save(&self) {
         let (Some(f), Ok(bytes)) = (file(), rkyv::to_bytes::<rancor::Error>(self)) else { return };
         if let Some(dir) = f.parent() {
-            let _ = std::fs::create_dir_all(dir);
+            drop(std::fs::create_dir_all(dir));
         }
-        let _ = std::fs::write(f, bytes);
+        drop(std::fs::write(f, bytes));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Settings;
+    use rkyv::rancor;
+
+    #[test]
+    fn round_trip() {
+        let s = Settings { window: Some((64, 32)), ..Settings::default() };
+        let bytes = rkyv::to_bytes::<rancor::Error>(&s).unwrap();
+        let back: Settings = rkyv::from_bytes::<Settings, rancor::Error>(&bytes).unwrap();
+        assert_eq!(s, back);
     }
 }

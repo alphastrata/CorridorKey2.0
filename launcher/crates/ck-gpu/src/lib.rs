@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use cudarc::driver::sys::{self, CUfunction_attribute::CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES};
+use cudarc::driver::result::device;
+use cudarc::driver::sys::CUdevice_attribute::{CU_DEVICE_ATTRIBUTE_CLOCK_RATE, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT};
 use cudarc::driver::{CudaContext, CudaFunction, CudaModule, CudaStream, LaunchConfig, PushKernelArg};
 use cudarc::nvrtc::Ptx;
 use eyre::{Context, OptionExt, Result};
@@ -72,7 +74,7 @@ impl Gpu {
         let ctx = CudaContext::new(index).wrap_err_with(|| format!("CUDA device {index}"))?;
         unsafe { ctx.disable_event_tracking() };
         let (major, minor) = ctx.compute_capability()?;
-        let native = (major * 10 + minor) as u32;
+        let native = (major * 10 + minor).cast_unsigned();
         let cap = std::env::var("CK_SM")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -90,7 +92,8 @@ impl Gpu {
                 Ok((name, ctx.load_module(Ptx::from_src(src))?))
             })
             .collect::<Result<_>>()?;
-        let sms = ctx.attribute(sys::CUdevice_attribute::CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)? as usize;
+        let sm_count = ctx.attribute(sys::CUdevice_attribute::CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)?;
+        let sms = (sm_count.max(0).cast_unsigned()) as usize;
         Ok(Self {
             ctx,
             stream,
@@ -118,7 +121,7 @@ impl Gpu {
             .wrap_err_with(|| format!("{module}::{name}"))?;
         f.set_attribute(
             CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES,
-            shared.max(48 * 1024) as i32,
+            shared.max(48 * 1024).cast_signed(),
         )?;
         self.functions.borrow_mut().insert(key, f.clone());
         Ok(f)
@@ -194,8 +197,6 @@ impl Gpu {
     }
 
     pub fn speed(index: usize) -> Result<f64> {
-        use cudarc::driver::result::device;
-        use sys::CUdevice_attribute::{CU_DEVICE_ATTRIBUTE_CLOCK_RATE, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT};
         cudarc::driver::result::init()?;
         let dev = device::get(i32::try_from(index)?)?;
         let attr = |a| unsafe { device::get_attribute(dev, a) };

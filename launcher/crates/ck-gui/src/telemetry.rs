@@ -28,20 +28,18 @@ fn short(name: &str) -> String {
 }
 
 fn tree(sys: &System, root: u32) -> AHashSet<u32> {
-    let mut kids: AHashMap<u32, Vec<u32>> = AHashMap::new();
-    sys.processes().iter().for_each(|(pid, p)| {
-        if let Some(parent) = p.parent() {
-            kids.entry(parent.as_u32()).or_default().push(pid.as_u32());
-        }
-    });
+    let kids: AHashMap<u32, Vec<u32>> = sys
+        .processes()
+        .iter()
+        .filter_map(|(pid, p)| p.parent().map(|parent| (parent.as_u32(), pid.as_u32())))
+        .fold(AHashMap::new(), |mut m, (parent, pid)| {
+            m.entry(parent).or_default().push(pid);
+            m
+        });
     let mut all = AHashSet::from_iter([root]);
     let mut stack = vec![root];
     while let Some(p) = stack.pop() {
-        kids.get(&p).into_iter().flatten().for_each(|&c| {
-            if all.insert(c) {
-                stack.push(c);
-            }
-        });
+        kids.get(&p).into_iter().flatten().filter_map(|&c| all.insert(c).then_some(c)).for_each(|c| stack.push(c));
     }
     all
 }
@@ -95,8 +93,9 @@ fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Strin
         let enc = d.encoder_stats().ok().filter(|e| e.session_count > 0).map_or(String::new(), |e| format!(" · NVENC {}×{} fps", e.session_count, e.average_fps));
         let (used, total) = mem.map_or((0.0, 0.0), |m| (gib(m.used), gib(m.total)));
         let job = if job > 0 { format!(" (job {:.1})", gib(job)) } else { String::new() };
-        lines.push(format!("GPU{i} {name}"));
-        lines.push(format!("  util {util}% · mem {used:.1}/{total:.1} GB{job} · {watts}/{cap} W · {temp}°C · SM {sm}/{sm_max} MHz · PCIe {gen_}×{width}{enc}"));
+        lines.push(format!(
+            "GPU{i} {name}\n  util {util}% · mem {used:.1}/{total:.1} GB{job} · {watts}/{cap} W · {temp}°C · SM {sm}/{sm_max} MHz · PCIe {gen_}×{width}{enc}"
+        ));
     });
     (label, lines)
 }
@@ -111,8 +110,8 @@ pub fn start(tx: Sender<Snapshot>) -> Probe {
             let nvml = Nvml::init().ok();
             let mut sys = System::new();
             loop {
-                let detailed = p.detailed.load(Ordering::Relaxed);
-                let root = p.pid.load(Ordering::Relaxed);
+                let detailed = p.detailed.load(Ordering::Acquire);
+                let root = p.pid.load(Ordering::Acquire);
                 let mine = if detailed && root != 0 {
                     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_memory().with_cpu().with_tasks());
                     tree(&sys, root)

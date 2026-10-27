@@ -1,0 +1,13 @@
+[default.extend-identifiers]
+Color = "Color"
+color = "color"
+center = "center"
+rancor = "rancor"
+utilization = "utilization"
+Serialize = "Serialize"
+Deserialize = "Deserialize"
+synchronize = "synchronize"
+
+[default.extend-words]
+center = "center"
+color = "color"
