@@ -22,6 +22,8 @@ OUT = REPO / "launcher/fixtures/refine.safetensors"
 REFINER = "mantelmoritz/CorridorKey-Realtime-EdgeRefiner"
 REVISION = "75bb21da1ea3f22b57c7d16a28191e11eb43c2a6"
 CROP = 4
+KNEE = 0.008
+DENOM = 8.29405
 
 
 def image(path: str) -> torch.Tensor:
@@ -80,8 +82,10 @@ def main() -> None:
         a_gf = ((up(coef)[:, :3] * rgb).sum(1, keepdim=True) + up(coef)[:, 3:4]).clamp(0.0, 1.0)
         fg_in = (rgb + up(fg_low - rgb_low)).clamp(0.0, 1.0)
         alpha, fg = ref.refine(net, rgb, rgb_low, alpha_low, fg_low)
+    gbr = lambda t: t[:, [1, 2, 0]]
+    z = ref.srgb_to_linear(fg_low) / KNEE
     tensors = {
-        "rgb": rgb, "rgb_low": rgb_low, "alpha_low": alpha_low, "fg_low": fg_low,
+        "native": gbr(rgb), "low": gbr(rgb_low), "logits": torch.cat([alpha_low, torch.asinh(z) / DENOM], 1),
         "coef": coef, "bg_low": bg, "band_low": band, "a_gf": a_gf, "fg_in": fg_in,
         "alpha": alpha, "fg": fg, "bilinear": up(alpha_low),
     }
