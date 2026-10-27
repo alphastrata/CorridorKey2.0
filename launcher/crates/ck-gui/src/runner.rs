@@ -9,15 +9,15 @@ use flume::Sender;
 use crate::command::Command;
 
 pub enum Event {
-    Line(String),
-    Exit(eyre::Result<i32>),
+    Line(u32, String),
+    Exit(u32, eyre::Result<i32>),
 }
 
 pub struct Job {
     pub pid: u32,
 }
 
-fn pump(mut from: impl Read + Send + 'static, tx: Sender<Event>) {
+fn pump(mut from: impl Read + Send + 'static, pid: u32, tx: Sender<Event>) {
     thread::spawn(move || {
         let (mut buf, mut line) = ([0u8; 8192], Vec::new());
         while let Ok(n) = from.read(&mut buf) {
@@ -29,7 +29,7 @@ fn pump(mut from: impl Read + Send + 'static, tx: Sender<Event>) {
                     let text = String::from_utf8_lossy(&line).into_owned();
                     line.clear();
                     if !text.trim().is_empty() {
-                        drop(tx.send(Event::Line(text)));
+                        drop(tx.send(Event::Line(pid, text)));
                     }
                 } else {
                     line.push(b);
@@ -37,7 +37,7 @@ fn pump(mut from: impl Read + Send + 'static, tx: Sender<Event>) {
             });
         }
         if !line.is_empty() {
-            drop(tx.send(Event::Line(String::from_utf8_lossy(&line).into_owned())));
+            drop(tx.send(Event::Line(pid, String::from_utf8_lossy(&line).into_owned())));
         }
     });
 }
@@ -63,15 +63,15 @@ pub fn spawn(cmd: &Command, cwd: &Path, tx: &Sender<Event>) -> std::io::Result<J
     let mut child: Child = c.spawn()?;
     let pid = child.id();
     if let Some(out) = child.stdout.take() {
-        pump(out, tx.clone());
+        pump(out, pid, tx.clone());
     }
     if let Some(err) = child.stderr.take() {
-        pump(err, tx.clone());
+        pump(err, pid, tx.clone());
     }
     let tx = tx.clone();
     thread::spawn(move || {
         let status = child.wait().map_or_else(|e| Err(e.into()), describe);
-        drop(tx.send(Event::Exit(status)));
+        drop(tx.send(Event::Exit(pid, status)));
     });
     Ok(Job { pid })
 }

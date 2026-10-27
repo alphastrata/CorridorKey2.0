@@ -112,6 +112,18 @@ fn srgb(x: f32) -> u8 {
     (v * 255.0 + 0.5) as u8
 }
 
+/// A binary PPM as ck's `--preview` writes it.
+pub fn ppm(path: &Path) -> eyre::Result<Pixels> {
+    let bytes = std::fs::read(path)?;
+    let mut f = bytes.splitn(5, u8::is_ascii_whitespace);
+    eyre::ensure!(f.next() == Some(b"P6".as_slice()), "{}: not a PPM", path.display());
+    let mut num = || -> eyre::Result<u32> { Ok(std::str::from_utf8(f.next().unwrap_or_default())?.parse()?) };
+    let (w, h) = (num().ok(), num().ok());
+    let (Some(w), Some(h), Some(_), Some(data)) = (w, h, f.next(), f.next()) else { return Err(eyre!("{}: not a PPM", path.display())) };
+    eyre::ensure!(data.len() == 3 * w as usize * h as usize, "{}: truncated", path.display());
+    Ok(SharedPixelBuffer::clone_from_slice(data, w, h))
+}
+
 fn decode_file(path: &Path, linear: bool, size: (u32, u32)) -> eyre::Result<Pixels> {
     let img = image::open(path).map_err(|e| eyre!("{}: {e}", path.display()))?;
     let float = matches!(img, DynamicImage::ImageRgb32F(_) | DynamicImage::ImageRgba32F(_));

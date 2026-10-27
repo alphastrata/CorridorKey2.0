@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use eyre::Context as _;
 use flume::{Receiver, Sender};
@@ -10,10 +10,10 @@ use slint::winit_030::{EventResult, WinitWindowAccessor, winit};
 use slint::{ComponentHandle, Image, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
 
 use crate::clips::{self, Clip, Hint, Status};
-use crate::command;
-use crate::frames::{Frames, Shown};
+use crate::command::{self, Catalogue};
+use crate::frames::{self, Frames, Shown};
 use crate::runner::{self, Event, Job as Running, Progress};
-use crate::settings::Settings;
+use crate::settings::{Placement, Settings};
 use crate::telemetry::{self, Probe, Snapshot};
 use crate::{AppWindow, ClipRow, Job, Queue, View};
 
@@ -25,6 +25,8 @@ type StateRef = Rc<RefCell<State>>;
 
 struct Run {
     index: usize,
+    gpus: Vec<usize>,
+    preview: PathBuf,
     job: Running,
     progress: Progress,
     started: Instant,
@@ -45,7 +47,10 @@ struct State {
     ui: slint::Weak<AppWindow>,
     clips: Vec<Clip>,
     settings: Settings,
-    run: Option<Run>,
+    runs: Vec<Run>,
+    catalogue: Catalogue,
+    live: Option<SystemTime>,
+    launches: usize,
     mode: Mode,
     counts: [usize; 3],
     finished: Option<Finished>,
@@ -70,7 +75,19 @@ fn row(c: &Clip) -> ClipRow {
     }
 }
 
-fn settings_to_ui(s: &Settings, j: &Job) {
+fn strings(v: impl IntoIterator<Item = String>) -> ModelRc<SharedString> {
+    ModelRc::new(VecModel::from(v.into_iter().map(SharedString::from).collect::<Vec<_>>()))
+}
+
+fn settings_to_ui(s: &Settings, j: &Job, cat: &Catalogue) {
+    j.set_models(strings(cat.models.iter().map(|p| Catalogue::label(p))));
+    j.set_model(i32::try_from(Catalogue::index(&cat.models, &s.model, "corridorkey_v2.safetensors")).unwrap_or_default());
+    j.set_refiners(strings(cat.refiners.iter().map(|p| Catalogue::label(p))));
+    j.set_refiner(i32::try_from(Catalogue::index(&cat.refiners, &s.refiner, "corridorkey_edge_refiner_v10w.safetensors")).unwrap_or_default());
+    j.set_gpu_names(strings(cat.gpus.iter().cloned()));
+    let on: Vec<bool> = (0..cat.gpus.len()).map(|i| u32::try_from(i).is_ok_and(|i| !s.gpus_off.contains(&i))).collect();
+    j.set_gpu_on(ModelRc::new(VecModel::from(on)));
+    j.set_parallel(s.placement == Placement::PerGpu);
     j.set_codec(i32::from(s.nvenc));
     j.set_out_alpha(s.outputs[0]);
     j.set_out_fg(s.outputs[1]);
@@ -96,7 +113,7 @@ fn settings_to_ui(s: &Settings, j: &Job) {
     j.set_out_parent(s.out_parent.clone().unwrap_or_default().into());
 }
 
-fn settings_from_ui(j: &Job) -> Settings {
+fn settings_from_ui(j: &Job, cat: &Catalogue) -> Settings {
     let mut outputs = [j.get_out_alpha(), j.get_out_fg(), j.get_out_checker(), j.get_out_cutout()];
     if !outputs.contains(&true) {
         outputs[0] = true;
@@ -117,6 +134,10 @@ fn settings_from_ui(j: &Job) -> Settings {
         scale: u8::try_from(j.get_scale().clamp(0, 3)).unwrap_or_default(),
         refine: j.get_refine(),
         out_parent: (j.get_out_mode() == 1).then(|| j.get_out_parent().into()),
+        model: Catalogue::name(&cat.models, j.get_model()),
+        refiner: Catalogue::name(&cat.refiners, j.get_refiner()),
+        gpus_off: j.get_gpu_on().iter().zip(0u32..).filter(|(on, _)| !on).map(|(_, i)| i).collect(),
+        placement: if j.get_parallel() { Placement::PerGpu } else { Placement::Together },
     }
 }
 
@@ -178,9 +199,7 @@ impl State {
         }
         self.clips.remove(i);
         self.rows.remove(i);
-        if let Some(r) = self.run.as_mut().filter(|r| r.index > i) {
-            r.index -= 1;
-        }
+        self.runs.iter_mut().filter(|r| r.index > i).for_each(|r| r.index -= 1);
         if let Some(ui) = self.ui() {
             let next = if self.clips.is_empty() { -1 } else { i32::try_from(i.min(self.clips.len() - 1)).unwrap_or(i32::MAX) };
             ui.global::<Queue>().set_selected(next);
@@ -218,14 +237,17 @@ impl State {
             Hint::Video => 2,
         });
         q.set_hint_path(c.hint_path.as_ref().map_or_else(SharedString::new, |p| p.display().to_string().into()));
-        let outs = if c.status == Status::Running { Default::default() } else { c.outputs(&self.output_dir(c)) };
+        let outs = match self.runs.iter().find(|r| r.index == i) {
+            Some(r) => clips::OUTPUTS.iter().zip(self.settings.outputs).map(|((name, _), on)| on.then(|| r.preview.join(format!("{name}.ppm")))).collect::<Vec<_>>(),
+            None => c.outputs(&self.output_dir(c)).to_vec(),
+        };
         self.views = [Some(c.source.clone()), outs[0].clone(), outs[1].clone(), outs[2].clone(), outs[3].clone()];
         v.set_has(ModelRc::new(VecModel::from(self.views.iter().map(Option::is_some).collect::<Vec<_>>())));
         let mut view = usize::try_from(v.get_view()).unwrap_or(0);
         if self.views[view].is_none() {
             view = 0;
         }
-        if c.status == Status::Done {
+        if matches!(c.status, Status::Done | Status::Running) {
             view = [3, 1, 2].into_iter().find(|&k| self.views[k].is_some()).unwrap_or(view);
         }
         v.set_view(i32::try_from(view).unwrap_or_default());
@@ -242,11 +264,39 @@ impl State {
 
     fn request(&mut self, view: usize, index: usize) {
         let Some(path) = self.views.get(view).cloned().flatten() else { return };
+        if path.extension().is_some_and(|e| e == "ppm") {
+            self.live = None;
+            self.live();
+            return;
+        }
         self.awaiting = true;
         if let Some(ui) = self.ui() {
             ui.global::<View>().set_busy(true);
         }
         self.frames.show(&path, index, self.linear(view), self.detail);
+    }
+
+    fn live(&mut self) {
+        let Some(ui) = self.ui() else { return };
+        let v = ui.global::<View>();
+        let current = usize::try_from(v.get_view()).ok().and_then(|k| self.views.get(k).cloned().flatten());
+        let Some(path) = current.filter(|p| p.extension().is_some_and(|e| e == "ppm")) else { return };
+        let stamp = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+        if stamp.is_none() {
+            v.set_message("Waiting for the first keyed frame…".into());
+            v.set_src_w(0);
+        }
+        if stamp.is_none() || stamp == self.live {
+            return;
+        }
+        if let Ok(px) = frames::ppm(&path) {
+            self.live = stamp;
+            v.set_src_h(px.height().cast_signed());
+            v.set_src_w(px.width().cast_signed());
+            v.set_frame(Image::from_rgb8(px));
+            v.set_count(1);
+            v.set_index(0);
+        }
     }
 
     fn shown(&mut self, s: ShownMsg) {
@@ -278,8 +328,14 @@ impl State {
         if self.mode != Mode::Idle {
             return;
         }
-        self.settings = self.ui().map_or_default(|ui| settings_from_ui(&ui.global::<Job>()));
+        self.settings = self.ui().map_or_default(|ui| settings_from_ui(&ui.global::<Job>(), &self.catalogue));
         self.settings.save();
+        if self.slots().iter().all(Vec::is_empty) && !self.catalogue.gpus.is_empty() {
+            if let Some(ui) = self.ui() {
+                ui.set_status("Every GPU is switched off. Enable one under GPUs.".into());
+            }
+            return;
+        }
         if !self.clips.iter().any(|c| c.status == Status::Queued) {
             let Some(i) = self.selected() else {
                 if let Some(ui) = self.ui() {
@@ -298,18 +354,40 @@ impl State {
         if let Some(ui) = self.ui() {
             ui.set_running(true);
         }
-        self.next();
+        self.fill();
     }
 
-    fn next(&mut self) {
-        let Some(i) = self.clips.iter().position(|c| c.status == Status::Queued) else {
+    fn slots(&self) -> Vec<Vec<usize>> {
+        let on: Vec<usize> = (0..self.catalogue.gpus.len()).filter(|&i| u32::try_from(i).is_ok_and(|i| !self.settings.gpus_off.contains(&i))).collect();
+        if self.settings.placement == Placement::PerGpu && on.len() > 1 { on.into_iter().map(|g| vec![g]).collect() } else { vec![on] }
+    }
+
+    fn vacancy(&self) -> Option<(usize, Vec<usize>)> {
+        let i = self.clips.iter().position(|c| c.status == Status::Queued)?;
+        let slot = self.slots().into_iter().find(|s| !self.runs.iter().any(|r| r.gpus == *s))?;
+        Some((i, slot))
+    }
+
+    fn fill(&mut self) {
+        while let Some((i, gpus)) = self.vacancy().filter(|_| self.mode == Mode::Running) {
+            self.launch(i, gpus);
+        }
+        if self.runs.is_empty() {
             self.finish();
-            return;
-        };
+        }
+    }
+
+    fn watch(&self) {
+        self.probe.pid.store(self.runs.first().map_or(0, |r| r.job.pid), Ordering::Release);
+    }
+
+    fn launch(&mut self, i: usize, gpus: Vec<usize>) {
+        self.launches += 1;
+        let preview = std::env::temp_dir().join(format!("corridorkey-{}", std::process::id())).join(self.launches.to_string());
         let out = self.clips[i].output_dir_for(self.settings.out_parent.as_deref().unwrap_or(""));
         self.clips[i].output_dir = Some(out.clone());
         let cwd = command::repo().unwrap_or_else(|| PathBuf::from("."));
-        let spawned = command::build(&self.clips[i], &self.settings, &out).and_then(|cmd| {
+        let spawned = command::build(&self.clips[i], &self.settings, &out, (&gpus, &preview)).and_then(|cmd| {
             self.log(format!("=== {} ===", self.clips[i].name()));
             self.log(std::iter::once(cmd.program.display().to_string()).chain(cmd.args.iter().cloned()).collect::<Vec<_>>().join(" "));
             runner::spawn(&cmd, &cwd, &self.events.0).wrap_err_with(|| format!("could not start {}", cmd.program.display()))
@@ -322,14 +400,13 @@ impl State {
                 self.counts[1] += 1;
                 self.log(why);
                 self.refresh_row(i);
-                self.next();
             }
             Ok(job) => {
                 (c.status, c.progress) = (Status::Running, 0.0);
-                c.detail = "Starting ck".into();
-                self.probe.pid.store(job.pid, Ordering::Release);
+                c.detail = if gpus.is_empty() { "Starting ck".into() } else { format!("Starting ck on GPU {}", gpus.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")) };
                 let now = Instant::now();
-                self.run = Some(Run { index: i, job, progress: Progress::default(), started: now, phases: vec![("Starting".into(), now)], last: String::new() });
+                self.runs.push(Run { index: i, gpus, preview, job, progress: Progress::default(), started: now, phases: vec![("Starting".into(), now)], last: String::new() });
+                self.watch();
                 self.finished = None;
                 self.refresh_row(i);
                 self.update_bar(i);
@@ -346,9 +423,10 @@ impl State {
         ui.set_status(format!("{} · {}", c.name(), c.detail).into());
     }
 
-    fn line(&mut self, text: &str) {
-        self.log(text);
-        let Some(run) = self.run.as_mut() else { return };
+    fn line(&mut self, pid: u32, text: &str) {
+        let tag = self.runs.iter().filter(|_| self.runs.len() > 1).find(|r| r.job.pid == pid).map(|r| format!("[{}] ", self.clips[r.index].name()));
+        self.log(format!("{}{text}", tag.unwrap_or_default()));
+        let Some(run) = self.runs.iter_mut().find(|r| r.job.pid == pid) else { return };
         if !text.trim().is_empty() {
             run.last = text.trim().chars().rev().take(110).collect::<Vec<_>>().into_iter().rev().collect();
         }
@@ -370,9 +448,11 @@ impl State {
         }
     }
 
-    fn exited(&mut self, status: &Result<i32, eyre::Report>) {
-        let Some(run) = self.run.take() else { return };
-        self.probe.pid.store(0, Ordering::Release);
+    fn exited(&mut self, pid: u32, status: &Result<i32, eyre::Report>) {
+        let Some(k) = self.runs.iter().position(|r| r.job.pid == pid) else { return };
+        let run = self.runs.remove(k);
+        self.watch();
+        drop(std::fs::remove_dir_all(&run.preview));
         let i = run.index;
         let c = &mut self.clips[i];
         let stopping = self.mode == Mode::Stopping;
@@ -403,10 +483,10 @@ impl State {
         if self.selected() == Some(i) {
             self.show_selection();
         }
-        if stopping {
+        if !stopping {
+            self.fill();
+        } else if self.runs.is_empty() {
             self.finish();
-        } else {
-            self.next();
         }
     }
 
@@ -422,15 +502,15 @@ impl State {
     }
 
     fn stop(&mut self) {
-        if let Some(run) = &self.run {
+        if !self.runs.is_empty() {
             self.mode = Mode::Stopping;
-            runner::stop(&run.job);
+            self.runs.iter().for_each(|r| runner::stop(&r.job));
         }
     }
 
     fn stats(&self) -> String {
         let mut l = vec!["Stats for nerds".to_owned(), String::new()];
-        let live = self.run.as_ref().map(|r| (self.clips[r.index].status.label().to_owned(), r.progress.clone(), r.started, r.phases.clone(), None, r.index));
+        let live = self.runs.first().map(|r| (self.clips[r.index].status.label().to_owned(), r.progress.clone(), r.started, r.phases.clone(), None, r.index));
         let done = self.finished.clone().map(|(s, p, t, ph, end)| (s, p, t, ph, Some(end), usize::MAX));
         match live.or(done) {
             None => l.push("clip       none yet · start the queue".into()),
@@ -464,11 +544,14 @@ impl State {
                     let overall = end.map_or(String::new(), |_| format!(" · {:.2} fps overall", p.frames as f32 / (now - started).as_secs_f32().max(1e-3)));
                     l.push(format!("throughput {keyed} frames keyed · {rate:.2} fps{overall}"));
                 }
-                l.push(format!("process    {}", if self.run.is_some() { self.snapshot.process.as_str() } else { "idle" }));
+                l.push(format!("process    {}", if self.runs.is_empty() { "idle" } else { self.snapshot.process.as_str() }));
             }
         }
         l.extend(self.snapshot.gpus.iter().cloned());
-        if let Some(r) = &self.run {
+        if self.runs.len() > 1 {
+            l.push(format!("running    {} clips · {}", self.runs.len(), self.runs.iter().map(|r| format!("{} on GPU {:?}", self.clips[r.index].name(), r.gpus)).collect::<Vec<_>>().join(" · ")));
+        }
+        if let Some(r) = self.runs.first() {
             l.push(format!("last       {}", r.last));
         }
         l.join("\n")
@@ -491,8 +574,8 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
         let events: Vec<Event> = st.events.1.try_iter().take(500).collect();
         for e in events {
             match e {
-                Event::Line(l) => st.line(&l),
-                Event::Exit(code) => st.exited(&code),
+                Event::Line(pid, l) => st.line(pid, &l),
+                Event::Exit(pid, code) => st.exited(pid, &code),
             }
         }
         if let Some(last) = shown_rx.try_iter().last() {
@@ -508,8 +591,9 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
 
     let s = state.clone();
     let refresh = Timer::default();
-    refresh.start(TimerMode::Repeated, Duration::from_millis(500), move || {
-        let st = s.borrow();
+    refresh.start(TimerMode::Repeated, Duration::from_millis(250), move || {
+        let Ok(mut st) = s.try_borrow_mut() else { return };
+        st.live();
         if let Some(ui) = st.ui().filter(AppWindow::get_stats_visible) {
             ui.set_stats(st.stats().into());
         }
@@ -656,9 +740,18 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
     j.on_changed(move || {
         let mut st = s.borrow_mut();
         if let Some(ui) = st.ui() {
-            st.settings = settings_from_ui(&ui.global::<Job>());
+            st.settings = settings_from_ui(&ui.global::<Job>(), &st.catalogue);
             st.settings.save();
         }
+    });
+    let s = state.clone();
+    j.on_gpu_toggled(move |i, on| {
+        let mut st = s.borrow_mut();
+        let Some(ui) = st.ui() else { return };
+        let j = ui.global::<Job>();
+        j.get_gpu_on().set_row_data(usize::try_from(i).unwrap_or_default(), on);
+        st.settings = settings_from_ui(&j, &st.catalogue);
+        st.settings.save();
     });
     let w = ui.as_weak();
     j.on_browse_out_parent(move || {
@@ -710,13 +803,17 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
     ui.set_log(ModelRc::from(log.clone()));
     ui.global::<Queue>().set_rows(ModelRc::from(rows.clone()));
     let settings = Settings::load();
-    settings_to_ui(&settings, &ui.global::<Job>());
+    let catalogue = Catalogue::scan(telemetry::devices());
+    settings_to_ui(&settings, &ui.global::<Job>(), &catalogue);
     ui.global::<Job>().set_ck_built(command::ck_binary().is_some());
     let state = StateRef::new(RefCell::new(State {
         ui: ui.as_weak(),
         clips: vec![],
         settings,
-        run: None,
+        runs: vec![],
+        catalogue,
+        live: None,
+        launches: 0,
         mode: Mode::Idle,
         counts: [0; 3],
         finished: None,

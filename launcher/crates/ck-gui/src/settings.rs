@@ -2,6 +2,13 @@ use std::path::PathBuf;
 
 use rkyv::{Archive, Deserialize, Serialize, rancor};
 
+/// How queued clips share the enabled GPUs: one clip on each at once, or each clip across all of them.
+#[derive(Archive, Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Placement {
+    PerGpu,
+    Together,
+}
+
 #[derive(Archive, Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Settings {
     pub nvenc: bool,
@@ -18,6 +25,10 @@ pub struct Settings {
     pub scale: u8,
     pub refine: bool,
     pub out_parent: Option<String>,
+    pub model: String,
+    pub refiner: String,
+    pub gpus_off: Vec<u32>,
+    pub placement: Placement,
 }
 
 impl Default for Settings {
@@ -37,6 +48,10 @@ impl Default for Settings {
             scale: 0,
             refine: true,
             out_parent: None,
+            model: String::new(),
+            refiner: String::new(),
+            gpus_off: vec![],
+            placement: Placement::PerGpu,
         }
     }
 }

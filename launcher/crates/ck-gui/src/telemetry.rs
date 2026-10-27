@@ -100,6 +100,12 @@ fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Strin
     (label, lines)
 }
 
+#[must_use]
+pub fn devices() -> Vec<String> {
+    let Ok(nvml) = Nvml::init() else { return vec![] };
+    (0..nvml.device_count().unwrap_or(0)).map(|i| format!("GPU{i} · {}", nvml.device_by_index(i).and_then(|d| d.name()).map_or_else(|_| "?".into(), |n| short(&n)))).collect()
+}
+
 /// Samples GPUs every second and the job's process tree while `detailed` is set.
 pub fn start(tx: Sender<Snapshot>) -> Probe {
     let probe = Probe { pid: Arc::default(), detailed: Arc::default() };

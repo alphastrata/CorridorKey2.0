@@ -33,7 +33,15 @@ export global Job {
     in-out property <bool> refine: true;
     in-out property <int> out-mode;
     in-out property <string> out-parent;
+    in property <[string]> models;
+    in-out property <int> model;
+    in property <[string]> refiners;
+    in-out property <int> refiner;
+    in property <[string]> gpu-names;
+    in property <[bool]> gpu-on;
+    in-out property <bool> parallel: true;
     callback changed();
+    callback gpu-toggled(int, bool);
     callback browse-out-parent();
 }
 
@@ -760,6 +768,60 @@ component Inspector inherits Rectangle {
                             enabled: !root.locked && root.manual;
                             edited => { Job.changed(); }
                         }
+                    }
+                }
+                Section {
+                    title: "Model";
+                    Row {
+                        label: "Weights";
+                        enabled: !root.locked && Job.models.length > 1;
+                        ComboBox {
+                            min-width: 0;
+                            model: Job.models;
+                            current-index <=> Job.model;
+                            enabled: !root.locked && Job.models.length > 1;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Refiner";
+                        enabled: !root.locked && Job.refiners.length > 1 && Job.scale > 0 && Job.refine;
+                        ComboBox {
+                            min-width: 0;
+                            model: Job.refiners;
+                            current-index <=> Job.refiner;
+                            enabled: !root.locked && Job.refiners.length > 1 && Job.scale > 0 && Job.refine;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Text {
+                        text: "bf16 suits RTX 30-series and newer, fp16 suits RTX 20-series; both halve the file at fp32 quality.";
+                        color: T.subtle;
+                        font-size: T.small;
+                        wrap: word-wrap;
+                    }
+                }
+                Section {
+                    title: "GPUs";
+                    for name[i] in Job.gpu-names: CheckBox {
+                        min-width: 0;
+                        text: name;
+                        checked: Job.gpu-on[i];
+                        enabled: !root.locked;
+                        toggled => { Job.gpu-toggled(i, self.checked); }
+                    }
+                    CheckBox {
+                        min-width: 0;
+                        text: "One clip per GPU at a time";
+                        checked <=> Job.parallel;
+                        enabled: !root.locked && Job.gpu-names.length > 1;
+                        toggled => { Job.changed(); }
+                    }
+                    if Job.gpu-names.length == 0: Text {
+                        text: "No GPUs found through NVML; ck picks its own.";
+                        color: T.subtle;
+                        font-size: T.small;
+                        wrap: word-wrap;
                     }
                 }
                 Section {

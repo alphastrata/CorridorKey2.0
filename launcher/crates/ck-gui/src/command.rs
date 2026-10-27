@@ -31,6 +31,55 @@ pub fn ck_binary() -> Option<PathBuf> {
     [std::env::var_os("CK_BIN").map(PathBuf::from), beside, on_path, built].into_iter().flatten().find(|p| p.is_file())
 }
 
+/// Weights found under `weights/` and the GPUs NVML reports, in PCI order (as ck sees them under
+/// `CUDA_DEVICE_ORDER=PCI_BUS_ID`).
+#[derive(Default)]
+pub struct Catalogue {
+    pub models: Vec<PathBuf>,
+    pub refiners: Vec<PathBuf>,
+    pub gpus: Vec<String>,
+}
+
+fn file_name(p: &Path) -> String {
+    p.file_name().unwrap_or_default().to_string_lossy().into_owned()
+}
+
+impl Catalogue {
+    #[must_use]
+    pub fn scan(gpus: Vec<String>) -> Self {
+        let mut all: Vec<PathBuf> = repo()
+            .and_then(|r| std::fs::read_dir(r.join("weights")).ok())
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| file_name(p).starts_with("corridorkey_") && p.extension().is_some_and(|e| e == "safetensors"))
+            .collect();
+        all.sort();
+        let (refiners, models) = all.into_iter().partition(|p| file_name(p).contains("refiner"));
+        Self { models, refiners, gpus }
+    }
+
+    #[must_use]
+    pub fn label(p: &Path) -> String {
+        let stem = file_name(p).trim_end_matches(".safetensors").trim_start_matches("corridorkey_").replace("edge_refiner_", "");
+        let (name, dtype) = stem.split_once('.').unwrap_or((&stem, "fp32"));
+        let size = p.metadata().map_or(0.0, |m| m.len() as f64 / f64::from(1u32 << 30));
+        if size < 0.1 { name.to_owned() } else { format!("{name} · {dtype} · {size:.1} GB") }
+    }
+
+    #[must_use]
+    pub fn index(list: &[PathBuf], name: &str, fallback: &str) -> usize {
+        let find = |n: &str| list.iter().position(|p| file_name(p) == n);
+        find(name).or_else(|| find(fallback)).unwrap_or_default()
+    }
+
+    #[must_use]
+    pub fn name(list: &[PathBuf], i: i32) -> String {
+        usize::try_from(i).ok().and_then(|i| list.get(i)).map_or_default(|p| file_name(p))
+    }
+}
+
 const SCALES: [&str; 4] = ["1", "0.5", "0.25", "0.125"];
 
 fn linear(clip: &Clip, s: &Settings) -> bool {
@@ -90,7 +139,20 @@ fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
     a
 }
 
-pub fn build(clip: &Clip, s: &Settings, out: &Path) -> eyre::Result<Command> {
+fn placement(s: &Settings, gpus: &[usize], preview: &Path) -> Vec<String> {
+    let weights = |name: &str| repo().map(|r| r.join("weights").join(name).display().to_string()).filter(|_| !name.is_empty());
+    let mut a = vec!["--preview".into(), preview.display().to_string()];
+    if !gpus.is_empty() {
+        a.extend(["--device".into(), gpus.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")]);
+    }
+    a.extend(weights(&s.model).into_iter().flat_map(|w| ["--weights".into(), w]));
+    a.extend(weights(&s.refiner).into_iter().flat_map(|w| ["--refiner".into(), w]));
+    a
+}
+
+pub fn build(clip: &Clip, s: &Settings, out: &Path, (gpus, preview): (&[usize], &Path)) -> eyre::Result<Command> {
     let program = ck_binary().ok_or_else(|| eyre::eyre!("ck is not built: cargo build --release -p ck in launcher/"))?;
-    Ok(Command { program, args: ck(clip, s, out), env: vec![] })
+    let mut args = placement(s, gpus, preview);
+    args.extend(ck(clip, s, out));
+    Ok(Command { program, args, env: vec![("CUDA_DEVICE_ORDER", "PCI_BUS_ID")] })
 }
