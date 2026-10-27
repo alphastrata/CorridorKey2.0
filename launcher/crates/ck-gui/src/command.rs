@@ -31,6 +31,8 @@ pub fn ck_binary() -> Option<PathBuf> {
     [std::env::var_os("CK_BIN").map(PathBuf::from), beside, on_path, built].into_iter().flatten().find(|p| p.is_file())
 }
 
+const SCALES: [&str; 4] = ["1", "0.5", "0.25", "0.125"];
+
 fn linear(clip: &Clip, s: &Settings) -> bool {
     match s.frame_colour {
         1 => true,
@@ -74,6 +76,12 @@ fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
     }
     if let Some((chunk, stride)) = s.window {
         a.extend(["--chunk".into(), chunk.to_string(), "--stride".into(), stride.to_string()]);
+    }
+    if let Some(scale) = SCALES.get(usize::from(s.scale)).filter(|_| s.scale > 0) {
+        a.extend(["--model-scale".into(), (*scale).into()]);
+        if s.refine {
+            a.extend(["--upscale".into(), "refine".into()]);
+        }
     }
     if s.frames > 0 {
         a.extend(["--frames".into(), s.frames.to_string()]);

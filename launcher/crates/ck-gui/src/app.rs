@@ -80,6 +80,8 @@ fn settings_to_ui(s: &Settings, j: &Job) {
     j.set_frame_colour(i32::from(s.frame_colour));
     j.set_fps(format!("{}", s.fps).into());
     j.set_num_frames(s.frames as i32);
+    j.set_scale(i32::from(s.scale));
+    j.set_refine(s.refine);
     j.set_out_mode(i32::from(s.out_parent.is_some()));
     j.set_out_parent(s.out_parent.clone().unwrap_or_default().into());
 }
@@ -101,6 +103,8 @@ fn settings_from_ui(j: &Job) -> Settings {
         frame_colour: j.get_frame_colour().clamp(0, 2) as u8,
         fps: j.get_fps().parse().ok().filter(|f: &f32| *f > 0.0).unwrap_or(24.0),
         frames: j.get_num_frames().max(0) as u32,
+        scale: u8::try_from(j.get_scale().clamp(0, 3)).unwrap_or_default(),
+        refine: j.get_refine(),
         out_parent: (j.get_out_mode() == 1).then(|| j.get_out_parent().into()),
     }
 }

@@ -29,6 +29,8 @@ export global Job {
     in-out property <int> frame-colour;
     in-out property <string> fps: "24";
     in-out property <int> num-frames;
+    in-out property <int> scale;
+    in-out property <bool> refine: true;
     in-out property <int> out-mode;
     in-out property <string> out-parent;
     callback changed();
@@ -758,6 +760,27 @@ component Inspector inherits Rectangle {
                             enabled: !root.locked && root.manual;
                             edited => { Job.changed(); }
                         }
+                    }
+                }
+                Section {
+                    title: "Speed";
+                    Row {
+                        label: "Model scale";
+                        enabled: !root.locked;
+                        ComboBox {
+                            min-width: 0;
+                            model: ["Full resolution", "½ · faster", "¼ · fastest", "⅛ · preview"];
+                            current-index <=> Job.scale;
+                            enabled: !root.locked;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    CheckBox {
+                        min-width: 0;
+                        text: "Edge refiner (best at ¼ and below)";
+                        checked <=> Job.refine;
+                        enabled: !root.locked && Job.scale > 0;
+                        toggled => { Job.changed(); }
                     }
                 }
                 Section {

@@ -15,6 +15,8 @@ pub struct Settings {
     pub frame_colour: u8,
     pub fps: f32,
     pub frames: u32,
+    pub scale: u8,
+    pub refine: bool,
     pub out_parent: Option<String>,
 }
 
@@ -32,6 +34,8 @@ impl Default for Settings {
             frame_colour: 0,
             fps: 24.0,
             frames: 0,
+            scale: 0,
+            refine: true,
             out_parent: None,
         }
     }
