@@ -10,35 +10,35 @@
 .extern .shared .align 16 .b8 __dshmem[];
                                         // End of file scope inline assembly
 	// .globl	act_bf16                // -- Begin function act_bf16
-.func _RNvNtCscc5udagl66P_4core9panicking9panic_fmt
+.func _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt
 (
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_0,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_1,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_2
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt_param_0,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt_param_1,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt_param_2
 )
 .noreturn;
-.func _RNvNtCscc5udagl66P_4core9panicking5panic
+.func _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic
 (
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_0,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_1,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_2
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic_param_0,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic_param_1,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic_param_2
 )
 .noreturn;
-.func _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check
+.func _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check
 (
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check_param_0,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check_param_1,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check_param_2
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check_param_0,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check_param_1,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check_param_2
 )
 .noreturn;
-.func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero
+.func _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero
 (
-	.param .b64 _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero_param_0
+	.param .b64 _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero_param_0
 )
 .noreturn;
-.func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero
+.func _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero
 (
-	.param .b64 _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero_param_0
+	.param .b64 _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero_param_0
 )
 .noreturn;
 .visible .global .align 4 .b8 REFINE_PIX[4] = {1};
@@ -220,7 +220,7 @@ $L__BB0_23:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 2
 	// begin inline asm
 	exit;
@@ -228,7 +228,7 @@ $L__BB0_23:
 $L__BB0_20:
 	{ // callseq 3, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 3
 	// begin inline asm
 	exit;
@@ -238,7 +238,7 @@ $L__BB0_21:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 0
 	// begin inline asm
 	exit;
@@ -248,7 +248,7 @@ $L__BB0_22:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 1
 	// begin inline asm
 	exit;
@@ -265,7 +265,7 @@ $L__BB0_22:
 	.param .u32 act_bf16_bf16_param_5
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @act_bf16_bf16
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<47>;
@@ -371,7 +371,7 @@ $L__BB1_10:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 4
 	// begin inline asm
 	exit;
@@ -381,7 +381,7 @@ $L__BB1_11:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 5
 	// begin inline asm
 	exit;
@@ -398,7 +398,7 @@ $L__BB1_11:
 	.param .u32 act_f32_param_5
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @act_f32
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<42>;
@@ -499,7 +499,7 @@ $L__BB2_10:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 6
 	// begin inline asm
 	exit;
@@ -509,7 +509,7 @@ $L__BB2_11:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 7
 	// begin inline asm
 	exit;
@@ -528,7 +528,7 @@ $L__BB2_11:
 	.param .u32 add_bias_param_7
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @add_bias
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<23>;
@@ -611,7 +611,7 @@ $L__BB3_9:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 8
 	// begin inline asm
 	exit;
@@ -622,7 +622,7 @@ $L__BB3_10:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 9
 	// begin inline asm
 	exit;
@@ -630,7 +630,7 @@ $L__BB3_10:
 $L__BB3_11:
 	{ // callseq 10, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 10
 	// begin inline asm
 	exit;
@@ -653,7 +653,7 @@ $L__BB3_11:
 	.param .u32 add_gated_param_11
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @add_gated
 {
 	.reg .pred 	%p<10>;
 	.reg .b32 	%r<22>;
@@ -766,7 +766,7 @@ $L__BB4_16:
 $L__BB4_17:
 	{ // callseq 15, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 15
 	// begin inline asm
 	exit;
@@ -776,7 +776,7 @@ $L__BB4_20:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 13
 	// begin inline asm
 	exit;
@@ -786,7 +786,7 @@ $L__BB4_21:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 14
 	// begin inline asm
 	exit;
@@ -796,7 +796,7 @@ $L__BB4_18:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 11
 	// begin inline asm
 	exit;
@@ -806,7 +806,7 @@ $L__BB4_19:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 12
 	// begin inline asm
 	exit;
@@ -825,7 +825,7 @@ $L__BB4_19:
 	.param .u32 add_scaled_param_7
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @add_scaled
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<11>;
@@ -888,7 +888,7 @@ $L__BB5_7:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 16
 	// begin inline asm
 	exit;
@@ -896,7 +896,7 @@ $L__BB5_7:
 $L__BB5_8:
 	{ // callseq 19, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 19
 	// begin inline asm
 	exit;
@@ -906,7 +906,7 @@ $L__BB5_9:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 17
 	// begin inline asm
 	exit;
@@ -916,7 +916,7 @@ $L__BB5_10:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 18
 	// begin inline asm
 	exit;
@@ -933,7 +933,7 @@ $L__BB5_10:
 	.param .u32 axpy_param_5
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @axpy
 {
 	.reg .pred 	%p<4>;
 	.reg .b32 	%r<7>;
@@ -982,7 +982,7 @@ $L__BB6_5:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 20
 	// begin inline asm
 	exit;
@@ -992,7 +992,7 @@ $L__BB6_6:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 21
 	// begin inline asm
 	exit;
@@ -1011,7 +1011,7 @@ $L__BB6_6:
 	.param .f32 band_param_7
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @band
 {
 	.reg .pred 	%p<16>;
 	.reg .b32 	%r<18>;
@@ -1128,7 +1128,7 @@ $L__BB7_11:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 22
 	// begin inline asm
 	exit;
@@ -1136,7 +1136,7 @@ $L__BB7_11:
 $L__BB7_12:
 	{ // callseq 24, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 24
 	// begin inline asm
 	exit;
@@ -1146,7 +1146,7 @@ $L__BB7_16:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 23
 	// begin inline asm
 	exit;
@@ -1162,7 +1162,7 @@ $L__BB7_16:
 	.param .u32 bf16_f16_param_4
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @bf16_f16
 {
 	.reg .pred 	%p<6>;
 	.reg .b16 	%rs<2>;
@@ -1213,7 +1213,7 @@ $L__BB8_5:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 25
 	// begin inline asm
 	exit;
@@ -1223,7 +1223,7 @@ $L__BB8_6:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 26
 	// begin inline asm
 	exit;
@@ -1239,7 +1239,7 @@ $L__BB8_6:
 	.param .u32 bg_seed_param_4
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @bg_seed
 {
 	.reg .pred 	%p<18>;
 	.reg .b32 	%r<49>;
@@ -1386,7 +1386,7 @@ $L__BB9_18:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 28
 	// begin inline asm
 	exit;
@@ -1396,7 +1396,7 @@ $L__BB9_17:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 27
 	// begin inline asm
 	exit;
@@ -1406,7 +1406,7 @@ $L__BB9_19:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 29
 	// begin inline asm
 	exit;
@@ -1425,7 +1425,7 @@ $L__BB9_19:
 	.param .u32 box_mean_param_7
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @box_mean
 {
 	.reg .pred 	%p<14>;
 	.reg .b32 	%r<16>;
@@ -1555,7 +1555,7 @@ $L__BB10_20:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 30
 	// begin inline asm
 	exit;
@@ -1563,7 +1563,7 @@ $L__BB10_20:
 $L__BB10_19:
 	{ // callseq 33, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 33
 	// begin inline asm
 	exit;
@@ -1571,7 +1571,7 @@ $L__BB10_19:
 $L__BB10_15:
 	{ // callseq 32, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 32
 	// begin inline asm
 	exit;
@@ -1581,7 +1581,7 @@ $L__BB10_21:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 31
 	// begin inline asm
 	exit;
@@ -1607,7 +1607,7 @@ $L__BB10_21:
 	.param .u32 col2im_param_14
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @col2im
 {
 	.reg .pred 	%p<37>;
 	.reg .b32 	%r<45>;
@@ -1871,7 +1871,7 @@ $L__BB11_43:                            // %.loopexit28
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 36
 	// begin inline asm
 	exit;
@@ -1974,7 +1974,7 @@ $L__BB11_71:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 35
 	// begin inline asm
 	exit;
@@ -1984,7 +1984,7 @@ $L__BB11_73:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 37
 	// begin inline asm
 	exit;
@@ -1992,7 +1992,7 @@ $L__BB11_73:
 $L__BB11_65:
 	{ // callseq 45, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 45
 	// begin inline asm
 	exit;
@@ -2000,7 +2000,7 @@ $L__BB11_65:
 $L__BB11_66:
 	{ // callseq 44, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 44
 	// begin inline asm
 	exit;
@@ -2008,7 +2008,7 @@ $L__BB11_66:
 $L__BB11_67:
 	{ // callseq 43, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 43
 	// begin inline asm
 	exit;
@@ -2016,7 +2016,7 @@ $L__BB11_67:
 $L__BB11_68:
 	{ // callseq 42, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 42
 	// begin inline asm
 	exit;
@@ -2024,7 +2024,7 @@ $L__BB11_68:
 $L__BB11_69:
 	{ // callseq 41, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 41
 	// begin inline asm
 	exit;
@@ -2032,7 +2032,7 @@ $L__BB11_69:
 $L__BB11_70:
 	{ // callseq 40, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 40
 	// begin inline asm
 	exit;
@@ -2042,7 +2042,7 @@ $L__BB11_75:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 34
 	// begin inline asm
 	exit;
@@ -2052,7 +2052,7 @@ $L__BB11_76:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 39
 	// begin inline asm
 	exit;
@@ -2062,7 +2062,7 @@ $L__BB11_74:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 38
 	// begin inline asm
 	exit;
@@ -2084,7 +2084,7 @@ $L__BB11_74:
 	.param .u32 crop_param_10
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @crop
 {
 	.reg .pred 	%p<9>;
 	.reg .b32 	%r<15>;
@@ -2186,7 +2186,7 @@ $L__BB12_15:
 $L__BB12_16:
 	{ // callseq 49, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 49
 	// begin inline asm
 	exit;
@@ -2194,7 +2194,7 @@ $L__BB12_16:
 $L__BB12_17:
 	{ // callseq 48, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 48
 	// begin inline asm
 	exit;
@@ -2204,7 +2204,7 @@ $L__BB12_18:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 46
 	// begin inline asm
 	exit;
@@ -2214,7 +2214,7 @@ $L__BB12_19:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 47
 	// begin inline asm
 	exit;
@@ -2237,7 +2237,7 @@ $L__BB12_19:
 	.param .u32 embed_param_11
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @embed
 {
 	.reg .pred 	%p<13>;
 	.reg .b32 	%r<16>;
@@ -2365,7 +2365,7 @@ $L__BB13_19:
 $L__BB13_25:
 	{ // callseq 56, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 56
 	// begin inline asm
 	exit;
@@ -2373,7 +2373,7 @@ $L__BB13_25:
 $L__BB13_26:
 	{ // callseq 55, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 55
 	// begin inline asm
 	exit;
@@ -2381,7 +2381,7 @@ $L__BB13_26:
 $L__BB13_27:
 	{ // callseq 54, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 54
 	// begin inline asm
 	exit;
@@ -2391,7 +2391,7 @@ $L__BB13_23:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 52
 	// begin inline asm
 	exit;
@@ -2401,7 +2401,7 @@ $L__BB13_24:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 53
 	// begin inline asm
 	exit;
@@ -2411,7 +2411,7 @@ $L__BB13_22:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 51
 	// begin inline asm
 	exit;
@@ -2421,7 +2421,7 @@ $L__BB13_28:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 50
 	// begin inline asm
 	exit;
@@ -2440,7 +2440,7 @@ $L__BB13_28:
 	.param .u32 f32_bf16_param_7
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @f32_bf16
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<13>;
@@ -2511,7 +2511,7 @@ $L__BB14_8:
 $L__BB14_9:
 	{ // callseq 59, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 59
 	// begin inline asm
 	exit;
@@ -2521,7 +2521,7 @@ $L__BB14_10:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 57
 	// begin inline asm
 	exit;
@@ -2531,7 +2531,7 @@ $L__BB14_11:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 58
 	// begin inline asm
 	exit;
@@ -2553,192 +2553,198 @@ $L__BB14_11:
 	.param .f32 gru_kv_param_10
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @gru_kv
 {
 	.reg .pred 	%p<12>;
-	.reg .b32 	%r<57>;
-	.reg .b64 	%rd<56>;
+	.reg .b32 	%r<54>;
+	.reg .b64 	%rd<65>;
 
 // %bb.0:
-	ld.param.b64 	%rd27, [gru_kv_param_0];
-	ld.param.b64 	%rd28, [gru_kv_param_2];
-	cvta.to.global.u64 	%rd1, %rd28;
-	cvta.to.global.u64 	%rd2, %rd27;
-	ld.param.b64 	%rd29, [gru_kv_param_4];
-	cvta.to.global.u64 	%rd3, %rd29;
-	ld.param.b64 	%rd30, [gru_kv_param_6];
-	cvta.to.global.u64 	%rd4, %rd30;
+	ld.param.b64 	%rd29, [gru_kv_param_0];
+	ld.param.b64 	%rd30, [gru_kv_param_2];
+	cvta.to.global.u64 	%rd1, %rd30;
+	cvta.to.global.u64 	%rd2, %rd29;
+	ld.param.b64 	%rd31, [gru_kv_param_4];
+	cvta.to.global.u64 	%rd3, %rd31;
+	ld.param.b64 	%rd32, [gru_kv_param_6];
+	cvta.to.global.u64 	%rd4, %rd32;
 	// begin inline asm
-	mov.u32 %r6, %ctaid.x;
+	mov.u32 %r5, %ctaid.x;
 	// end inline asm
-	shl.b32 	%r9, %r6, 3;
+	mul.wide.u32 	%rd33, %r5, 8;
+	ld.param.b32 	%rd34, [gru_kv_param_8];
+	// begin inline asm
+	mov.u32 %r6, %tid.x;
+	// end inline asm
+	shr.u32 	%r8, %r6, 5;
+	cvt.u64.u32 	%rd6, %r8;
+	add.s64 	%rd7, %rd33, %rd6;
+	setp.ge.u64 	%p1, %rd7, %rd34;
 	// begin inline asm
 	mov.u32 %r7, %tid.x;
 	// end inline asm
-	shr.u32 	%r10, %r7, 5;
-	ld.param.b32 	%r11, [gru_kv_param_8];
-	add.s32 	%r1, %r10, %r9;
-	setp.ge.u32 	%p1, %r1, %r11;
-	// begin inline asm
-	mov.u32 %r8, %tid.x;
-	// end inline asm
 	@%p1 bra 	$L__BB15_16;
 // %bb.1:
-	ld.param.b32 	%r4, [gru_kv_param_9];
-	ld.param.b64 	%rd24, [gru_kv_param_3];
-	and.b32 	%r12, %r8, 31;
-	cvt.u64.u32 	%rd5, %r12;
-	cvt.u64.u32 	%rd7, %r4;
-	mul.wide.u32 	%rd8, %r1, %r4;
-	max.u64 	%rd31, %rd7, %rd5;
-	sub.s64 	%rd32, %rd31, %rd5;
-	add.s64 	%rd33, %rd32, 31;
-	shr.u64 	%rd9, %rd33, 5;
-	setp.eq.b64 	%p2, %rd9, 0;
-	mov.b32 	%r56, 0f00000000;
-	mov.b32 	%r54, %r56;
+	ld.param.b32 	%r3, [gru_kv_param_9];
+	ld.param.b64 	%rd26, [gru_kv_param_3];
+	and.b32 	%r9, %r7, 31;
+	cvt.u64.u32 	%rd8, %r9;
+	cvt.u64.u32 	%rd9, %r3;
+	mul.lo.s64 	%rd10, %rd7, %rd9;
+	max.u64 	%rd35, %rd9, %rd8;
+	sub.s64 	%rd36, %rd35, %rd8;
+	add.s64 	%rd37, %rd36, 31;
+	shr.u64 	%rd11, %rd37, 5;
+	setp.eq.b64 	%p2, %rd11, 0;
+	mov.b32 	%r53, 0f00000000;
+	shl.b64 	%rd56, %rd10, 2;
+	mov.b32 	%r51, %r53;
 	@%p2 bra 	$L__BB15_5;
 // %bb.2:                               // %.preheader16.preheader
-	add.s64 	%rd34, %rd8, %rd5;
-	shl.b64 	%rd35, %rd34, 2;
-	add.s64 	%rd51, %rd1, %rd35;
-	add.s64 	%rd50, %rd34, -32;
-	mov.b32 	%r54, 0f00000000;
-	mov.b64 	%rd52, %rd9;
+	shl.b64 	%rd38, %rd8, 2;
+	add.s64 	%rd39, %rd56, %rd38;
+	add.s64 	%rd60, %rd1, %rd39;
+	add.s64 	%rd40, %rd10, %rd8;
+	add.s64 	%rd59, %rd40, -32;
+	mov.b32 	%r51, 0f00000000;
+	mov.b64 	%rd61, %rd11;
 $L__BB15_3:                             // %.preheader16
                                         // =>This Inner Loop Header: Depth=1
-	add.s64 	%rd50, %rd50, 32;
-	setp.lt.u64 	%p3, %rd50, %rd24;
+	add.s64 	%rd59, %rd59, 32;
+	setp.lt.u64 	%p3, %rd59, %rd26;
 	@!%p3 bra 	$L__BB15_17;
 // %bb.4:                               //   in Loop: Header=BB15_3 Depth=1
-	add.s64 	%rd52, %rd52, -1;
-	add.s64 	%rd10, %rd51, 128;
-	ld.global.b32 	%r13, [%rd51];
-	add.rn.f32 	%r54, %r54, %r13;
-	setp.ne.b64 	%p4, %rd52, 0;
-	mov.b64 	%rd51, %rd10;
+	add.s64 	%rd61, %rd61, -1;
+	add.s64 	%rd12, %rd60, 128;
+	ld.global.b32 	%r10, [%rd60];
+	add.rn.f32 	%r51, %r51, %r10;
+	setp.ne.b64 	%p4, %rd61, 0;
+	mov.b64 	%rd60, %rd12;
 	@%p4 bra 	$L__BB15_3;
 $L__BB15_5:                             // %.loopexit17
-	shfl.sync.bfly.b32 	%r14, %r54, 16, 31, -1;
-	add.rn.f32 	%r15, %r54, %r14;
-	shfl.sync.bfly.b32 	%r16, %r15, 8, 31, -1;
-	add.rn.f32 	%r17, %r15, %r16;
-	shfl.sync.bfly.b32 	%r18, %r17, 4, 31, -1;
-	add.rn.f32 	%r19, %r17, %r18;
-	shfl.sync.bfly.b32 	%r20, %r19, 2, 31, -1;
-	add.rn.f32 	%r21, %r19, %r20;
-	shfl.sync.bfly.b32 	%r22, %r21, 1, 31, -1;
-	add.rn.f32 	%r23, %r21, %r22;
-	cvt.rn.f32.u32 	%r2, %r4;
-	div.rn.f32 	%r3, %r23, %r2;
-	add.s64 	%rd49, %rd5, %rd8;
+	shfl.sync.bfly.b32 	%r11, %r51, 16, 31, -1;
+	add.rn.f32 	%r12, %r51, %r11;
+	shfl.sync.bfly.b32 	%r13, %r12, 8, 31, -1;
+	add.rn.f32 	%r14, %r12, %r13;
+	shfl.sync.bfly.b32 	%r15, %r14, 4, 31, -1;
+	add.rn.f32 	%r16, %r14, %r15;
+	shfl.sync.bfly.b32 	%r17, %r16, 2, 31, -1;
+	add.rn.f32 	%r18, %r16, %r17;
+	shfl.sync.bfly.b32 	%r19, %r18, 1, 31, -1;
+	add.rn.f32 	%r20, %r18, %r19;
+	cvt.rn.f32.u32 	%r1, %r3;
+	div.rn.f32 	%r2, %r20, %r1;
+	shl.b64 	%rd57, %rd8, 2;
+	add.s64 	%rd58, %rd8, %rd10;
 	@%p2 bra 	$L__BB15_9;
 // %bb.6:                               // %.preheader.preheader
-	shl.b64 	%rd36, %rd49, 2;
-	add.s64 	%rd54, %rd1, %rd36;
-	add.s64 	%rd53, %rd49, -32;
-	mov.b32 	%r55, 0f00000000;
-	mov.b64 	%rd55, %rd9;
+	add.s64 	%rd41, %rd56, %rd57;
+	add.s64 	%rd63, %rd1, %rd41;
+	add.s64 	%rd62, %rd58, -32;
+	mov.b32 	%r52, 0f00000000;
+	mov.b64 	%rd64, %rd11;
 $L__BB15_7:                             // %.preheader
                                         // =>This Inner Loop Header: Depth=1
-	add.s64 	%rd53, %rd53, 32;
-	setp.lt.u64 	%p5, %rd53, %rd24;
+	add.s64 	%rd62, %rd62, 32;
+	setp.lt.u64 	%p5, %rd62, %rd26;
 	@!%p5 bra 	$L__BB15_18;
 // %bb.8:                               //   in Loop: Header=BB15_7 Depth=1
-	add.s64 	%rd55, %rd55, -1;
-	add.s64 	%rd11, %rd54, 128;
-	ld.global.b32 	%r25, [%rd54];
-	sub.rn.f32 	%r24, %r25, %r3;
+	add.s64 	%rd64, %rd64, -1;
+	add.s64 	%rd13, %rd63, 128;
+	ld.global.b32 	%r22, [%rd63];
+	sub.rn.f32 	%r21, %r22, %r2;
 	// begin inline asm
-	fma.rn.f32 %r56, %r24, %r24, %r55;
+	fma.rn.f32 %r53, %r21, %r21, %r52;
 	// end inline asm
-	setp.ne.b64 	%p6, %rd55, 0;
-	mov.b64 	%rd54, %rd11;
-	mov.b32 	%r55, %r56;
+	setp.ne.b64 	%p6, %rd64, 0;
+	mov.b64 	%rd63, %rd13;
+	mov.b32 	%r52, %r53;
 	@%p6 bra 	$L__BB15_7;
 $L__BB15_9:                             // %.loopexit15
-	ld.param.b32 	%r5, [gru_kv_param_10];
-	shfl.sync.bfly.b32 	%r28, %r56, 16, 31, -1;
-	add.rn.f32 	%r29, %r56, %r28;
-	shfl.sync.bfly.b32 	%r30, %r29, 8, 31, -1;
-	add.rn.f32 	%r31, %r29, %r30;
-	shfl.sync.bfly.b32 	%r32, %r31, 4, 31, -1;
-	add.rn.f32 	%r33, %r31, %r32;
-	shfl.sync.bfly.b32 	%r34, %r33, 2, 31, -1;
-	add.rn.f32 	%r35, %r33, %r34;
-	shfl.sync.bfly.b32 	%r36, %r35, 1, 31, -1;
-	add.rn.f32 	%r37, %r35, %r36;
-	div.rn.f32 	%r38, %r37, %r2;
-	add.rn.f32 	%r27, %r5, %r38;
+	ld.param.b32 	%r4, [gru_kv_param_10];
+	shfl.sync.bfly.b32 	%r25, %r53, 16, 31, -1;
+	add.rn.f32 	%r26, %r53, %r25;
+	shfl.sync.bfly.b32 	%r27, %r26, 8, 31, -1;
+	add.rn.f32 	%r28, %r26, %r27;
+	shfl.sync.bfly.b32 	%r29, %r28, 4, 31, -1;
+	add.rn.f32 	%r30, %r28, %r29;
+	shfl.sync.bfly.b32 	%r31, %r30, 2, 31, -1;
+	add.rn.f32 	%r32, %r30, %r31;
+	shfl.sync.bfly.b32 	%r33, %r32, 1, 31, -1;
+	add.rn.f32 	%r34, %r32, %r33;
+	div.rn.f32 	%r35, %r34, %r1;
+	add.rn.f32 	%r24, %r4, %r35;
 	// begin inline asm
-	rsqrt.approx.f32 %r26, %r27;
+	rsqrt.approx.f32 %r23, %r24;
 	// end inline asm
 	@%p2 bra 	$L__BB15_16;
 // %bb.10:
-	ld.param.b64 	%rd26, [gru_kv_param_7];
-	ld.param.b64 	%rd25, [gru_kv_param_5];
-	ld.param.b64 	%rd23, [gru_kv_param_1];
-	cvt.u64.u32 	%rd6, %r1;
-	shl.b64 	%rd12, %rd9, 5;
-	shl.b64 	%rd37, %rd5, 2;
-	add.s64 	%rd17, %rd3, %rd37;
-	shl.b64 	%rd38, %rd49, 2;
-	add.s64 	%rd16, %rd1, %rd38;
-	shl.b64 	%rd39, %rd49, 1;
-	add.s64 	%rd15, %rd4, %rd39;
-	mul.lo.s64 	%rd40, %rd6, %rd7;
-	shl.b64 	%rd41, %rd40, 1;
-	add.s64 	%rd42, %rd41, %rd7;
-	shl.b64 	%rd43, %rd42, 2;
-	add.s64 	%rd44, %rd43, %rd37;
-	add.s64 	%rd14, %rd2, %rd44;
-	add.s64 	%rd13, %rd5, %rd42;
-	mov.b64 	%rd18, 0;
+	ld.param.b64 	%rd28, [gru_kv_param_7];
+	ld.param.b64 	%rd27, [gru_kv_param_5];
+	ld.param.b64 	%rd25, [gru_kv_param_1];
+	cvt.u64.u32 	%rd5, %r5;
+	shl.b64 	%rd42, %rd10, 1;
+	shl.b64 	%rd14, %rd11, 5;
+	add.s64 	%rd19, %rd3, %rd57;
+	add.s64 	%rd43, %rd56, %rd57;
+	add.s64 	%rd18, %rd1, %rd43;
+	shl.b64 	%rd44, %rd8, 1;
+	add.s64 	%rd45, %rd42, %rd44;
+	add.s64 	%rd17, %rd4, %rd45;
+	shl.b64 	%rd46, %rd5, 4;
+	shl.b64 	%rd47, %rd6, 1;
+	add.s64 	%rd48, %rd46, %rd47;
+	mad.lo.s64 	%rd49, %rd9, %rd48, %rd9;
+	shl.b64 	%rd50, %rd49, 2;
+	add.s64 	%rd51, %rd50, %rd57;
+	add.s64 	%rd16, %rd2, %rd51;
+	add.s64 	%rd15, %rd8, %rd49;
+	mov.b64 	%rd20, 0;
 $L__BB15_11:                            // =>This Inner Loop Header: Depth=1
-	add.s64 	%rd45, %rd13, %rd18;
-	setp.ge.u64 	%p7, %rd45, %rd23;
+	add.s64 	%rd52, %rd15, %rd20;
+	setp.ge.u64 	%p7, %rd52, %rd25;
 	@%p7 bra 	$L__BB15_19;
 // %bb.12:                              //   in Loop: Header=BB15_11 Depth=1
-	ld.global.b32 	%r41, [%rd14];
-	mul.rn.f32 	%r42, %r41, 0fBFB8AA3B;
-	ex2.approx.ftz.f32 	%r43, %r42;
-	add.rn.f32 	%r40, %r43, 0f3F800000;
+	ld.global.b32 	%r38, [%rd16];
+	mul.rn.f32 	%r39, %r38, 0fBFB8AA3B;
+	ex2.approx.ftz.f32 	%r40, %r39;
+	add.rn.f32 	%r37, %r40, 0f3F800000;
 	// begin inline asm
-	rcp.rn.f32 %r39, %r40;
+	rcp.rn.f32 %r36, %r37;
 	// end inline asm
-	add.s64 	%rd46, %rd49, %rd18;
-	setp.lt.u64 	%p8, %rd46, %rd24;
+	add.s64 	%rd53, %rd58, %rd20;
+	setp.lt.u64 	%p8, %rd53, %rd26;
 	@!%p8 bra 	$L__BB15_20;
 // %bb.13:                              //   in Loop: Header=BB15_11 Depth=1
-	add.s64 	%rd19, %rd5, %rd18;
-	setp.lt.u64 	%p9, %rd19, %rd25;
+	add.s64 	%rd21, %rd8, %rd20;
+	setp.lt.u64 	%p9, %rd21, %rd27;
 	@!%p9 bra 	$L__BB15_21;
 // %bb.14:                              //   in Loop: Header=BB15_11 Depth=1
-	add.s64 	%rd18, %rd18, 32;
-	add.s64 	%rd47, %rd49, %rd18;
-	add.s64 	%rd48, %rd47, -32;
-	setp.lt.u64 	%p10, %rd48, %rd26;
+	add.s64 	%rd20, %rd20, 32;
+	add.s64 	%rd54, %rd58, %rd20;
+	add.s64 	%rd55, %rd54, -32;
+	setp.lt.u64 	%p10, %rd55, %rd28;
 	@!%p10 bra 	$L__BB15_22;
 // %bb.15:                              //   in Loop: Header=BB15_11 Depth=1
-	add.s64 	%rd20, %rd17, 128;
-	add.s64 	%rd21, %rd16, 128;
-	add.s64 	%rd22, %rd15, 64;
-	add.s64 	%rd14, %rd14, 128;
-	ld.global.b32 	%r44, [%rd16];
-	sub.rn.f32 	%r45, %r44, %r3;
-	mul.rn.f32 	%r46, %r39, %r45;
-	mul.rn.f32 	%r47, %r26, %r46;
-	ld.global.b32 	%r48, [%rd17];
-	mul.rn.f32 	%r49, %r48, %r47;
-	bfe.u32 	%r50, %r49, 16, 1;
-	add.s32 	%r51, %r49, %r50;
-	add.s32 	%r52, %r51, 32767;
-	shr.u32 	%r53, %r52, 16;
-	st.global.b16 	[%rd15], %r53;
-	setp.ne.b64 	%p11, %rd12, %rd18;
-	mov.b64 	%rd15, %rd22;
-	mov.b64 	%rd16, %rd21;
-	mov.b64 	%rd17, %rd20;
+	add.s64 	%rd22, %rd19, 128;
+	add.s64 	%rd23, %rd18, 128;
+	add.s64 	%rd24, %rd17, 64;
+	add.s64 	%rd16, %rd16, 128;
+	ld.global.b32 	%r41, [%rd18];
+	sub.rn.f32 	%r42, %r41, %r2;
+	mul.rn.f32 	%r43, %r36, %r42;
+	mul.rn.f32 	%r44, %r23, %r43;
+	ld.global.b32 	%r45, [%rd19];
+	mul.rn.f32 	%r46, %r45, %r44;
+	bfe.u32 	%r47, %r46, 16, 1;
+	add.s32 	%r48, %r46, %r47;
+	add.s32 	%r49, %r48, 32767;
+	shr.u32 	%r50, %r49, 16;
+	st.global.b16 	[%rd17], %r50;
+	setp.ne.b64 	%p11, %rd14, %rd20;
+	mov.b64 	%rd17, %rd24;
+	mov.b64 	%rd18, %rd23;
+	mov.b64 	%rd19, %rd22;
 	@%p11 bra 	$L__BB15_11;
 $L__BB15_16:                            // %.loopexit
 	ret;
@@ -2747,7 +2753,7 @@ $L__BB15_17:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 60
 	// begin inline asm
 	exit;
@@ -2757,7 +2763,7 @@ $L__BB15_18:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 61
 	// begin inline asm
 	exit;
@@ -2767,7 +2773,7 @@ $L__BB15_22:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 65
 	// begin inline asm
 	exit;
@@ -2777,7 +2783,7 @@ $L__BB15_21:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 64
 	// begin inline asm
 	exit;
@@ -2787,7 +2793,7 @@ $L__BB15_20:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 63
 	// begin inline asm
 	exit;
@@ -2797,7 +2803,7 @@ $L__BB15_19:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 62
 	// begin inline asm
 	exit;
@@ -2818,7 +2824,7 @@ $L__BB15_19:
 	.param .u32 gru_mix_param_9
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @gru_mix
 {
 	.reg .pred 	%p<8>;
 	.reg .b32 	%r<20>;
@@ -2910,7 +2916,7 @@ $L__BB16_10:
 $L__BB16_11:
 	{ // callseq 70, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 70
 	// begin inline asm
 	exit;
@@ -2920,7 +2926,7 @@ $L__BB16_12:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 66
 	// begin inline asm
 	exit;
@@ -2930,7 +2936,7 @@ $L__BB16_13:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 67
 	// begin inline asm
 	exit;
@@ -2940,7 +2946,7 @@ $L__BB16_14:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 68
 	// begin inline asm
 	exit;
@@ -2950,7 +2956,7 @@ $L__BB16_15:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 69
 	// begin inline asm
 	exit;
@@ -2968,7 +2974,7 @@ $L__BB16_15:
 	.param .f32 guided_param_6
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @guided
 {
 	.reg .pred 	%p<18>;
 	.reg .b32 	%r<76>;
@@ -3252,7 +3258,7 @@ $L__BB17_20:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 71
 	// begin inline asm
 	exit;
@@ -3262,7 +3268,7 @@ $L__BB17_21:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 72
 	// begin inline asm
 	exit;
@@ -3272,7 +3278,7 @@ $L__BB17_22:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 73
 	// begin inline asm
 	exit;
@@ -3282,7 +3288,7 @@ $L__BB17_23:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 74
 	// begin inline asm
 	exit;
@@ -3292,7 +3298,7 @@ $L__BB17_24:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 75
 	// begin inline asm
 	exit;
@@ -3300,7 +3306,7 @@ $L__BB17_24:
 $L__BB17_25:
 	{ // callseq 76, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 76
 	// begin inline asm
 	exit;
@@ -3324,7 +3330,7 @@ $L__BB17_25:
 	.param .u32 heads_param_12
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @heads
 {
 	.reg .pred 	%p<20>;
 	.reg .b16 	%rs<2>;
@@ -3489,7 +3495,7 @@ $L__BB18_27:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 78
 	// begin inline asm
 	exit;
@@ -3504,7 +3510,7 @@ $L__BB18_31:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 79
 	// begin inline asm
 	exit;
@@ -3522,7 +3528,7 @@ $L__BB18_35:
 $L__BB18_36:
 	{ // callseq 85, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 85
 	// begin inline asm
 	exit;
@@ -3530,7 +3536,7 @@ $L__BB18_36:
 $L__BB18_37:
 	{ // callseq 84, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 84
 	// begin inline asm
 	exit;
@@ -3538,7 +3544,7 @@ $L__BB18_37:
 $L__BB18_38:
 	{ // callseq 83, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 83
 	// begin inline asm
 	exit;
@@ -3546,7 +3552,7 @@ $L__BB18_38:
 $L__BB18_39:
 	{ // callseq 82, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 82
 	// begin inline asm
 	exit;
@@ -3554,7 +3560,7 @@ $L__BB18_39:
 $L__BB18_40:
 	{ // callseq 81, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 81
 	// begin inline asm
 	exit;
@@ -3564,7 +3570,7 @@ $L__BB18_41:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 77
 	// begin inline asm
 	exit;
@@ -3574,7 +3580,7 @@ $L__BB18_30:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 80
 	// begin inline asm
 	exit;
@@ -3597,7 +3603,7 @@ $L__BB18_30:
 	.param .u32 hint_param_11
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @hint
 {
 	.reg .pred 	%p<13>;
 	.reg .b32 	%r<18>;
@@ -3719,7 +3725,7 @@ $L__BB19_15:
 $L__BB19_16:
 	{ // callseq 89, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 89
 	// begin inline asm
 	exit;
@@ -3727,7 +3733,7 @@ $L__BB19_16:
 $L__BB19_17:
 	{ // callseq 88, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 88
 	// begin inline asm
 	exit;
@@ -3737,7 +3743,7 @@ $L__BB19_18:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 86
 	// begin inline asm
 	exit;
@@ -3747,7 +3753,7 @@ $L__BB19_19:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 87
 	// begin inline asm
 	exit;
@@ -3772,7 +3778,7 @@ $L__BB19_19:
 	.param .u32 im2col_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @im2col
 {
 	.reg .pred 	%p<66>;
 	.reg .b32 	%r<113>;
@@ -4471,7 +4477,7 @@ $L__BB20_143:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 102
 	// begin inline asm
 	exit;
@@ -4479,7 +4485,7 @@ $L__BB20_143:
 $L__BB20_118:
 	{ // callseq 96, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 96
 	// begin inline asm
 	exit;
@@ -4487,7 +4493,7 @@ $L__BB20_118:
 $L__BB20_119:
 	{ // callseq 95, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 95
 	// begin inline asm
 	exit;
@@ -4495,7 +4501,7 @@ $L__BB20_119:
 $L__BB20_109:
 	{ // callseq 94, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 94
 	// begin inline asm
 	exit;
@@ -4505,7 +4511,7 @@ $L__BB20_149:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 93
 	// begin inline asm
 	exit;
@@ -4513,7 +4519,7 @@ $L__BB20_149:
 $L__BB20_147:
 	{ // callseq 90, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 90
 	// begin inline asm
 	exit;
@@ -4521,7 +4527,7 @@ $L__BB20_147:
 $L__BB20_146:
 	{ // callseq 91, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 91
 	// begin inline asm
 	exit;
@@ -4531,7 +4537,7 @@ $L__BB20_148:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 92
 	// begin inline asm
 	exit;
@@ -4539,7 +4545,7 @@ $L__BB20_148:
 $L__BB20_145:
 	{ // callseq 97, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 97
 	// begin inline asm
 	exit;
@@ -4549,7 +4555,7 @@ $L__BB20_142:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 101
 	// begin inline asm
 	exit;
@@ -4557,7 +4563,7 @@ $L__BB20_142:
 $L__BB20_144:
 	{ // callseq 98, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 98
 	// begin inline asm
 	exit;
@@ -4565,7 +4571,7 @@ $L__BB20_144:
 $L__BB20_138:
 	{ // callseq 107, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 107
 	// begin inline asm
 	exit;
@@ -4573,7 +4579,7 @@ $L__BB20_138:
 $L__BB20_29:
 	{ // callseq 105, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 105
 	// begin inline asm
 	exit;
@@ -4581,7 +4587,7 @@ $L__BB20_29:
 $L__BB20_30:
 	{ // callseq 104, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 104
 	// begin inline asm
 	exit;
@@ -4589,7 +4595,7 @@ $L__BB20_30:
 $L__BB20_20:
 	{ // callseq 103, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 103
 	// begin inline asm
 	exit;
@@ -4597,7 +4603,7 @@ $L__BB20_20:
 $L__BB20_140:
 	{ // callseq 100, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 100
 	// begin inline asm
 	exit;
@@ -4605,7 +4611,7 @@ $L__BB20_140:
 $L__BB20_141:
 	{ // callseq 99, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 99
 	// begin inline asm
 	exit;
@@ -4613,7 +4619,7 @@ $L__BB20_141:
 $L__BB20_139:
 	{ // callseq 106, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 106
 	// begin inline asm
 	exit;
@@ -4635,178 +4641,183 @@ $L__BB20_139:
 	.param .f32 layer_norm_param_10
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @layer_norm
 {
 	.reg .pred 	%p<12>;
-	.reg .b32 	%r<53>;
-	.reg .b64 	%rd<46>;
+	.reg .b32 	%r<50>;
+	.reg .b64 	%rd<54>;
 
 // %bb.0:
-	ld.param.b64 	%rd22, [layer_norm_param_0];
-	cvta.to.global.u64 	%rd1, %rd22;
-	ld.param.b64 	%rd23, [layer_norm_param_2];
-	cvta.to.global.u64 	%rd2, %rd23;
-	ld.param.b64 	%rd24, [layer_norm_param_4];
-	cvta.to.global.u64 	%rd3, %rd24;
-	ld.param.b64 	%rd25, [layer_norm_param_6];
-	cvta.to.global.u64 	%rd4, %rd25;
+	ld.param.b64 	%rd23, [layer_norm_param_0];
+	cvta.to.global.u64 	%rd1, %rd23;
+	ld.param.b64 	%rd24, [layer_norm_param_2];
+	cvta.to.global.u64 	%rd2, %rd24;
+	ld.param.b64 	%rd25, [layer_norm_param_4];
+	cvta.to.global.u64 	%rd3, %rd25;
+	ld.param.b64 	%rd26, [layer_norm_param_6];
+	cvta.to.global.u64 	%rd4, %rd26;
 	// begin inline asm
-	mov.u32 %r6, %ctaid.x;
+	mov.u32 %r5, %ctaid.x;
 	// end inline asm
-	shl.b32 	%r9, %r6, 3;
+	mul.wide.u32 	%rd27, %r5, 8;
+	ld.param.b32 	%rd28, [layer_norm_param_8];
+	// begin inline asm
+	mov.u32 %r6, %tid.x;
+	// end inline asm
+	shr.u32 	%r8, %r6, 5;
+	cvt.u64.u32 	%rd29, %r8;
+	add.s64 	%rd5, %rd27, %rd29;
+	setp.ge.u64 	%p1, %rd5, %rd28;
 	// begin inline asm
 	mov.u32 %r7, %tid.x;
 	// end inline asm
-	shr.u32 	%r10, %r7, 5;
-	ld.param.b32 	%r11, [layer_norm_param_8];
-	add.s32 	%r1, %r10, %r9;
-	setp.ge.u32 	%p1, %r1, %r11;
-	// begin inline asm
-	mov.u32 %r8, %tid.x;
-	// end inline asm
 	@%p1 bra 	$L__BB21_16;
 // %bb.1:
-	ld.param.b32 	%r4, [layer_norm_param_9];
-	ld.param.b64 	%rd18, [layer_norm_param_1];
-	and.b32 	%r12, %r8, 31;
-	cvt.u64.u32 	%rd13, %r12;
-	cvt.u64.u32 	%rd26, %r4;
-	mul.wide.u32 	%rd5, %r1, %r4;
-	max.u64 	%rd27, %rd26, %rd13;
-	sub.s64 	%rd28, %rd27, %rd13;
-	add.s64 	%rd29, %rd28, 31;
-	shr.u64 	%rd12, %rd29, 5;
-	setp.eq.b64 	%p2, %rd12, 0;
-	mov.b32 	%r52, 0f00000000;
-	mov.b32 	%r50, %r52;
+	ld.param.b32 	%r3, [layer_norm_param_9];
+	ld.param.b64 	%rd19, [layer_norm_param_1];
+	and.b32 	%r9, %r7, 31;
+	cvt.u64.u32 	%rd14, %r9;
+	cvt.u64.u32 	%rd30, %r3;
+	mul.lo.s64 	%rd6, %rd5, %rd30;
+	max.u64 	%rd31, %rd30, %rd14;
+	sub.s64 	%rd32, %rd31, %rd14;
+	add.s64 	%rd33, %rd32, 31;
+	shr.u64 	%rd13, %rd33, 5;
+	setp.eq.b64 	%p2, %rd13, 0;
+	mov.b32 	%r49, 0f00000000;
+	shl.b64 	%rd46, %rd6, 2;
+	mov.b32 	%r47, %r49;
 	@%p2 bra 	$L__BB21_5;
 // %bb.2:                               // %.preheader14.preheader
-	add.s64 	%rd30, %rd5, %rd13;
-	shl.b64 	%rd31, %rd30, 2;
-	add.s64 	%rd41, %rd1, %rd31;
-	add.s64 	%rd40, %rd30, -32;
-	mov.b32 	%r50, 0f00000000;
-	mov.b64 	%rd42, %rd12;
+	shl.b64 	%rd34, %rd14, 2;
+	add.s64 	%rd35, %rd46, %rd34;
+	add.s64 	%rd49, %rd1, %rd35;
+	add.s64 	%rd36, %rd6, %rd14;
+	add.s64 	%rd48, %rd36, -32;
+	mov.b32 	%r47, 0f00000000;
+	mov.b64 	%rd50, %rd13;
 $L__BB21_3:                             // %.preheader14
                                         // =>This Inner Loop Header: Depth=1
-	add.s64 	%rd40, %rd40, 32;
-	setp.lt.u64 	%p3, %rd40, %rd18;
+	add.s64 	%rd48, %rd48, 32;
+	setp.lt.u64 	%p3, %rd48, %rd19;
 	@!%p3 bra 	$L__BB21_17;
 // %bb.4:                               //   in Loop: Header=BB21_3 Depth=1
-	add.s64 	%rd42, %rd42, -1;
-	add.s64 	%rd6, %rd41, 128;
-	ld.global.b32 	%r13, [%rd41];
-	add.rn.f32 	%r50, %r50, %r13;
-	setp.ne.b64 	%p4, %rd42, 0;
-	mov.b64 	%rd41, %rd6;
+	add.s64 	%rd50, %rd50, -1;
+	add.s64 	%rd7, %rd49, 128;
+	ld.global.b32 	%r10, [%rd49];
+	add.rn.f32 	%r47, %r47, %r10;
+	setp.ne.b64 	%p4, %rd50, 0;
+	mov.b64 	%rd49, %rd7;
 	@%p4 bra 	$L__BB21_3;
 $L__BB21_5:                             // %.loopexit15
-	shfl.sync.bfly.b32 	%r14, %r50, 16, 31, -1;
-	add.rn.f32 	%r15, %r50, %r14;
-	shfl.sync.bfly.b32 	%r16, %r15, 8, 31, -1;
-	add.rn.f32 	%r17, %r15, %r16;
-	shfl.sync.bfly.b32 	%r18, %r17, 4, 31, -1;
-	add.rn.f32 	%r19, %r17, %r18;
-	shfl.sync.bfly.b32 	%r20, %r19, 2, 31, -1;
-	add.rn.f32 	%r21, %r19, %r20;
-	shfl.sync.bfly.b32 	%r22, %r21, 1, 31, -1;
-	add.rn.f32 	%r23, %r21, %r22;
-	cvt.rn.f32.u32 	%r2, %r4;
-	div.rn.f32 	%r3, %r23, %r2;
-	add.s64 	%rd39, %rd13, %rd5;
+	shfl.sync.bfly.b32 	%r11, %r47, 16, 31, -1;
+	add.rn.f32 	%r12, %r47, %r11;
+	shfl.sync.bfly.b32 	%r13, %r12, 8, 31, -1;
+	add.rn.f32 	%r14, %r12, %r13;
+	shfl.sync.bfly.b32 	%r15, %r14, 4, 31, -1;
+	add.rn.f32 	%r16, %r14, %r15;
+	shfl.sync.bfly.b32 	%r17, %r16, 2, 31, -1;
+	add.rn.f32 	%r18, %r16, %r17;
+	shfl.sync.bfly.b32 	%r19, %r18, 1, 31, -1;
+	add.rn.f32 	%r20, %r18, %r19;
+	cvt.rn.f32.u32 	%r1, %r3;
+	div.rn.f32 	%r2, %r20, %r1;
+	shl.b64 	%rd47, %rd14, 2;
 	@%p2 bra 	$L__BB21_9;
 // %bb.6:                               // %.preheader12.preheader
-	shl.b64 	%rd32, %rd39, 2;
-	add.s64 	%rd44, %rd1, %rd32;
-	add.s64 	%rd43, %rd39, -32;
-	mov.b32 	%r51, 0f00000000;
-	mov.b64 	%rd45, %rd12;
+	add.s64 	%rd37, %rd46, %rd47;
+	add.s64 	%rd52, %rd1, %rd37;
+	add.s64 	%rd38, %rd14, %rd6;
+	add.s64 	%rd51, %rd38, -32;
+	mov.b32 	%r48, 0f00000000;
+	mov.b64 	%rd53, %rd13;
 $L__BB21_7:                             // %.preheader12
                                         // =>This Inner Loop Header: Depth=1
-	add.s64 	%rd43, %rd43, 32;
-	setp.lt.u64 	%p5, %rd43, %rd18;
+	add.s64 	%rd51, %rd51, 32;
+	setp.lt.u64 	%p5, %rd51, %rd19;
 	@!%p5 bra 	$L__BB21_18;
 // %bb.8:                               //   in Loop: Header=BB21_7 Depth=1
-	add.s64 	%rd45, %rd45, -1;
-	add.s64 	%rd7, %rd44, 128;
-	ld.global.b32 	%r25, [%rd44];
-	sub.rn.f32 	%r24, %r25, %r3;
+	add.s64 	%rd53, %rd53, -1;
+	add.s64 	%rd8, %rd52, 128;
+	ld.global.b32 	%r22, [%rd52];
+	sub.rn.f32 	%r21, %r22, %r2;
 	// begin inline asm
-	fma.rn.f32 %r52, %r24, %r24, %r51;
+	fma.rn.f32 %r49, %r21, %r21, %r48;
 	// end inline asm
-	setp.ne.b64 	%p6, %rd45, 0;
-	mov.b64 	%rd44, %rd7;
-	mov.b32 	%r51, %r52;
+	setp.ne.b64 	%p6, %rd53, 0;
+	mov.b64 	%rd52, %rd8;
+	mov.b32 	%r48, %r49;
 	@%p6 bra 	$L__BB21_7;
 $L__BB21_9:                             // %.loopexit13
-	ld.param.b32 	%r5, [layer_norm_param_10];
-	shfl.sync.bfly.b32 	%r28, %r52, 16, 31, -1;
-	add.rn.f32 	%r29, %r52, %r28;
-	shfl.sync.bfly.b32 	%r30, %r29, 8, 31, -1;
-	add.rn.f32 	%r31, %r29, %r30;
-	shfl.sync.bfly.b32 	%r32, %r31, 4, 31, -1;
-	add.rn.f32 	%r33, %r31, %r32;
-	shfl.sync.bfly.b32 	%r34, %r33, 2, 31, -1;
-	add.rn.f32 	%r35, %r33, %r34;
-	shfl.sync.bfly.b32 	%r36, %r35, 1, 31, -1;
-	add.rn.f32 	%r37, %r35, %r36;
-	div.rn.f32 	%r38, %r37, %r2;
-	add.rn.f32 	%r27, %r5, %r38;
+	ld.param.b32 	%r4, [layer_norm_param_10];
+	shfl.sync.bfly.b32 	%r25, %r49, 16, 31, -1;
+	add.rn.f32 	%r26, %r49, %r25;
+	shfl.sync.bfly.b32 	%r27, %r26, 8, 31, -1;
+	add.rn.f32 	%r28, %r26, %r27;
+	shfl.sync.bfly.b32 	%r29, %r28, 4, 31, -1;
+	add.rn.f32 	%r30, %r28, %r29;
+	shfl.sync.bfly.b32 	%r31, %r30, 2, 31, -1;
+	add.rn.f32 	%r32, %r30, %r31;
+	shfl.sync.bfly.b32 	%r33, %r32, 1, 31, -1;
+	add.rn.f32 	%r34, %r32, %r33;
+	div.rn.f32 	%r35, %r34, %r1;
+	add.rn.f32 	%r24, %r4, %r35;
 	// begin inline asm
-	rsqrt.approx.f32 %r26, %r27;
+	rsqrt.approx.f32 %r23, %r24;
 	// end inline asm
 	@%p2 bra 	$L__BB21_16;
 // %bb.10:                              // %.preheader.preheader
-	ld.param.b64 	%rd21, [layer_norm_param_7];
-	ld.param.b64 	%rd20, [layer_norm_param_5];
-	ld.param.b64 	%rd19, [layer_norm_param_3];
-	shl.b64 	%rd33, %rd13, 2;
-	add.s64 	%rd11, %rd2, %rd33;
-	add.s64 	%rd10, %rd3, %rd33;
-	shl.b64 	%rd34, %rd39, 2;
-	add.s64 	%rd9, %rd1, %rd34;
-	shl.b64 	%rd35, %rd39, 1;
-	add.s64 	%rd8, %rd4, %rd35;
+	ld.param.b64 	%rd22, [layer_norm_param_7];
+	ld.param.b64 	%rd21, [layer_norm_param_5];
+	ld.param.b64 	%rd20, [layer_norm_param_3];
+	add.s64 	%rd12, %rd2, %rd47;
+	add.s64 	%rd11, %rd3, %rd47;
+	add.s64 	%rd39, %rd46, %rd47;
+	add.s64 	%rd10, %rd1, %rd39;
+	shl.b64 	%rd40, %rd6, 1;
+	shl.b64 	%rd41, %rd14, 1;
+	add.s64 	%rd42, %rd40, %rd41;
+	add.s64 	%rd9, %rd4, %rd42;
 $L__BB21_11:                            // %.preheader
                                         // =>This Inner Loop Header: Depth=1
-	add.s64 	%rd36, %rd5, %rd13;
-	setp.ge.u64 	%p7, %rd36, %rd18;
+	add.s64 	%rd43, %rd6, %rd14;
+	setp.ge.u64 	%p7, %rd43, %rd19;
 	@%p7 bra 	$L__BB21_19;
 // %bb.12:                              //   in Loop: Header=BB21_11 Depth=1
-	setp.lt.u64 	%p8, %rd13, %rd19;
+	setp.lt.u64 	%p8, %rd14, %rd20;
 	@!%p8 bra 	$L__BB21_20;
 // %bb.13:                              //   in Loop: Header=BB21_11 Depth=1
-	setp.lt.u64 	%p9, %rd13, %rd20;
+	setp.lt.u64 	%p9, %rd14, %rd21;
 	@!%p9 bra 	$L__BB21_21;
 // %bb.14:                              //   in Loop: Header=BB21_11 Depth=1
-	add.s64 	%rd13, %rd13, 32;
-	add.s64 	%rd37, %rd5, %rd13;
-	add.s64 	%rd38, %rd37, -32;
-	setp.lt.u64 	%p10, %rd38, %rd21;
+	add.s64 	%rd14, %rd14, 32;
+	add.s64 	%rd44, %rd6, %rd14;
+	add.s64 	%rd45, %rd44, -32;
+	setp.lt.u64 	%p10, %rd45, %rd22;
 	@!%p10 bra 	$L__BB21_22;
 // %bb.15:                              //   in Loop: Header=BB21_11 Depth=1
-	add.s64 	%rd12, %rd12, -1;
-	add.s64 	%rd14, %rd11, 128;
-	add.s64 	%rd15, %rd10, 128;
-	add.s64 	%rd16, %rd9, 128;
-	add.s64 	%rd17, %rd8, 64;
-	ld.global.b32 	%r39, [%rd9];
-	sub.rn.f32 	%r40, %r39, %r3;
-	mul.rn.f32 	%r41, %r26, %r40;
-	ld.global.b32 	%r42, [%rd11];
-	mul.rn.f32 	%r43, %r41, %r42;
-	ld.global.b32 	%r44, [%rd10];
-	add.rn.f32 	%r45, %r43, %r44;
-	bfe.u32 	%r46, %r45, 16, 1;
-	add.s32 	%r47, %r45, %r46;
-	add.s32 	%r48, %r47, 32767;
-	shr.u32 	%r49, %r48, 16;
-	st.global.b16 	[%rd8], %r49;
-	setp.ne.b64 	%p11, %rd12, 0;
-	mov.b64 	%rd8, %rd17;
-	mov.b64 	%rd9, %rd16;
-	mov.b64 	%rd10, %rd15;
-	mov.b64 	%rd11, %rd14;
+	add.s64 	%rd13, %rd13, -1;
+	add.s64 	%rd15, %rd12, 128;
+	add.s64 	%rd16, %rd11, 128;
+	add.s64 	%rd17, %rd10, 128;
+	add.s64 	%rd18, %rd9, 64;
+	ld.global.b32 	%r36, [%rd10];
+	sub.rn.f32 	%r37, %r36, %r2;
+	mul.rn.f32 	%r38, %r23, %r37;
+	ld.global.b32 	%r39, [%rd12];
+	mul.rn.f32 	%r40, %r38, %r39;
+	ld.global.b32 	%r41, [%rd11];
+	add.rn.f32 	%r42, %r40, %r41;
+	bfe.u32 	%r43, %r42, 16, 1;
+	add.s32 	%r44, %r42, %r43;
+	add.s32 	%r45, %r44, 32767;
+	shr.u32 	%r46, %r45, 16;
+	st.global.b16 	[%rd9], %r46;
+	setp.ne.b64 	%p11, %rd13, 0;
+	mov.b64 	%rd9, %rd18;
+	mov.b64 	%rd10, %rd17;
+	mov.b64 	%rd11, %rd16;
+	mov.b64 	%rd12, %rd15;
 	@%p11 bra 	$L__BB21_11;
 $L__BB21_16:                            // %.loopexit
 	ret;
@@ -4815,7 +4826,7 @@ $L__BB21_17:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 108
 	// begin inline asm
 	exit;
@@ -4825,7 +4836,7 @@ $L__BB21_18:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 109
 	// begin inline asm
 	exit;
@@ -4835,7 +4846,7 @@ $L__BB21_22:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 113
 	// begin inline asm
 	exit;
@@ -4845,7 +4856,7 @@ $L__BB21_21:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 112
 	// begin inline asm
 	exit;
@@ -4855,7 +4866,7 @@ $L__BB21_20:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 111
 	// begin inline asm
 	exit;
@@ -4865,7 +4876,7 @@ $L__BB21_19:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 110
 	// begin inline asm
 	exit;
@@ -4887,172 +4898,175 @@ $L__BB21_19:
 	.param .f32 layer_norm_f32_param_10
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @layer_norm_f32
 {
 	.reg .pred 	%p<12>;
-	.reg .b32 	%r<49>;
-	.reg .b64 	%rd<48>;
+	.reg .b32 	%r<46>;
+	.reg .b64 	%rd<54>;
 
 // %bb.0:
-	ld.param.b64 	%rd21, [layer_norm_f32_param_0];
-	cvta.to.global.u64 	%rd1, %rd21;
-	ld.param.b64 	%rd22, [layer_norm_f32_param_2];
-	cvta.to.global.u64 	%rd2, %rd22;
-	ld.param.b64 	%rd23, [layer_norm_f32_param_4];
-	cvta.to.global.u64 	%rd3, %rd23;
-	ld.param.b64 	%rd24, [layer_norm_f32_param_6];
-	cvta.to.global.u64 	%rd4, %rd24;
+	ld.param.b64 	%rd22, [layer_norm_f32_param_0];
+	cvta.to.global.u64 	%rd1, %rd22;
+	ld.param.b64 	%rd23, [layer_norm_f32_param_2];
+	cvta.to.global.u64 	%rd2, %rd23;
+	ld.param.b64 	%rd24, [layer_norm_f32_param_4];
+	cvta.to.global.u64 	%rd3, %rd24;
+	ld.param.b64 	%rd25, [layer_norm_f32_param_6];
+	cvta.to.global.u64 	%rd4, %rd25;
 	// begin inline asm
-	mov.u32 %r6, %ctaid.x;
+	mov.u32 %r5, %ctaid.x;
 	// end inline asm
-	shl.b32 	%r9, %r6, 3;
+	mul.wide.u32 	%rd26, %r5, 8;
+	ld.param.b32 	%rd27, [layer_norm_f32_param_8];
+	// begin inline asm
+	mov.u32 %r6, %tid.x;
+	// end inline asm
+	shr.u32 	%r8, %r6, 5;
+	cvt.u64.u32 	%rd28, %r8;
+	add.s64 	%rd5, %rd26, %rd28;
+	setp.ge.u64 	%p1, %rd5, %rd27;
 	// begin inline asm
 	mov.u32 %r7, %tid.x;
 	// end inline asm
-	shr.u32 	%r10, %r7, 5;
-	ld.param.b32 	%r11, [layer_norm_f32_param_8];
-	add.s32 	%r1, %r10, %r9;
-	setp.ge.u32 	%p1, %r1, %r11;
-	// begin inline asm
-	mov.u32 %r8, %tid.x;
-	// end inline asm
 	@%p1 bra 	$L__BB22_16;
 // %bb.1:
-	ld.param.b32 	%r4, [layer_norm_f32_param_9];
-	ld.param.b64 	%rd17, [layer_norm_f32_param_1];
-	and.b32 	%r12, %r8, 31;
-	cvt.u64.u32 	%rd15, %r12;
-	cvt.u64.u32 	%rd25, %r4;
-	mul.wide.u32 	%rd5, %r1, %r4;
-	max.u64 	%rd26, %rd25, %rd15;
-	sub.s64 	%rd27, %rd26, %rd15;
-	add.s64 	%rd28, %rd27, 31;
-	shr.u64 	%rd6, %rd28, 5;
-	setp.eq.b64 	%p2, %rd6, 0;
-	mov.b32 	%r48, 0f00000000;
-	mov.b32 	%r46, %r48;
+	ld.param.b32 	%r3, [layer_norm_f32_param_9];
+	ld.param.b64 	%rd18, [layer_norm_f32_param_1];
+	and.b32 	%r9, %r7, 31;
+	cvt.u64.u32 	%rd16, %r9;
+	cvt.u64.u32 	%rd29, %r3;
+	mul.lo.s64 	%rd6, %rd5, %rd29;
+	max.u64 	%rd30, %rd29, %rd16;
+	sub.s64 	%rd31, %rd30, %rd16;
+	add.s64 	%rd32, %rd31, 31;
+	shr.u64 	%rd7, %rd32, 5;
+	setp.eq.b64 	%p2, %rd7, 0;
+	mov.b32 	%r45, 0f00000000;
+	shl.b64 	%rd46, %rd6, 2;
+	mov.b32 	%r43, %r45;
 	@%p2 bra 	$L__BB22_5;
 // %bb.2:                               // %.preheader14.preheader
-	add.s64 	%rd29, %rd5, %rd15;
-	shl.b64 	%rd30, %rd29, 2;
-	add.s64 	%rd43, %rd1, %rd30;
-	add.s64 	%rd42, %rd29, -32;
-	mov.b32 	%r46, 0f00000000;
-	mov.b64 	%rd44, %rd6;
+	shl.b64 	%rd33, %rd16, 2;
+	add.s64 	%rd34, %rd46, %rd33;
+	add.s64 	%rd49, %rd1, %rd34;
+	add.s64 	%rd35, %rd6, %rd16;
+	add.s64 	%rd48, %rd35, -32;
+	mov.b32 	%r43, 0f00000000;
+	mov.b64 	%rd50, %rd7;
 $L__BB22_3:                             // %.preheader14
                                         // =>This Inner Loop Header: Depth=1
-	add.s64 	%rd42, %rd42, 32;
-	setp.lt.u64 	%p3, %rd42, %rd17;
+	add.s64 	%rd48, %rd48, 32;
+	setp.lt.u64 	%p3, %rd48, %rd18;
 	@!%p3 bra 	$L__BB22_17;
 // %bb.4:                               //   in Loop: Header=BB22_3 Depth=1
-	add.s64 	%rd44, %rd44, -1;
-	add.s64 	%rd7, %rd43, 128;
-	ld.global.b32 	%r13, [%rd43];
-	add.rn.f32 	%r46, %r46, %r13;
-	setp.ne.b64 	%p4, %rd44, 0;
-	mov.b64 	%rd43, %rd7;
+	add.s64 	%rd50, %rd50, -1;
+	add.s64 	%rd8, %rd49, 128;
+	ld.global.b32 	%r10, [%rd49];
+	add.rn.f32 	%r43, %r43, %r10;
+	setp.ne.b64 	%p4, %rd50, 0;
+	mov.b64 	%rd49, %rd8;
 	@%p4 bra 	$L__BB22_3;
 $L__BB22_5:                             // %.loopexit15
-	shfl.sync.bfly.b32 	%r14, %r46, 16, 31, -1;
-	add.rn.f32 	%r15, %r46, %r14;
-	shfl.sync.bfly.b32 	%r16, %r15, 8, 31, -1;
-	add.rn.f32 	%r17, %r15, %r16;
-	shfl.sync.bfly.b32 	%r18, %r17, 4, 31, -1;
-	add.rn.f32 	%r19, %r17, %r18;
-	shfl.sync.bfly.b32 	%r20, %r19, 2, 31, -1;
-	add.rn.f32 	%r21, %r19, %r20;
-	shfl.sync.bfly.b32 	%r22, %r21, 1, 31, -1;
-	add.rn.f32 	%r23, %r21, %r22;
-	cvt.rn.f32.u32 	%r2, %r4;
-	div.rn.f32 	%r3, %r23, %r2;
-	add.s64 	%rd41, %rd15, %rd5;
+	shfl.sync.bfly.b32 	%r11, %r43, 16, 31, -1;
+	add.rn.f32 	%r12, %r43, %r11;
+	shfl.sync.bfly.b32 	%r13, %r12, 8, 31, -1;
+	add.rn.f32 	%r14, %r12, %r13;
+	shfl.sync.bfly.b32 	%r15, %r14, 4, 31, -1;
+	add.rn.f32 	%r16, %r14, %r15;
+	shfl.sync.bfly.b32 	%r17, %r16, 2, 31, -1;
+	add.rn.f32 	%r18, %r16, %r17;
+	shfl.sync.bfly.b32 	%r19, %r18, 1, 31, -1;
+	add.rn.f32 	%r20, %r18, %r19;
+	cvt.rn.f32.u32 	%r1, %r3;
+	div.rn.f32 	%r2, %r20, %r1;
+	shl.b64 	%rd47, %rd16, 2;
 	@%p2 bra 	$L__BB22_9;
 // %bb.6:                               // %.preheader12.preheader
-	shl.b64 	%rd31, %rd41, 2;
-	add.s64 	%rd46, %rd1, %rd31;
-	add.s64 	%rd45, %rd41, -32;
-	mov.b32 	%r47, 0f00000000;
-	mov.b64 	%rd47, %rd6;
+	add.s64 	%rd36, %rd46, %rd47;
+	add.s64 	%rd52, %rd1, %rd36;
+	add.s64 	%rd37, %rd16, %rd6;
+	add.s64 	%rd51, %rd37, -32;
+	mov.b32 	%r44, 0f00000000;
+	mov.b64 	%rd53, %rd7;
 $L__BB22_7:                             // %.preheader12
                                         // =>This Inner Loop Header: Depth=1
-	add.s64 	%rd45, %rd45, 32;
-	setp.lt.u64 	%p5, %rd45, %rd17;
+	add.s64 	%rd51, %rd51, 32;
+	setp.lt.u64 	%p5, %rd51, %rd18;
 	@!%p5 bra 	$L__BB22_18;
 // %bb.8:                               //   in Loop: Header=BB22_7 Depth=1
-	add.s64 	%rd47, %rd47, -1;
-	add.s64 	%rd8, %rd46, 128;
-	ld.global.b32 	%r25, [%rd46];
-	sub.rn.f32 	%r24, %r25, %r3;
+	add.s64 	%rd53, %rd53, -1;
+	add.s64 	%rd9, %rd52, 128;
+	ld.global.b32 	%r22, [%rd52];
+	sub.rn.f32 	%r21, %r22, %r2;
 	// begin inline asm
-	fma.rn.f32 %r48, %r24, %r24, %r47;
+	fma.rn.f32 %r45, %r21, %r21, %r44;
 	// end inline asm
-	setp.ne.b64 	%p6, %rd47, 0;
-	mov.b64 	%rd46, %rd8;
-	mov.b32 	%r47, %r48;
+	setp.ne.b64 	%p6, %rd53, 0;
+	mov.b64 	%rd52, %rd9;
+	mov.b32 	%r44, %r45;
 	@%p6 bra 	$L__BB22_7;
 $L__BB22_9:                             // %.loopexit13
-	ld.param.b32 	%r5, [layer_norm_f32_param_10];
-	shfl.sync.bfly.b32 	%r28, %r48, 16, 31, -1;
-	add.rn.f32 	%r29, %r48, %r28;
-	shfl.sync.bfly.b32 	%r30, %r29, 8, 31, -1;
-	add.rn.f32 	%r31, %r29, %r30;
-	shfl.sync.bfly.b32 	%r32, %r31, 4, 31, -1;
-	add.rn.f32 	%r33, %r31, %r32;
-	shfl.sync.bfly.b32 	%r34, %r33, 2, 31, -1;
-	add.rn.f32 	%r35, %r33, %r34;
-	shfl.sync.bfly.b32 	%r36, %r35, 1, 31, -1;
-	add.rn.f32 	%r37, %r35, %r36;
-	div.rn.f32 	%r38, %r37, %r2;
-	add.rn.f32 	%r27, %r5, %r38;
+	ld.param.b32 	%r4, [layer_norm_f32_param_10];
+	shfl.sync.bfly.b32 	%r25, %r45, 16, 31, -1;
+	add.rn.f32 	%r26, %r45, %r25;
+	shfl.sync.bfly.b32 	%r27, %r26, 8, 31, -1;
+	add.rn.f32 	%r28, %r26, %r27;
+	shfl.sync.bfly.b32 	%r29, %r28, 4, 31, -1;
+	add.rn.f32 	%r30, %r28, %r29;
+	shfl.sync.bfly.b32 	%r31, %r30, 2, 31, -1;
+	add.rn.f32 	%r32, %r30, %r31;
+	shfl.sync.bfly.b32 	%r33, %r32, 1, 31, -1;
+	add.rn.f32 	%r34, %r32, %r33;
+	div.rn.f32 	%r35, %r34, %r1;
+	add.rn.f32 	%r24, %r4, %r35;
 	// begin inline asm
-	rsqrt.approx.f32 %r26, %r27;
+	rsqrt.approx.f32 %r23, %r24;
 	// end inline asm
 	@%p2 bra 	$L__BB22_16;
 // %bb.10:                              // %.preheader.preheader
-	ld.param.b64 	%rd20, [layer_norm_f32_param_7];
-	ld.param.b64 	%rd19, [layer_norm_f32_param_5];
-	ld.param.b64 	%rd18, [layer_norm_f32_param_3];
-	shl.b64 	%rd9, %rd6, 7;
-	shl.b64 	%rd32, %rd15, 2;
-	add.s64 	%rd10, %rd2, %rd32;
-	add.s64 	%rd11, %rd3, %rd32;
-	shl.b64 	%rd33, %rd41, 2;
-	add.s64 	%rd12, %rd1, %rd33;
-	add.s64 	%rd13, %rd4, %rd33;
-	mov.b64 	%rd14, 0;
+	ld.param.b64 	%rd21, [layer_norm_f32_param_7];
+	ld.param.b64 	%rd20, [layer_norm_f32_param_5];
+	ld.param.b64 	%rd19, [layer_norm_f32_param_3];
+	shl.b64 	%rd10, %rd7, 7;
+	add.s64 	%rd11, %rd2, %rd47;
+	add.s64 	%rd12, %rd3, %rd47;
+	add.s64 	%rd38, %rd46, %rd47;
+	add.s64 	%rd13, %rd1, %rd38;
+	add.s64 	%rd14, %rd4, %rd38;
+	mov.b64 	%rd15, 0;
 $L__BB22_11:                            // %.preheader
                                         // =>This Inner Loop Header: Depth=1
-	add.s64 	%rd34, %rd5, %rd15;
-	setp.ge.u64 	%p7, %rd34, %rd17;
+	add.s64 	%rd39, %rd6, %rd16;
+	setp.ge.u64 	%p7, %rd39, %rd18;
 	@%p7 bra 	$L__BB22_19;
 // %bb.12:                              //   in Loop: Header=BB22_11 Depth=1
-	setp.lt.u64 	%p8, %rd15, %rd18;
+	setp.lt.u64 	%p8, %rd16, %rd19;
 	@!%p8 bra 	$L__BB22_20;
 // %bb.13:                              //   in Loop: Header=BB22_11 Depth=1
-	setp.lt.u64 	%p9, %rd15, %rd19;
+	setp.lt.u64 	%p9, %rd16, %rd20;
 	@!%p9 bra 	$L__BB22_21;
 // %bb.14:                              //   in Loop: Header=BB22_11 Depth=1
-	add.s64 	%rd15, %rd15, 32;
-	add.s64 	%rd35, %rd5, %rd15;
-	add.s64 	%rd36, %rd35, -32;
-	setp.lt.u64 	%p10, %rd36, %rd20;
+	add.s64 	%rd16, %rd16, 32;
+	add.s64 	%rd40, %rd6, %rd16;
+	add.s64 	%rd41, %rd40, -32;
+	setp.lt.u64 	%p10, %rd41, %rd21;
 	@!%p10 bra 	$L__BB22_22;
 // %bb.15:                              //   in Loop: Header=BB22_11 Depth=1
-	add.s64 	%rd16, %rd14, 128;
-	add.s64 	%rd37, %rd12, %rd14;
-	ld.global.b32 	%r39, [%rd37];
-	sub.rn.f32 	%r40, %r39, %r3;
-	mul.rn.f32 	%r41, %r26, %r40;
-	add.s64 	%rd38, %rd10, %rd14;
-	ld.global.b32 	%r42, [%rd38];
-	mul.rn.f32 	%r43, %r41, %r42;
-	add.s64 	%rd39, %rd11, %rd14;
-	ld.global.b32 	%r44, [%rd39];
-	add.rn.f32 	%r45, %r43, %r44;
-	add.s64 	%rd40, %rd13, %rd14;
-	st.global.b32 	[%rd40], %r45;
-	setp.ne.b64 	%p11, %rd9, %rd16;
-	mov.b64 	%rd14, %rd16;
+	add.s64 	%rd17, %rd15, 128;
+	add.s64 	%rd42, %rd13, %rd15;
+	ld.global.b32 	%r36, [%rd42];
+	sub.rn.f32 	%r37, %r36, %r2;
+	mul.rn.f32 	%r38, %r23, %r37;
+	add.s64 	%rd43, %rd11, %rd15;
+	ld.global.b32 	%r39, [%rd43];
+	mul.rn.f32 	%r40, %r38, %r39;
+	add.s64 	%rd44, %rd12, %rd15;
+	ld.global.b32 	%r41, [%rd44];
+	add.rn.f32 	%r42, %r40, %r41;
+	add.s64 	%rd45, %rd14, %rd15;
+	st.global.b32 	[%rd45], %r42;
+	setp.ne.b64 	%p11, %rd10, %rd17;
+	mov.b64 	%rd15, %rd17;
 	@%p11 bra 	$L__BB22_11;
 $L__BB22_16:                            // %.loopexit
 	ret;
@@ -5061,7 +5075,7 @@ $L__BB22_17:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 114
 	// begin inline asm
 	exit;
@@ -5071,7 +5085,7 @@ $L__BB22_18:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 115
 	// begin inline asm
 	exit;
@@ -5081,7 +5095,7 @@ $L__BB22_22:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 119
 	// begin inline asm
 	exit;
@@ -5091,7 +5105,7 @@ $L__BB22_21:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 118
 	// begin inline asm
 	exit;
@@ -5101,7 +5115,7 @@ $L__BB22_20:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 117
 	// begin inline asm
 	exit;
@@ -5111,7 +5125,7 @@ $L__BB22_19:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 116
 	// begin inline asm
 	exit;
@@ -5143,7 +5157,7 @@ $L__BB22_19:
 	.param .u32 merge_param_20
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @merge
 {
 	.reg .pred 	%p<28>;
 	.reg .b32 	%r<112>;
@@ -5495,7 +5509,7 @@ $L__BB23_58:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 123
 	// begin inline asm
 	exit;
@@ -5506,7 +5520,7 @@ $L__BB23_59:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 124
 	// begin inline asm
 	exit;
@@ -5517,7 +5531,7 @@ $L__BB23_61:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 125
 	// begin inline asm
 	exit;
@@ -5525,7 +5539,7 @@ $L__BB23_61:
 $L__BB23_48:
 	{ // callseq 133, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 133
 	// begin inline asm
 	exit;
@@ -5533,7 +5547,7 @@ $L__BB23_48:
 $L__BB23_49:
 	{ // callseq 132, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 132
 	// begin inline asm
 	exit;
@@ -5541,7 +5555,7 @@ $L__BB23_49:
 $L__BB23_50:
 	{ // callseq 131, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 131
 	// begin inline asm
 	exit;
@@ -5549,7 +5563,7 @@ $L__BB23_50:
 $L__BB23_51:
 	{ // callseq 130, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 130
 	// begin inline asm
 	exit;
@@ -5557,7 +5571,7 @@ $L__BB23_51:
 $L__BB23_52:
 	{ // callseq 129, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 129
 	// begin inline asm
 	exit;
@@ -5565,7 +5579,7 @@ $L__BB23_52:
 $L__BB23_53:
 	{ // callseq 128, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 128
 	// begin inline asm
 	exit;
@@ -5573,7 +5587,7 @@ $L__BB23_53:
 $L__BB23_54:
 	{ // callseq 127, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 127
 	// begin inline asm
 	exit;
@@ -5581,7 +5595,7 @@ $L__BB23_54:
 $L__BB23_55:
 	{ // callseq 126, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 126
 	// begin inline asm
 	exit;
@@ -5591,7 +5605,7 @@ $L__BB23_60:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 122
 	// begin inline asm
 	exit;
@@ -5599,7 +5613,7 @@ $L__BB23_60:
 $L__BB23_56:
 	{ // callseq 121, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 121
 	// begin inline asm
 	exit;
@@ -5609,7 +5623,7 @@ $L__BB23_57:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 120
 	// begin inline asm
 	exit;
@@ -5635,7 +5649,7 @@ $L__BB23_57:
 	.param .u32 norm_mod_param_14
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @norm_mod
 {
 	.reg .pred 	%p<12>;
 	.reg .b32 	%r<47>;
@@ -5801,7 +5815,7 @@ $L__BB24_15:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 134
 	// begin inline asm
 	exit;
@@ -5811,7 +5825,7 @@ $L__BB24_20:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 139
 	// begin inline asm
 	exit;
@@ -5821,7 +5835,7 @@ $L__BB24_19:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 138
 	// begin inline asm
 	exit;
@@ -5831,7 +5845,7 @@ $L__BB24_18:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 137
 	// begin inline asm
 	exit;
@@ -5841,7 +5855,7 @@ $L__BB24_17:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 136
 	// begin inline asm
 	exit;
@@ -5851,7 +5865,7 @@ $L__BB24_16:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 135
 	// begin inline asm
 	exit;
@@ -5859,7 +5873,7 @@ $L__BB24_16:
 $L__BB24_21:
 	{ // callseq 140, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 140
 	// begin inline asm
 	exit;
@@ -5879,7 +5893,7 @@ $L__BB24_21:
 	.param .f32 place_param_8
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @place
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<11>;
@@ -5948,7 +5962,7 @@ $L__BB25_8:
 $L__BB25_9:
 	{ // callseq 143, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 143
 	// begin inline asm
 	exit;
@@ -5958,7 +5972,7 @@ $L__BB25_10:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 141
 	// begin inline asm
 	exit;
@@ -5968,7 +5982,7 @@ $L__BB25_11:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 142
 	// begin inline asm
 	exit;
@@ -5987,7 +6001,7 @@ $L__BB25_11:
 	.param .u32 planar_param_7
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @planar
 {
 	.reg .pred 	%p<11>;
 	.reg .b16 	%rs<2>;
@@ -6093,7 +6107,7 @@ $L__BB26_16:
 $L__BB26_17:
 	{ // callseq 148, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 148
 	// begin inline asm
 	exit;
@@ -6101,7 +6115,7 @@ $L__BB26_17:
 $L__BB26_18:
 	{ // callseq 147, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 147
 	// begin inline asm
 	exit;
@@ -6109,7 +6123,7 @@ $L__BB26_18:
 $L__BB26_19:
 	{ // callseq 146, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 146
 	// begin inline asm
 	exit;
@@ -6119,7 +6133,7 @@ $L__BB26_20:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 144
 	// begin inline asm
 	exit;
@@ -6129,7 +6143,7 @@ $L__BB26_21:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 145
 	// begin inline asm
 	exit;
@@ -6146,7 +6160,7 @@ $L__BB26_21:
 	.param .u32 pool2_param_5
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @pool2
 {
 	.reg .pred 	%p<14>;
 	.reg .b32 	%r<18>;
@@ -6300,7 +6314,7 @@ $L__BB27_26:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 149
 	// begin inline asm
 	exit;
@@ -6308,7 +6322,7 @@ $L__BB27_26:
 $L__BB27_23:
 	{ // callseq 153, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 153
 	// begin inline asm
 	exit;
@@ -6316,7 +6330,7 @@ $L__BB27_23:
 $L__BB27_24:
 	{ // callseq 152, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 152
 	// begin inline asm
 	exit;
@@ -6324,7 +6338,7 @@ $L__BB27_24:
 $L__BB27_25:
 	{ // callseq 151, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 151
 	// begin inline asm
 	exit;
@@ -6334,7 +6348,7 @@ $L__BB27_27:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 150
 	// begin inline asm
 	exit;
@@ -6362,7 +6376,7 @@ $L__BB27_27:
 	.param .f32 prep_param_16
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @prep
 {
 	.reg .pred 	%p<18>;
 	.reg .b16 	%rs<2>;
@@ -6574,7 +6588,7 @@ $L__BB28_27:
 $L__BB28_28:
 	{ // callseq 157, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 157
 	// begin inline asm
 	exit;
@@ -6582,7 +6596,7 @@ $L__BB28_28:
 $L__BB28_29:
 	{ // callseq 156, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 156
 	// begin inline asm
 	exit;
@@ -6592,7 +6606,7 @@ $L__BB28_31:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 154
 	// begin inline asm
 	exit;
@@ -6602,7 +6616,7 @@ $L__BB28_32:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 155
 	// begin inline asm
 	exit;
@@ -6631,7 +6645,7 @@ $L__BB28_32:
 	.param .f32 prep_f32_param_17
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @prep_f32
 {
 	.reg .pred 	%p<22>;
 	.reg .b32 	%r<61>;
@@ -6856,7 +6870,7 @@ $L__BB29_29:
 $L__BB29_30:
 	{ // callseq 161, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 161
 	// begin inline asm
 	exit;
@@ -6864,7 +6878,7 @@ $L__BB29_30:
 $L__BB29_31:
 	{ // callseq 160, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 160
 	// begin inline asm
 	exit;
@@ -6874,7 +6888,7 @@ $L__BB29_32:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 158
 	// begin inline asm
 	exit;
@@ -6884,7 +6898,7 @@ $L__BB29_34:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 159
 	// begin inline asm
 	exit;
@@ -6906,7 +6920,7 @@ $L__BB29_34:
 	.param .u32 pull_param_10
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @pull
 {
 	.reg .pred 	%p<19>;
 	.reg .b32 	%r<71>;
@@ -7110,7 +7124,7 @@ $L__BB30_18:
 $L__BB30_19:
 	{ // callseq 166, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 166
 	// begin inline asm
 	exit;
@@ -7118,7 +7132,7 @@ $L__BB30_19:
 $L__BB30_20:
 	{ // callseq 165, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 165
 	// begin inline asm
 	exit;
@@ -7128,7 +7142,7 @@ $L__BB30_21:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 162
 	// begin inline asm
 	exit;
@@ -7138,7 +7152,7 @@ $L__BB30_22:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 163
 	// begin inline asm
 	exit;
@@ -7148,7 +7162,7 @@ $L__BB30_23:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 164
 	// begin inline asm
 	exit;
@@ -7173,7 +7187,7 @@ $L__BB30_23:
 	.param .u32 refine_conv_param_13
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @refine_conv
 {
 	.reg .pred 	%p<63>;
 	.reg .b16 	%rs<6>;
@@ -7439,7 +7453,7 @@ $L__BB31_10:                            //   in Loop: Header=BB31_7 Depth=1
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 172
 	// begin inline asm
 	exit;
@@ -8488,7 +8502,7 @@ $L__BB31_163:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 167
 	// begin inline asm
 	exit;
@@ -8499,7 +8513,7 @@ $L__BB31_164:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 168
 	// begin inline asm
 	exit;
@@ -8510,7 +8524,7 @@ $L__BB31_165:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 169
 	// begin inline asm
 	exit;
@@ -8521,7 +8535,7 @@ $L__BB31_166:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 170
 	// begin inline asm
 	exit;
@@ -8532,7 +8546,7 @@ $L__BB31_167:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 171
 	// begin inline asm
 	exit;
@@ -8540,7 +8554,7 @@ $L__BB31_167:
 $L__BB31_162:
 	{ // callseq 197, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 197
 	// begin inline asm
 	exit;
@@ -8550,7 +8564,7 @@ $L__BB31_51:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 173
 	// begin inline asm
 	exit;
@@ -8560,7 +8574,7 @@ $L__BB31_56:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 174
 	// begin inline asm
 	exit;
@@ -8570,7 +8584,7 @@ $L__BB31_61:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 175
 	// begin inline asm
 	exit;
@@ -8580,7 +8594,7 @@ $L__BB31_66:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 176
 	// begin inline asm
 	exit;
@@ -8590,7 +8604,7 @@ $L__BB31_71:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 177
 	// begin inline asm
 	exit;
@@ -8600,7 +8614,7 @@ $L__BB31_76:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 178
 	// begin inline asm
 	exit;
@@ -8610,7 +8624,7 @@ $L__BB31_81:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 179
 	// begin inline asm
 	exit;
@@ -8620,7 +8634,7 @@ $L__BB31_86:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 180
 	// begin inline asm
 	exit;
@@ -8630,7 +8644,7 @@ $L__BB31_91:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 181
 	// begin inline asm
 	exit;
@@ -8640,7 +8654,7 @@ $L__BB31_96:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 182
 	// begin inline asm
 	exit;
@@ -8650,7 +8664,7 @@ $L__BB31_101:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 183
 	// begin inline asm
 	exit;
@@ -8660,7 +8674,7 @@ $L__BB31_106:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 184
 	// begin inline asm
 	exit;
@@ -8670,7 +8684,7 @@ $L__BB31_111:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 185
 	// begin inline asm
 	exit;
@@ -8680,7 +8694,7 @@ $L__BB31_116:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 186
 	// begin inline asm
 	exit;
@@ -8690,7 +8704,7 @@ $L__BB31_121:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 187
 	// begin inline asm
 	exit;
@@ -8700,7 +8714,7 @@ $L__BB31_126:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 188
 	// begin inline asm
 	exit;
@@ -8710,7 +8724,7 @@ $L__BB31_131:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 189
 	// begin inline asm
 	exit;
@@ -8720,7 +8734,7 @@ $L__BB31_136:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 190
 	// begin inline asm
 	exit;
@@ -8730,7 +8744,7 @@ $L__BB31_141:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 191
 	// begin inline asm
 	exit;
@@ -8740,7 +8754,7 @@ $L__BB31_146:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 192
 	// begin inline asm
 	exit;
@@ -8750,7 +8764,7 @@ $L__BB31_151:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 193
 	// begin inline asm
 	exit;
@@ -8760,7 +8774,7 @@ $L__BB31_156:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 194
 	// begin inline asm
 	exit;
@@ -8770,7 +8784,7 @@ $L__BB31_161:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 195
 	// begin inline asm
 	exit;
@@ -8780,7 +8794,7 @@ $L__BB31_169:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 196
 	// begin inline asm
 	exit;
@@ -8810,7 +8824,7 @@ $L__BB31_169:
 	.param .u32 refine_in_param_18
 )
 .maxntid 256, 1, 1
-.minnctapersm 2
+.minnctapersm 2                                       // @refine_in
 {
 	.reg .pred 	%p<60>;
 	.reg .b32 	%r<267>;
@@ -9504,7 +9518,7 @@ $L__BB32_68:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 209
 	// begin inline asm
 	exit;
@@ -9514,7 +9528,7 @@ $L__BB32_10:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 198
 	// begin inline asm
 	exit;
@@ -9524,7 +9538,7 @@ $L__BB32_58:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 201
 	// begin inline asm
 	exit;
@@ -9534,7 +9548,7 @@ $L__BB32_60:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 202
 	// begin inline asm
 	exit;
@@ -9544,7 +9558,7 @@ $L__BB32_62:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 203
 	// begin inline asm
 	exit;
@@ -9554,7 +9568,7 @@ $L__BB32_63:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 204
 	// begin inline asm
 	exit;
@@ -9562,7 +9576,7 @@ $L__BB32_63:
 $L__BB32_57:
 	{ // callseq 210, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 210
 	// begin inline asm
 	exit;
@@ -9572,7 +9586,7 @@ $L__BB32_59:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 199
 	// begin inline asm
 	exit;
@@ -9582,7 +9596,7 @@ $L__BB32_61:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 200
 	// begin inline asm
 	exit;
@@ -9592,7 +9606,7 @@ $L__BB32_64:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 205
 	// begin inline asm
 	exit;
@@ -9602,7 +9616,7 @@ $L__BB32_65:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 206
 	// begin inline asm
 	exit;
@@ -9612,7 +9626,7 @@ $L__BB32_66:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 207
 	// begin inline asm
 	exit;
@@ -9622,7 +9636,7 @@ $L__BB32_67:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 208
 	// begin inline asm
 	exit;
@@ -9646,7 +9660,7 @@ $L__BB32_67:
 	.param .f32 refine_low_param_12
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @refine_low
 {
 	.reg .pred 	%p<32>;
 	.reg .b32 	%r<110>;
@@ -9954,7 +9968,7 @@ $L__BB33_46:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 213
 	// begin inline asm
 	exit;
@@ -9964,7 +9978,7 @@ $L__BB33_45:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 212
 	// begin inline asm
 	exit;
@@ -9974,7 +9988,7 @@ $L__BB33_6:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 211
 	// begin inline asm
 	exit;
@@ -10011,7 +10025,7 @@ $L__BB33_6:
 	.param .f32 refine_out_param_25
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @refine_out
 {
 	.reg .pred 	%p<44>;
 	.reg .b32 	%r<223>;
@@ -10630,7 +10644,7 @@ $L__BB34_55:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 215
 	// begin inline asm
 	exit;
@@ -10640,7 +10654,7 @@ $L__BB34_57:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 217
 	// begin inline asm
 	exit;
@@ -10648,7 +10662,7 @@ $L__BB34_57:
 $L__BB34_54:
 	{ // callseq 218, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 218
 	// begin inline asm
 	exit;
@@ -10658,7 +10672,7 @@ $L__BB34_56:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 214
 	// begin inline asm
 	exit;
@@ -10668,7 +10682,7 @@ $L__BB34_58:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 216
 	// begin inline asm
 	exit;
@@ -10696,7 +10710,7 @@ $L__BB34_58:
 	.param .f32 render_param_16
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @render
 {
 	.reg .pred 	%p<50>;
 	.reg .b16 	%rs<5>;
@@ -11194,7 +11208,7 @@ $L__BB35_67:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 220
 	// begin inline asm
 	exit;
@@ -11204,7 +11218,7 @@ $L__BB35_68:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 221
 	// begin inline asm
 	exit;
@@ -11212,7 +11226,7 @@ $L__BB35_68:
 $L__BB35_66:
 	{ // callseq 223, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 223
 	// begin inline asm
 	exit;
@@ -11222,7 +11236,7 @@ $L__BB35_28:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 219
 	// begin inline asm
 	exit;
@@ -11232,7 +11246,7 @@ $L__BB35_69:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 222
 	// begin inline asm
 	exit;
@@ -11260,7 +11274,7 @@ $L__BB35_69:
 	.param .f32 render_exr_param_16
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @render_exr
 {
 	.reg .pred 	%p<41>;
 	.reg .b16 	%rs<6>;
@@ -11607,7 +11621,7 @@ $L__BB36_48:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 227
 	// begin inline asm
 	exit;
@@ -11637,7 +11651,7 @@ $L__BB36_52:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 225
 	// begin inline asm
 	exit;
@@ -11647,7 +11661,7 @@ $L__BB36_54:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 226
 	// begin inline asm
 	exit;
@@ -11655,7 +11669,7 @@ $L__BB36_54:
 $L__BB36_51:
 	{ // callseq 229, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 229
 	// begin inline asm
 	exit;
@@ -11665,7 +11679,7 @@ $L__BB36_53:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 224
 	// begin inline asm
 	exit;
@@ -11675,7 +11689,7 @@ $L__BB36_35:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 228
 	// begin inline asm
 	exit;
@@ -11705,7 +11719,7 @@ $L__BB36_35:
 	.param .f32 resize_param_18
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @resize
 {
 	.local .align 4 .b8 	__local_depot37[32];
 	.reg .b64 	%SP;
@@ -12734,7 +12748,7 @@ $L__BB37_132:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 246
 	// begin inline asm
 	exit;
@@ -12744,7 +12758,7 @@ $L__BB37_124:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 233
 	// begin inline asm
 	exit;
@@ -12754,7 +12768,7 @@ $L__BB37_93:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 230
 	// begin inline asm
 	exit;
@@ -12764,7 +12778,7 @@ $L__BB37_52:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 240
 	// begin inline asm
 	exit;
@@ -12774,7 +12788,7 @@ $L__BB37_125:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 234
 	// begin inline asm
 	exit;
@@ -12784,7 +12798,7 @@ $L__BB37_94:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 231
 	// begin inline asm
 	exit;
@@ -12794,7 +12808,7 @@ $L__BB37_53:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 241
 	// begin inline asm
 	exit;
@@ -12804,7 +12818,7 @@ $L__BB37_123:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 239
 	// begin inline asm
 	exit;
@@ -12814,7 +12828,7 @@ $L__BB37_51:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 242
 	// begin inline asm
 	exit;
@@ -12824,7 +12838,7 @@ $L__BB37_92:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 232
 	// begin inline asm
 	exit;
@@ -12832,7 +12846,7 @@ $L__BB37_92:
 $L__BB37_121:
 	{ // callseq 249, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 249
 	// begin inline asm
 	exit;
@@ -12840,7 +12854,7 @@ $L__BB37_121:
 $L__BB37_122:
 	{ // callseq 248, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 248
 	// begin inline asm
 	exit;
@@ -12848,7 +12862,7 @@ $L__BB37_122:
 $L__BB37_130:
 	{ // callseq 247, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 247
 	// begin inline asm
 	exit;
@@ -12858,7 +12872,7 @@ $L__BB37_131:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 243
 	// begin inline asm
 	exit;
@@ -12868,7 +12882,7 @@ $L__BB37_133:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 244
 	// begin inline asm
 	exit;
@@ -12878,7 +12892,7 @@ $L__BB37_134:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 245
 	// begin inline asm
 	exit;
@@ -12888,7 +12902,7 @@ $L__BB37_126:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 235
 	// begin inline asm
 	exit;
@@ -12898,7 +12912,7 @@ $L__BB37_127:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 236
 	// begin inline asm
 	exit;
@@ -12908,7 +12922,7 @@ $L__BB37_128:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 237
 	// begin inline asm
 	exit;
@@ -12918,7 +12932,7 @@ $L__BB37_129:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 238
 	// begin inline asm
 	exit;
@@ -12938,7 +12952,7 @@ $L__BB37_129:
 	.param .u32 shuffle_param_8
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @shuffle
 {
 	.reg .pred 	%p<17>;
 	.reg .b32 	%r<29>;
@@ -13113,7 +13127,7 @@ $L__BB38_31:
 $L__BB38_32:
 	{ // callseq 257, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 257
 	// begin inline asm
 	exit;
@@ -13121,7 +13135,7 @@ $L__BB38_32:
 $L__BB38_33:
 	{ // callseq 256, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 256
 	// begin inline asm
 	exit;
@@ -13129,7 +13143,7 @@ $L__BB38_33:
 $L__BB38_34:
 	{ // callseq 255, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 255
 	// begin inline asm
 	exit;
@@ -13137,7 +13151,7 @@ $L__BB38_34:
 $L__BB38_35:
 	{ // callseq 254, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 254
 	// begin inline asm
 	exit;
@@ -13145,7 +13159,7 @@ $L__BB38_35:
 $L__BB38_36:
 	{ // callseq 253, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 253
 	// begin inline asm
 	exit;
@@ -13153,7 +13167,7 @@ $L__BB38_36:
 $L__BB38_37:
 	{ // callseq 252, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 252
 	// begin inline asm
 	exit;
@@ -13163,7 +13177,7 @@ $L__BB38_38:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 250
 	// begin inline asm
 	exit;
@@ -13173,7 +13187,7 @@ $L__BB38_39:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 251
 	// begin inline asm
 	exit;
@@ -13216,7 +13230,7 @@ $L__BB38_39:
 	.param .u32 split_param_31
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @split
 {
 	.reg .pred 	%p<68>;
 	.reg .b32 	%r<484>;
@@ -14237,7 +14251,7 @@ $L__BB39_116:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 263
 	// begin inline asm
 	exit;
@@ -14248,7 +14262,7 @@ $L__BB39_117:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 264
 	// begin inline asm
 	exit;
@@ -14259,7 +14273,7 @@ $L__BB39_121:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 268
 	// begin inline asm
 	exit;
@@ -14270,7 +14284,7 @@ $L__BB39_122:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 269
 	// begin inline asm
 	exit;
@@ -14281,7 +14295,7 @@ $L__BB39_113:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 260
 	// begin inline asm
 	exit;
@@ -14292,7 +14306,7 @@ $L__BB39_114:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 261
 	// begin inline asm
 	exit;
@@ -14303,7 +14317,7 @@ $L__BB39_115:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 262
 	// begin inline asm
 	exit;
@@ -14314,7 +14328,7 @@ $L__BB39_118:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 265
 	// begin inline asm
 	exit;
@@ -14325,7 +14339,7 @@ $L__BB39_119:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 266
 	// begin inline asm
 	exit;
@@ -14336,7 +14350,7 @@ $L__BB39_120:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 267
 	// begin inline asm
 	exit;
@@ -14347,7 +14361,7 @@ $L__BB39_123:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 270
 	// begin inline asm
 	exit;
@@ -14358,7 +14372,7 @@ $L__BB39_124:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 271
 	// begin inline asm
 	exit;
@@ -14369,7 +14383,7 @@ $L__BB39_126:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 273
 	// begin inline asm
 	exit;
@@ -14380,7 +14394,7 @@ $L__BB39_125:
 	.param .b64 	param1;
 	.param .b64 	param2;
 	st.param.b64 	[param1], 38;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking5panic, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic, (param0, param1, param2);
 	} // callseq 272
 	// begin inline asm
 	exit;
@@ -14388,7 +14402,7 @@ $L__BB39_125:
 $L__BB39_101:
 	{ // callseq 284, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 284
 	// begin inline asm
 	exit;
@@ -14396,7 +14410,7 @@ $L__BB39_101:
 $L__BB39_102:
 	{ // callseq 283, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 283
 	// begin inline asm
 	exit;
@@ -14404,7 +14418,7 @@ $L__BB39_102:
 $L__BB39_103:
 	{ // callseq 282, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 282
 	// begin inline asm
 	exit;
@@ -14412,7 +14426,7 @@ $L__BB39_103:
 $L__BB39_104:
 	{ // callseq 281, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 281
 	// begin inline asm
 	exit;
@@ -14420,7 +14434,7 @@ $L__BB39_104:
 $L__BB39_105:
 	{ // callseq 280, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 280
 	// begin inline asm
 	exit;
@@ -14428,7 +14442,7 @@ $L__BB39_105:
 $L__BB39_106:
 	{ // callseq 279, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 279
 	// begin inline asm
 	exit;
@@ -14436,7 +14450,7 @@ $L__BB39_106:
 $L__BB39_108:
 	{ // callseq 278, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 278
 	// begin inline asm
 	exit;
@@ -14444,7 +14458,7 @@ $L__BB39_108:
 $L__BB39_109:
 	{ // callseq 277, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 277
 	// begin inline asm
 	exit;
@@ -14452,7 +14466,7 @@ $L__BB39_109:
 $L__BB39_110:
 	{ // callseq 276, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 276
 	// begin inline asm
 	exit;
@@ -14460,7 +14474,7 @@ $L__BB39_110:
 $L__BB39_111:
 	{ // callseq 275, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 275
 	// begin inline asm
 	exit;
@@ -14468,7 +14482,7 @@ $L__BB39_111:
 $L__BB39_112:
 	{ // callseq 274, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 274
 	// begin inline asm
 	exit;
@@ -14476,7 +14490,7 @@ $L__BB39_112:
 $L__BB39_107:
 	{ // callseq 259, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 259
 	// begin inline asm
 	exit;
@@ -14486,7 +14500,7 @@ $L__BB39_29:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 258
 	// begin inline asm
 	exit;
@@ -14510,7 +14524,7 @@ $L__BB39_29:
 	.param .u32 standardise_param_12
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @standardise
 {
 	.reg .pred 	%p<12>;
 	.reg .b16 	%rs<2>;
@@ -14640,7 +14654,7 @@ $L__BB40_19:
 $L__BB40_20:
 	{ // callseq 290, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 290
 	// begin inline asm
 	exit;
@@ -14648,7 +14662,7 @@ $L__BB40_20:
 $L__BB40_21:
 	{ // callseq 289, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 289
 	// begin inline asm
 	exit;
@@ -14658,7 +14672,7 @@ $L__BB40_22:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 285
 	// begin inline asm
 	exit;
@@ -14668,7 +14682,7 @@ $L__BB40_23:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 286
 	// begin inline asm
 	exit;
@@ -14678,7 +14692,7 @@ $L__BB40_24:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 287
 	// begin inline asm
 	exit;
@@ -14688,7 +14702,7 @@ $L__BB40_25:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 288
 	// begin inline asm
 	exit;
@@ -14704,7 +14718,7 @@ $L__BB40_25:
 	.param .u32 to_bf16_param_4
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @to_bf16
 {
 	.reg .pred 	%p<4>;
 	.reg .b32 	%r<8>;
@@ -14753,7 +14767,7 @@ $L__BB41_5:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 291
 	// begin inline asm
 	exit;
@@ -14763,7 +14777,7 @@ $L__BB41_6:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 292
 	// begin inline asm
 	exit;
@@ -14783,7 +14797,7 @@ $L__BB41_6:
 	.param .u32 to_nhwc_param_8
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @to_nhwc
 {
 	.reg .pred 	%p<9>;
 	.reg .b32 	%r<15>;
@@ -14884,7 +14898,7 @@ $L__BB42_15:
 $L__BB42_16:
 	{ // callseq 296, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 296
 	// begin inline asm
 	exit;
@@ -14892,7 +14906,7 @@ $L__BB42_16:
 $L__BB42_17:
 	{ // callseq 295, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 295
 	// begin inline asm
 	exit;
@@ -14902,7 +14916,7 @@ $L__BB42_18:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 293
 	// begin inline asm
 	exit;
@@ -14912,7 +14926,7 @@ $L__BB42_19:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 294
 	// begin inline asm
 	exit;
@@ -14933,7 +14947,7 @@ $L__BB42_19:
 	.param .u32 unheads_param_9
 )
 .maxntid 256, 1, 1
-.minnctapersm 4
+.minnctapersm 4                                       // @unheads
 {
 	.reg .pred 	%p<24>;
 	.reg .b16 	%rs<2>;
@@ -15122,7 +15136,7 @@ $L__BB43_39:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 299
 	// begin inline asm
 	exit;
@@ -15130,7 +15144,7 @@ $L__BB43_39:
 $L__BB43_33:
 	{ // callseq 303, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 303
 	// begin inline asm
 	exit;
@@ -15138,7 +15152,7 @@ $L__BB43_33:
 $L__BB43_34:
 	{ // callseq 302, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 302
 	// begin inline asm
 	exit;
@@ -15146,7 +15160,7 @@ $L__BB43_34:
 $L__BB43_35:
 	{ // callseq 301, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero, (param0);
 	} // callseq 301
 	// begin inline asm
 	exit;
@@ -15154,7 +15168,7 @@ $L__BB43_35:
 $L__BB43_36:
 	{ // callseq 300, 0
 	.param .b64 	param0;
-	call.uni _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
+	call.uni _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero, (param0);
 	} // callseq 300
 	// begin inline asm
 	exit;
@@ -15164,7 +15178,7 @@ $L__BB43_37:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 297
 	// begin inline asm
 	exit;
@@ -15174,20 +15188,20 @@ $L__BB43_38:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check, (param0, param1, param2);
 	} // callseq 298
 	// begin inline asm
 	exit;
 	// end inline asm
                                         // -- End function
 }
-.func _RNvNtCscc5udagl66P_4core9panicking9panic_fmt(
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_0,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_1,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking9panic_fmt_param_2
+.func _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt(
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt_param_0,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt_param_1,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt_param_2
 )
-.noreturn                               // -- Begin function _RNvNtCscc5udagl66P_4core9panicking9panic_fmt
-                                        // @_RNvNtCscc5udagl66P_4core9panicking9panic_fmt
+.noreturn                               // -- Begin function _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt
+                                        // @_RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt
 {
 
 
@@ -15200,13 +15214,13 @@ $L__BB43_38:
 	// end inline asm
                                         // -- End function
 }
-.func _RNvNtCscc5udagl66P_4core9panicking5panic(
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_0,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_1,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking5panic_param_2
+.func _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic(
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic_param_0,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic_param_1,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic_param_2
 )
-.noreturn                               // -- Begin function _RNvNtCscc5udagl66P_4core9panicking5panic
-                                        // @_RNvNtCscc5udagl66P_4core9panicking5panic
+.noreturn                               // -- Begin function _RNvNtCsf6uIhzAm5uZ_4core9panicking5panic
+                                        // @_RNvNtCsf6uIhzAm5uZ_4core9panicking5panic
 {
 
 
@@ -15215,20 +15229,20 @@ $L__BB43_38:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 304
 	// begin inline asm
 	exit;
 	// end inline asm
                                         // -- End function
 }
-.func _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check(
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check_param_0,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check_param_1,
-	.param .b64 _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check_param_2
+.func _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check(
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check_param_0,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check_param_1,
+	.param .b64 _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check_param_2
 )
-.noreturn                               // -- Begin function _RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check
-                                        // @_RNvNtCscc5udagl66P_4core9panicking18panic_bounds_check
+.noreturn                               // -- Begin function _RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check
+                                        // @_RNvNtCsf6uIhzAm5uZ_4core9panicking18panic_bounds_check
 {
 
 
@@ -15237,18 +15251,18 @@ $L__BB43_38:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 305
 	// begin inline asm
 	exit;
 	// end inline asm
                                         // -- End function
 }
-.func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero(
-	.param .b64 _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero_param_0
+.func _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero(
+	.param .b64 _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero_param_0
 )
-.noreturn                               // -- Begin function _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero
-                                        // @_RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_div_by_zero
+.noreturn                               // -- Begin function _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero
+                                        // @_RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_div_by_zero
 {
 
 
@@ -15257,18 +15271,18 @@ $L__BB43_38:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 306
 	// begin inline asm
 	exit;
 	// end inline asm
                                         // -- End function
 }
-.func _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero(
-	.param .b64 _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero_param_0
+.func _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero(
+	.param .b64 _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero_param_0
 )
-.noreturn                               // -- Begin function _RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero
-                                        // @_RNvNtNtCscc5udagl66P_4core9panicking11panic_const23panic_const_rem_by_zero
+.noreturn                               // -- Begin function _RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero
+                                        // @_RNvNtNtCsf6uIhzAm5uZ_4core9panicking11panic_const23panic_const_rem_by_zero
 {
 
 
@@ -15277,7 +15291,7 @@ $L__BB43_38:
 	.param .b64 	param0;
 	.param .b64 	param1;
 	.param .b64 	param2;
-	call.uni _RNvNtCscc5udagl66P_4core9panicking9panic_fmt, (param0, param1, param2);
+	call.uni _RNvNtCsf6uIhzAm5uZ_4core9panicking9panic_fmt, (param0, param1, param2);
 	} // callseq 307
 	// begin inline asm
 	exit;
