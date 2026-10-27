@@ -45,6 +45,7 @@ impl Gpu {
         pieces(parts.iter().map(|p| p.len()))
             .enumerate()
             .try_for_each(|(i, (p, o, n))| -> Result<()> {
+
                 let (host, done) = self.slot(&mut staging, i)?;
                 let host = &mut host.as_mut_slice()?[..n];
                 host.par_chunks_mut(GRAIN)
@@ -73,6 +74,7 @@ impl Gpu {
         if !all.is_empty() {
             issue(&mut staging, 0)?;
         }
+
         (0..all.len()).try_for_each(|i| -> Result<()> {
             if i + 1 < all.len() {
                 issue(&mut staging, i + 1)?;

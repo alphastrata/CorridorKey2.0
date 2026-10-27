@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use ck_gpu::{Dtype, Gpu};
+use ck_gpu::convert::{Conv, Metric, Narrow};
+use ck_gpu::{Dtype, Gpu, Idx};
 use cudarc::driver::sys::CUevent_flags;
 use half::{bf16, f16};
 
@@ -13,13 +14,13 @@ fn device() -> usize {
 }
 
 fn noise(n: usize, seed: u32) -> Vec<f32> {
-    (0..n as u32)
+    (0..n.u32())
         .map(|i| {
             let h = (i ^ seed)
                 .wrapping_mul(0x9E37_79B9)
                 .rotate_left(13)
                 .wrapping_mul(0x85EB_CA6B);
-            (h >> 8) as f32 / (1u32 << 24) as f32 - 0.5
+            (h >> 8).f32() / (1u32 << 24).f32() - 0.5
         })
         .collect()
 }
@@ -35,8 +36,10 @@ fn round(v: &[f32], d: Dtype) -> Vec<f32> {
 }
 
 #[test]
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 fn linear_matches_f64() -> eyre::Result<()> {
     let gpu = Gpu::open(device(), bin())?;
+
     let cases = [
         (37, 24, 40, false),
         (300, 136, 1288, false),
@@ -50,6 +53,7 @@ fn linear_matches_f64() -> eyre::Result<()> {
         (300, 384, 8192, false),
         (2310, 1280, 1024, false),
     ];
+
     cases.iter().try_for_each(|&(rows, n, k, f32in)| {
         let (xd, wd) = if f32in {
             (Dtype::F32, Dtype::F32)
@@ -65,6 +69,7 @@ fn linear_matches_f64() -> eyre::Result<()> {
                     .sum()
             })
             .collect();
+
         let (xt, wt) = (gpu.upload_f32(&x, &[rows, k], xd)?, gpu.upload_f32(&w, &[n, k], wd)?);
         let bt = gpu.upload_f32(&bias, &[n], Dtype::F32)?;
         let (ld, off) = (n + 8, 8);
@@ -74,6 +79,7 @@ fn linear_matches_f64() -> eyre::Result<()> {
         } else {
             vec![Dtype::F32, Dtype::Bf16]
         };
+
         outs.iter().try_for_each(|&yd| {
             [(false, false), (true, false), (false, true), (true, true)]
                 .iter()
@@ -81,6 +87,7 @@ fn linear_matches_f64() -> eyre::Result<()> {
                     let y = gpu.upload_f32(&start, &[rows, ld], yd)?;
                     gpu.linear_into(&xt, &wt, with.then_some(&bt), &y, (ld, off), acc)?;
                     let got = gpu.download_f32(&y)?;
+
                     let base = round(&start, yd);
                     let worst = (0..rows * ld).fold(0.0f64, |m, i| {
                         let (r, c) = (i / ld, i % ld);
@@ -90,15 +97,17 @@ fn linear_matches_f64() -> eyre::Result<()> {
                             let o = c - off;
                             dots[r * n + o]
                                 + if with { f64::from(bias[o]) } else { 0.0 }
+
                                 + if acc { f64::from(base[i]) } else { 0.0 }
                         };
                         m.max((f64::from(got[i]) - want).abs() / (1.0 + want.abs()))
                     });
                     let tol = if yd == Dtype::F32 {
-                        1e-4 * (k as f64 / 2048.0).max(1.0)
+                        1e-4 * (k.f64() / 2048.0).max(1.0)
                     } else {
                         8e-3
                     };
+
                     assert!(
                         worst <= tol,
                         "{rows}x{n}x{k} {xd:?}→{yd:?} acc {acc} bias {with}: {worst}"
@@ -118,33 +127,37 @@ fn timing() -> eyre::Result<()> {
     let (start, end) = (event()?, event()?);
     println!("stage,count,rows,n,k,ld,y,epi,acc,ms");
     shapes.lines().try_for_each(|line| {
-        let f: Vec<&str> = line.split(',').collect();
-        let [count, stage, rows, n, k, ld, x, _, y, epi, acc] = f[..] else {
+        let fields: Vec<&str> = line.split(',').collect();
+        let [count, stage, rows, n, k, ld, xd, _, yd, epi, acc] = fields[..] else {
+
             return Ok(());
         };
         let [rows, n, k, ld]: [usize; 4] = [rows, n, k, ld].map(|v| v.parse().unwrap_or(0));
-        let (xd, wd) = if x == "F32" {
+        let (xin, wd) = if xd == "F32" {
             (Dtype::F32, Dtype::F32)
         } else {
             (Dtype::Bf16, gpu.half())
         };
-        let yd = if y == "F32" { Dtype::F32 } else { Dtype::Bf16 };
-        let xt = gpu.upload_f32(&noise(rows * k, 1), &[rows, k], xd)?;
+        let out = if yd == "F32" { Dtype::F32 } else { Dtype::Bf16 };
+        let xt = gpu.upload_f32(&noise(rows * k, 1), &[rows, k], xin)?;
+
         let wt = gpu.upload_f32(&noise(n * k, 2), &[n, k], wd)?;
         let bt = gpu.upload_f32(&noise(n, 3), &[n], Dtype::F32)?;
-        let yt = gpu.zeros(&[rows, ld], yd)?;
+        let yt = gpu.zeros(&[rows, ld], out)?;
         let b = (epi == "Bias").then_some(&bt);
-        let cycles = 2.0 * ((rows * n * k) as f64);
-        let reps = (2e11 / cycles).ceil().clamp(3.0, 200.0).max(0.0) as usize;
+        let cycles = 2.0 * ((rows * n * k).f64());
+        let reps_value = (2e11 / cycles).ceil().clamp(3.0, 200.0).max(0.0);
+        let reps = reps_value.usize();
         let run = || gpu.linear_into(&xt, &wt, b, &yt, (ld, 0), acc == "true");
         let ms = (0..5).try_fold(f32::MAX, |best, _| {
             run()?;
             start.record(&gpu.stream)?;
+
             (0..reps).try_for_each(|_| run())?;
             end.record(&gpu.stream)?;
-            Ok::<_, eyre::Report>(best.min(start.elapsed_ms(&end)? / reps as f32))
+            Ok::<_, eyre::Report>(best.min(start.elapsed_ms(&end)? / Narrow::f32(reps_value)))
         })?;
-        println!("{stage},{count},{rows},{n},{k},{ld},{y},{epi},{acc},{ms:.4}");
+        println!("{stage},{count},{rows},{n},{k},{ld},{yd},{epi},{acc},{ms:.4}");
         Ok(())
     })
 }

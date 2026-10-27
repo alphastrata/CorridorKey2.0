@@ -149,6 +149,7 @@ impl Tensor {
             "bitcast {:?} → {dtype:?}",
             self.dtype
         );
+
         *last = bytes / dtype.size();
         Ok(Self {
             dtype,
@@ -233,6 +234,7 @@ impl Gpu {
                 .into_iter()
                 .map(f32::from)
                 .collect(),
+
             Dtype::F16 => bytemuck::pod_collect_to_vec::<u8, f16>(&bytes)
                 .into_iter()
                 .map(f32::from)

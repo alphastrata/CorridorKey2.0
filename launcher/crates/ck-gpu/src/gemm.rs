@@ -1,3 +1,4 @@
+use crate::Idx;
 use eyre::{Result, ensure};
 
 use crate::{Arg, Dtype, Gpu, Tensor};
@@ -20,6 +21,7 @@ const WIDE: Tile = Tile {
     bk: 32,
     extra: 0,
 };
+
 const SQUARE: Tile = Tile {
     name: "square",
     bm: 128,
@@ -28,6 +30,7 @@ const SQUARE: Tile = Tile {
     bk: 32,
     extra: 0,
 };
+
 const THIN: Tile = Tile {
     name: "thin",
     bm: 128,
@@ -36,6 +39,7 @@ const THIN: Tile = Tile {
     bk: 32,
     extra: 0,
 };
+
 const SMALL: Tile = Tile {
     name: "small",
     bm: 64,
@@ -44,6 +48,7 @@ const SMALL: Tile = Tile {
     bk: 32,
     extra: 0,
 };
+
 const SIMT: Tile = Tile {
     name: "simt",
     bm: 128,
@@ -52,6 +57,7 @@ const SIMT: Tile = Tile {
     bk: 32,
     extra: 0,
 };
+
 const HOPPER: Tile = Tile {
     name: "hopper",
     bm: 128,
@@ -60,6 +66,7 @@ const HOPPER: Tile = Tile {
     bk: 64,
     extra: 1024,
 };
+
 const BLACKWELL: Tile = Tile {
     name: "blackwell",
     extra: 1024 + 32,
@@ -99,6 +106,7 @@ impl Gpu {
         (ld, off): (usize, usize),
         (accumulate, tail): (bool, bool),
     ) -> Result<()> {
+
         let (out, inp) = (w.shape[0], w.shape[1]);
         let rows = x.numel() / inp;
         ensure!(
@@ -108,6 +116,7 @@ impl Gpu {
             w.shape,
             y.shape
         );
+
         ensure!(
             bias.is_none_or(|b| b.dtype == Dtype::F32 && b.numel() == out),
             "bias must be f32 [{out}]"
@@ -120,6 +129,7 @@ impl Gpu {
         );
         let args = [
             words(x),
+
             words(w),
             bias.map_or(Arg::Buf(w.ptr(), 0), |b| Arg::Buf(b.ptr(), out)),
             words(y),
@@ -129,33 +139,53 @@ impl Gpu {
             ld.into(),
             off.into(),
         ];
+
         let lanes = 16 / y.dtype.size();
         if x.dtype == Dtype::Bf16 && w.dtype == self.half() && inp % 8 == 0 && ld % lanes == 0 && off % lanes == 0 {
             let (t, tiles, splits, span) = self.plan(rows, out, inp, tail)?;
             if let Some(head) = self.head(t, tiles, splits, out, inp)? {
                 let (x, y) = (x.reshape(&[rows, inp])?, y.reshape(&[rows, ld])?);
                 let part = |start, len, tail| {
-                    self.gemm(&x.rows(start, len)?, w, bias, &y.rows(start, len)?, (ld, off), (accumulate, tail))
+                    self.gemm(
+                        &x.rows(start, len)?,
+                        w,
+                        bias,
+                        &y.rows(start, len)?,
+                        (ld, off),
+                        (accumulate, tail),
+                    )
                 };
+
                 part(0, head, false)?;
                 return part(head, rows - head, true);
             }
             let (shared, _) = self.fit(t)?;
-            let parts = (splits > 1).then(|| self.empty(&[splits, rows, out], Dtype::F32)).transpose()?;
+            let parts = (splits > 1)
+                .then(|| self.empty(&[splits, rows, out], Dtype::F32))
+                .transpose()?;
             let mut each = args;
             if let Some(p) = &parts {
                 (each[3], each[7], each[8]) = (words(p), out.into(), 0.into());
             }
             let name = format!("gemm_{}_{}", t.name, if parts.is_some() { "f32" } else { &suffix });
-            let grid = (tiles as u32, splits as u32, 1);
-            self.launch("ck_gemm", &name, grid, 256, shared, &[&each[..], &[span.into()]].concat())?;
+            let grid = (tiles.u32(), splits.u32(), 1);
+
+            self.launch(
+                "ck_gemm",
+                &name,
+                grid,
+                256,
+                shared,
+                &[&each[..], &[span.into()]].concat(),
+            )?;
             let Some(parts) = parts else { return Ok(()) };
             let mut sum = args;
             sum[1] = words(&parts);
-            let grid = ((rows * out / 4).div_ceil(256) as u32, 1, 1);
+            let grid = ((rows * out / 4).div_ceil(256).u32(), 1, 1);
             return self.launch(
                 "ck_gemm",
                 &format!("reduce_{suffix}"),
+
                 grid,
                 256,
                 0,
@@ -170,13 +200,14 @@ impl Gpu {
             y.dtype
         );
         let name = format!("any_{}{suffix}", if x.dtype == Dtype::F32 { "f32in_" } else { "" });
-        let grid = (out.div_ceil(ANY) as u32, rows.div_ceil(ANY) as u32, 1);
+        let grid = (out.div_ceil(ANY).u32(), rows.div_ceil(ANY).u32(), 1);
+
         self.launch(
             "ck_gemm",
             &name,
             grid,
             256,
-            2 * 16 * (ANY as u32 + 4) * 4,
+            2 * 16 * (ANY.u32() + 4) * 4,
             &[&args[..], &[inp.into()]].concat(),
         )
     }
@@ -196,8 +227,10 @@ impl Gpu {
 
     fn head(&self, t: Tile, tiles: usize, splits: usize, n: usize, k: usize) -> Result<Option<usize>> {
         let slots = self.slots(t)?;
-        Ok((splits == 1 && k >= TAIL * MIN_SPAN && tiles > slots && 4 * tiles <= 7 * slots)
-            .then(|| slots / n.div_ceil(t.bn) * t.bm))
+        Ok(
+            (splits == 1 && k >= TAIL * MIN_SPAN && tiles > slots && 4 * tiles <= 7 * slots)
+                .then(|| slots / n.div_ceil(t.bn) * t.bm),
+        )
     }
 
     fn fit(&self, t: Tile) -> Result<(u32, usize)> {
@@ -205,7 +238,7 @@ impl Gpu {
             return Ok(hit);
         }
         let stages = self.global_u32("ck_gemm", &format!("STAGES_{}", t.name.to_uppercase()))?;
-        let shared = (stages * (t.bm + t.bn) as u32 * 2 * t.bk as u32).max(8 * 16 * (4 * t.width + 16)) + t.extra;
+        let shared = (stages * (t.bm + t.bn).u32() * 2 * t.bk.u32()).max(8 * 16 * (4 * t.width + 16)) + t.extra;
         let resident = self.resident("ck_gemm", &format!("gemm_{}_f32", t.name), 256, shared)?;
         self.tiles.borrow_mut().insert(t.name, (shared, resident));
         Ok((shared, resident))
@@ -222,6 +255,7 @@ impl Gpu {
             ((tiles * k.div_ceil(span)).div_ceil(slots) * span, span)
         };
         let (base, _) = cost(1);
+
         if 2 * tiles > slots && k < 8192 {
             return Ok((1, k));
         }
@@ -243,6 +277,7 @@ impl Gpu {
             () if self.sm >= 80
                 || (wide < 2 * self.sms && k < 8192 && wide.next_multiple_of(self.sms) * 9 > wide * 10) =>
             {
+
                 SQUARE
             }
             () => WIDE,
