@@ -36,3 +36,16 @@ kprof name *args:
 [no-cd, positional-arguments]
 run *args:
     @cargo run -q --release --manifest-path {{justfile_directory()}}/launcher/Cargo.toml -p ck -- "$@"
+
+[no-cd, positional-arguments]
+gui *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    clips=()
+    for a in "$@"; do clips+=("$(realpath "$a")"); done
+    run="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+        sock=$(find "$run" -maxdepth 1 -type s -name 'wayland-[0-9]*' -printf '%f\n' 2>/dev/null | sort | head -1)
+        [[ -n "$sock" ]] && export WAYLAND_DISPLAY="$sock" XDG_RUNTIME_DIR="$run"
+    fi
+    cargo run -q --release --manifest-path {{justfile_directory()}}/launcher/Cargo.toml -p ck-gui -- ${clips[@]+"${clips[@]}"}

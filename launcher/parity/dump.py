@@ -4,8 +4,6 @@ and the stage outputs, stock bf16 and fp32 reference, as ``launcher/fixtures/sta
 uv run python launcher/parity/dump.py [--tier 720] [--frames 4]
 """
 
-from __future__ import annotations
-
 import argparse
 import functools
 import sys
@@ -18,7 +16,7 @@ from safetensors.torch import save_file
 REPO = Path(__file__).parents[2]
 sys.path[:0] = [str(REPO), str(REPO / "bench")]
 
-from harness import Feats, config, frame2, load, stage1, vfm
+from harness import Feats, config, frame2, load, stage1, vfm  # ty: ignore[unresolved-import]
 
 from corridorkey.runtime import RuntimePaths, load_model
 
@@ -72,6 +70,9 @@ def main() -> None:
     clip = load(min((REPO / "bench/frames").glob(f"*/{a.tier}p")), a.frames)
     x, display = clip.x.cuda().float(), clip.display.cuda()
     fm = model.foundations
+    assert fm.cradio is not None and fm.cradio.radio_model is not None
+    assert fm.moge is not None and fm.moge.encoder is not None
+    assert fm.rvm is not None
     named0 = [
         (f"{tag}{i}", b)
         for tag, blocks in (

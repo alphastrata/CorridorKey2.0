@@ -9,6 +9,9 @@ at pinned revisions, under their own licenses (see THIRD_PARTY_NOTICES.md):
 - MoGe-2 ViT-B      (Microsoft, MIT)
 - RVM small         (Google DeepMind, CC-BY 4.0)
 
+The optional real-time edge refiner (mantelmoritz, Corridor Key Licence) is
+fetched too; `ck --refine` uses it when keying at a reduced `--model-scale`.
+
 Files land in `weights/` and `vfms/` under the package root, which is where
 the runtime looks for them. Re-running skips anything already present.
 """
@@ -33,6 +36,10 @@ CRADIO_REVISION = "c0457f5dc26ca145f954cd4fc5bb6114e5705ad8"
 MOGE_REPO = "Ruicheng/moge-2-vitb-normal"
 MOGE_REVISION = "ca5f0e07ff01d3e5a364c1d954ed12ee1814b368"
 
+REFINER_REPO = "mantelmoritz/CorridorKey-Realtime-EdgeRefiner"
+REFINER_REVISION = "75bb21da1ea3f22b57c7d16a28191e11eb43c2a6"
+REFINER_FILES = ("corridorkey_edge_refiner_v10w.safetensors", "corridorkey_edge_refiner_v9b.safetensors")
+
 RVM_FILE = "pretrain_rvm_small16_256_204031069.npz"
 RVM_URL = f"https://storage.googleapis.com/representations4d/checkpoints/{RVM_FILE}"
 RVM_MD5_B64 = "ZJb6kj8+tasiJbVeplXu7Q=="
@@ -50,6 +57,12 @@ def download_corridorkey(root: Path, repo: str, revision: str | None) -> None:
     for name in CORRIDORKEY_FILES:
         print(f"[corridorkey] {name}")
         hf_hub_download(repo, name, revision=revision, local_dir=root / "weights")
+
+
+def download_refiner(root: Path) -> None:
+    for name in REFINER_FILES:
+        print(f"[edge refiner] {name}")
+        hf_hub_download(REFINER_REPO, name, revision=REFINER_REVISION, local_dir=root / "weights")
 
 
 def download_cradio(root: Path) -> None:
@@ -95,6 +108,7 @@ def main():
     root = Path(args.package_root).resolve()
     if not args.skip_corridorkey:
         download_corridorkey(root, args.corridorkey_repo, args.corridorkey_revision)
+        download_refiner(root)
     download_cradio(root)
     download_moge(root)
     download_rvm(root)

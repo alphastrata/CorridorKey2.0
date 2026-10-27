@@ -18,7 +18,7 @@ Pure-transformer spatiotemporal encoder/decoder on the /16 ↔ /64 pyramid:
            with zero-init patch-stem skip before the final 2 blocks
     → baton (d=512 at /16)
     → aux head: Depatchify r=8 → 4-channel /2 output
-         initialized as half-res RGB passthrough when the 512d projected
+         initialised as half-res RGB passthrough when the 512d projected
          RGB patch basis is available (pred_alpha = 0 init)
 
 No recurrence. Temporal mixing lives entirely in attention: global at /64
@@ -45,7 +45,7 @@ from .rope import RoPE2D, RoPE3D
 
 @torch.no_grad()
 def _init_center_area_downsample_(conv: nn.Conv2d) -> None:
-    """Initialize k=8/s=4 downsample as exact per-cell area pooling.
+    """Initialise k=8/s=4 downsample as exact per-cell area pooling.
 
     The central stride×stride region averages the corresponding input cell;
     all spill taps start at zero. When channel counts differ, a semi-orthogonal
@@ -279,7 +279,7 @@ class Stage1(nn.Module):
         # overlap_patchify is a legacy bool alias (True → mult=3).
         # overlap_mult picks the receptive-field multiplier:
         #   1 = no overlap; 2 = half-overlap (kernel=2·patch);
-        #   3 = full-overlap (kernel=3·patch, immediate + 8 neighbors).
+        #   3 = full-overlap (kernel=3·patch, immediate + 8 neighbours).
         overlap_patchify: bool = False,
         overlap_mult: int = 2,
         depatch_fourier_features: int = 0,
@@ -472,7 +472,7 @@ class Stage1(nn.Module):
         self.up = Upsample4ICNR(d_64, d_16, r=4, post_smooth=True, norm=False)
 
         # Learned per-channel U-Net skip from /16 encoder → /16 decoder.
-        # Shape (d_16,). Initialized to 1.0 — at t=0 the decoder sees the
+        # Shape (d_16,). Initialised to 1.0 — at t=0 the decoder sees the
         # encoder /16 features at full strength. The model can learn to
         # scale this down if the /64 body's output is preferred. Alternative
         # was init=0 (start with no skip, grow), but encoder features contain
@@ -498,7 +498,7 @@ class Stage1(nn.Module):
 
         # Aux head: baton at /16 (d=512) → 4-channel prediction at /2 via
         # 8× depatchify. With production dims and non-overlap patching, the
-        # FG rows are initialized as area-downsampled inverse RGB patch basis
+        # FG rows are initialised as area-downsampled inverse RGB patch basis
         # and alpha rows remain zero.
         self.aux_depatchify = Depatchify(d_16, out_channels=4, r=8,
                                           zero_init_all=True, bias=True,
@@ -779,7 +779,7 @@ class Stage1(nn.Module):
                 f_64_down, mae_mask_64, self.mae_token_64_aux,
                 "stage1 /64 aux")
 
-        # VFM features at /64 (already channel-normalized by FrozenFoundations).
+        # VFM features at /64 (already channel-normalised by FrozenFoundations).
         # Concat order is fixed at [cradio | moge | rvm] — the fuse layer's
         # linear_shortcut init relies on this ordering.
         assert moge_feat.shape[-2:] == (h_64, w_64), (

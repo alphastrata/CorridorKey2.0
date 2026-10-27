@@ -10,6 +10,8 @@ use crate::farm::{Job, Meta};
 use crate::frame::{self, Encoding};
 use crate::io::{Plane, Source};
 use crate::ops::{axpy, probe};
+
+const PREP: usize = 8;
 use crate::run::{Config, Hints, Models, starts, taper};
 use crate::stage1::Inputs;
 
@@ -195,15 +197,11 @@ impl<'a> Clip<'a> {
         let (g, t) = (self.meta.g, t1 - t0);
         let plane = g.h * g.w;
         let x = self.gpu.zeros(&[t, 4, g.h, g.w], Dtype::F32)?;
-        frame::prep(
-            self.gpu,
-            &self.raw(t0..t1)?,
-            &x,
-            g,
-            4 * plane,
-            Encoding::Model,
-            self.cfg.input(),
-        )?;
+        (t0..t1).step_by(PREP).try_for_each(|a| {
+            let b = (a + PREP).min(t1);
+            let out = x.at((a - t0) * 4 * plane, &[(b - a) * 4 * plane])?;
+            frame::prep(self.gpu, &self.raw(a..b)?, &out, g, 4 * plane, Encoding::Model, self.cfg.input())
+        })?;
         let quality = self.hints(&x, t0, t)?;
         let feats = (0..3)
             .map(|k| {

@@ -4,7 +4,7 @@ Welcome to CorridorKey 2.0! You may rest easy, weary artist. The green beast has
 
 # Check out our official plugin!
 
-The most requested feature we've heard this year- "Can you make a plugin for my favorite software?
+The most requested feature we've heard this year- "Can you make a plugin for my favourite software?
 
 ...yes! Finally!
 
@@ -83,6 +83,21 @@ You can also start the same guided session directly:
 ```
 python run_interactive.py /path/to/clip.mp4
 ```
+
+## Desktop App
+
+A desktop UI (Slint, in `launcher/crates/ck-gui`): a clip queue, a viewer for the
+input and every output, and the settings below as controls. It runs one clip at a
+time through `ck`.
+
+```
+just gui [clip_or_folder ...]
+```
+
+Drop clips or folders anywhere in the window. Ctrl+Shift+S shows stats for nerds.
+
+Companion hint files are picked up the same way the drag-and-drop launcher
+finds them, and each clip's hint can be changed in the inspector.
 
 ## Quick Start
 
@@ -229,7 +244,7 @@ Tradeoffs:
 
 - More literal use of the provided hint video.
 - Avoids feedback from an imperfect carried prediction.
-- Gives up one of the temporal stabilization mechanisms used by the default
+- Gives up one of the temporal stabilisation mechanisms used by the default
   setup.
 
 ## Hint Quality
@@ -314,7 +329,7 @@ Available output choices:
 
 - `alpha`: matte preview.
 - `fg`: raw foreground RGB prediction preview.
-- `checker`: predicted foreground composited over a checkerboard with customizable despill applied.
+- `checker`: predicted foreground composited over a chequerboard with customisable despill applied.
 - `cutout`: predicted foreground multiplied by predicted alpha (un-premultiplied straight color, despilled).
 
 `raw_fg` and `foreground` are accepted aliases for `fg`.
@@ -363,7 +378,7 @@ no slower than larger batches in our tests.
 ## HDR EXR Output
 
 By default, all outputs are ffmpeg-encoded preview videos. That path is
-display-referred: values are clipped to `[0, 1]` and quantized for video
+display-referred: values are clipped to `[0, 1]` and quantised for video
 encoding (10-bit `yuv444p10le` x264 for `alpha`/`fg`/`checker`, ProRes 4444
 for `cutout`). HDR values above 1.0 do not survive the video path.
 
@@ -505,7 +520,7 @@ Advanced memory knobs:
 - `--low_vram_swin_window_batch`: Swin/window processing chunking.
 - `--low_vram_full_attn_query_chunk_tokens`: query chunking for full attention.
 
-Use the defaults unless you are actively tuning memory behavior.
+Use the defaults unless you are actively tuning memory behaviour.
 
 ## Frame Directories
 
@@ -550,7 +565,7 @@ python infer.py \
 `--start_mode` choices:
 
 - `begin`: start from the first frame.
-- `middle`: take a centered segment.
+- `middle`: take a centred segment.
 - `random_middle`: choose a deterministic random middle segment using `--seed`.
 
 ## Input Color Handling
@@ -613,11 +628,11 @@ model's asinh encoding. The inverse adjustment is applied to the predicted
 foreground before writing preview outputs. These controls are useful for
 controlled tests, not for ordinary production use.
 
-## Failure Behavior
+## Failure Behaviour
 
 The runtime intentionally does not silently switch modes. Missing weights,
 missing foundation assets, missing ffmpeg, unsupported inputs, and load
-mismatches raise errors instead of falling back to a different behavior.
+mismatches raise errors instead of falling back to a different behaviour.
 
 ## Common Recipes
 
@@ -679,7 +694,7 @@ commercial projects. What you make with it is yours.
 - You may build on the code and model, but what you release must be freely
   accessible, stay under this same license, and keep the CorridorKey name.
   Donationware and pay-what-you-want are fine.
-- Organizations with more than US $20 million in annual revenue need to
+- Organisations with more than US $20 million in annual revenue need to
   purchase a seat of the CorridorKey plugin for each person using this tool.
   A seat covers both the plugin and this model and software. See
   [corridorkey.com](https://corridorkey.com).

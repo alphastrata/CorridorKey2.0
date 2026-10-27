@@ -5,6 +5,8 @@ pub mod farm;
 pub mod frame;
 pub mod io;
 pub mod ops;
+pub mod preview;
+pub mod refine;
 pub mod rope;
 pub mod run;
 pub mod sources;

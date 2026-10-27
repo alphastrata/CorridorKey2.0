@@ -99,18 +99,18 @@ impl Gpu {
         (ld, off): (usize, usize),
         (accumulate, tail): (bool, bool),
     ) -> Result<()> {
-        let (n, k) = (w.shape[0], w.shape[1]);
-        let rows = x.numel() / k;
+        let (out, inp) = (w.shape[0], w.shape[1]);
+        let rows = x.numel() / inp;
         ensure!(
-            x.numel() == rows * k && y.numel() == rows * ld && off + n <= ld,
-            "linear {:?} · {:?} → {:?} [{off}..+{n} of {ld}]",
+            x.numel() == rows * inp && y.numel() == rows * ld && off + out <= ld,
+            "linear {:?} · {:?} → {:?} [{off}..+{out} of {ld}]",
             x.shape,
             w.shape,
             y.shape
         );
         ensure!(
-            bias.is_none_or(|b| b.dtype == Dtype::F32 && b.numel() == n),
-            "bias must be f32 [{n}]"
+            bias.is_none_or(|b| b.dtype == Dtype::F32 && b.numel() == out),
+            "bias must be f32 [{out}]"
         );
         let suffix = format!(
             "{}{}{}",
@@ -121,54 +121,38 @@ impl Gpu {
         let args = [
             words(x),
             words(w),
-            bias.map_or(Arg::Buf(w.ptr(), 0), |b| Arg::Buf(b.ptr(), n)),
+            bias.map_or(Arg::Buf(w.ptr(), 0), |b| Arg::Buf(b.ptr(), out)),
             words(y),
             rows.into(),
-            n.into(),
-            k.into(),
+            out.into(),
+            inp.into(),
             ld.into(),
             off.into(),
         ];
         let lanes = 16 / y.dtype.size();
-        if x.dtype == Dtype::Bf16 && w.dtype == self.half() && k % 8 == 0 && ld % lanes == 0 && off % lanes == 0 {
-            let (t, tiles, splits, span) = self.plan(rows, n, k, tail)?;
-            if let Some(head) = self.head(t, tiles, splits, n, k)? {
-                let (x, y) = (x.reshape(&[rows, k])?, y.reshape(&[rows, ld])?);
+        if x.dtype == Dtype::Bf16 && w.dtype == self.half() && inp % 8 == 0 && ld % lanes == 0 && off % lanes == 0 {
+            let (t, tiles, splits, span) = self.plan(rows, out, inp, tail)?;
+            if let Some(head) = self.head(t, tiles, splits, out, inp)? {
+                let (x, y) = (x.reshape(&[rows, inp])?, y.reshape(&[rows, ld])?);
                 let part = |start, len, tail| {
-                    self.gemm(
-                        &x.rows(start, len)?,
-                        w,
-                        bias,
-                        &y.rows(start, len)?,
-                        (ld, off),
-                        (accumulate, tail),
-                    )
+                    self.gemm(&x.rows(start, len)?, w, bias, &y.rows(start, len)?, (ld, off), (accumulate, tail))
                 };
                 part(0, head, false)?;
                 return part(head, rows - head, true);
             }
             let (shared, _) = self.fit(t)?;
-            let parts = (splits > 1)
-                .then(|| self.empty(&[splits, rows, n], Dtype::F32))
-                .transpose()?;
+            let parts = (splits > 1).then(|| self.empty(&[splits, rows, out], Dtype::F32)).transpose()?;
             let mut each = args;
             if let Some(p) = &parts {
-                (each[3], each[7], each[8]) = (words(p), n.into(), 0.into());
+                (each[3], each[7], each[8]) = (words(p), out.into(), 0.into());
             }
             let name = format!("gemm_{}_{}", t.name, if parts.is_some() { "f32" } else { &suffix });
             let grid = (tiles as u32, splits as u32, 1);
-            self.launch(
-                "ck_gemm",
-                &name,
-                grid,
-                256,
-                shared,
-                &[&each[..], &[span.into()]].concat(),
-            )?;
+            self.launch("ck_gemm", &name, grid, 256, shared, &[&each[..], &[span.into()]].concat())?;
             let Some(parts) = parts else { return Ok(()) };
             let mut sum = args;
             sum[1] = words(&parts);
-            let grid = ((rows * n / 4).div_ceil(256) as u32, 1, 1);
+            let grid = ((rows * out / 4).div_ceil(256) as u32, 1, 1);
             return self.launch(
                 "ck_gemm",
                 &format!("reduce_{suffix}"),
@@ -186,14 +170,14 @@ impl Gpu {
             y.dtype
         );
         let name = format!("any_{}{suffix}", if x.dtype == Dtype::F32 { "f32in_" } else { "" });
-        let grid = (n.div_ceil(ANY) as u32, rows.div_ceil(ANY) as u32, 1);
+        let grid = (out.div_ceil(ANY) as u32, rows.div_ceil(ANY) as u32, 1);
         self.launch(
             "ck_gemm",
             &name,
             grid,
             256,
             2 * 16 * (ANY as u32 + 4) * 4,
-            &[&args[..], &[k.into()]].concat(),
+            &[&args[..], &[inp.into()]].concat(),
         )
     }
 

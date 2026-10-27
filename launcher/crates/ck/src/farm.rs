@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::Scope;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::{Result, bail, ensure, eyre};
@@ -11,8 +11,9 @@ use flume::RecvTimeoutError;
 use tracing::{info, info_span, warn};
 
 use crate::clip::{Clip, upload};
-use crate::frame::{self, Encoding, Geometry, Output};
+use crate::frame::{self, Encoding, Geometry, Input, Output};
 use crate::io::Source;
+use crate::preview::Preview;
 use crate::run::{Config, Hints, Models, clip_names};
 use crate::stage2::Baton;
 use crate::vram;
@@ -20,6 +21,7 @@ use crate::write::{Exr, Writer};
 
 const AHEAD: usize = 8;
 const QUEUE_BYTES: usize = 3 << 30;
+const TELL: Duration = Duration::from_secs(2);
 
 pub struct Meta {
     pub name: String,
@@ -142,8 +144,23 @@ fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job<Tensor>) -> Result<()> 
     let acc = &job.baton;
     let rgb = gpu.empty(&[1, 3, g.h, g.w], Dtype::F32)?;
     let raw = upload(gpu, &[&job.raw], &[1, 3 * g.hn * g.wn], job.meta.pix)?;
-    frame::prep(gpu, &raw, &rgb, g, 3 * g.h * g.w, Encoding::Model, cfg.input())?;
+    let linear = job.meta.pix == Dtype::F32 && cfg.linear_input;
+    let planes = match &m.refiner {
+        Some(_) if !g.native() => Some(frame::planes(gpu, &raw, g)?),
+        _ => None,
+    };
+    match &planes {
+        Some((_, low)) => {
+            let input = Input { linear, ..cfg.input() };
+            frame::prep_planes(gpu, low, &rgb, g, 3 * g.h * g.w, Encoding::Model, input)?;
+        }
+        None => frame::prep(gpu, &raw, &rgb, g, 3 * g.h * g.w, Encoding::Model, cfg.input())?,
+    }
     let logits = m.s2.forward(gpu, &m.cache, &rgb, Baton::Nhwc(acc, job.scale))?;
+    let (logits, g) = match (&m.refiner, &planes) {
+        (Some(r), Some((native, low))) => (r.native(gpu, &logits, (native, low), g, Input { linear, adjust: cfg.look.adjust })?, g.output()),
+        _ => (logits, g),
+    };
     let rendered = cfg
         .outputs
         .iter()
@@ -167,12 +184,13 @@ fn stage2(gpu: &Gpu, m: &Models, cfg: &Config, job: &Job<Tensor>) -> Result<()> 
 
 fn sink(
     rx: &flume::Receiver<Done>,
-    writers: Vec<(Output, Writer)>,
+    (writers, mut preview): (Vec<(Output, Writer)>, Option<Preview>),
     (total, written): (usize, &AtomicUsize),
     abort: &AtomicBool,
 ) -> Result<()> {
     let mut pending = BTreeMap::new();
     let mut next = 0;
+    let (start, mut told) = (Instant::now(), Instant::now());
     while next < total {
         ensure!(!abort.load(Ordering::Acquire), Aborted);
         match rx.recv_timeout(Duration::from_millis(100)) {
@@ -181,9 +199,16 @@ fn sink(
             Err(RecvTimeoutError::Disconnected) => bail!("{} frames never arrived", total - next),
         };
         while let Some(images) = pending.remove(&next) {
+            if let Some(p) = preview.as_mut() {
+                p.offer(writers.iter().map(|(o, _)| *o).zip(images.iter().map(Vec::as_slice)))?;
+            }
             writers.iter().zip(images).try_for_each(|((_, w), img)| w.write(img))?;
             next += 1;
             written.store(next, Ordering::Release);
+            if told.elapsed() >= TELL || next == total {
+                told = Instant::now();
+                info!("{next}/{total} frames written · {:.2} fps", next as f64 / start.elapsed().as_secs_f64());
+            }
         }
     }
     writers.into_iter().try_for_each(|(_, w)| w.finish())
@@ -241,15 +266,16 @@ fn lead<'s, 'e>(
         .iter()
         .map(|&o| Ok((o, cfg.writer(sh.out_dir, &name, &src, o)?)))
         .collect::<Result<Vec<_>>>()?;
+    let preview = cfg.preview.as_deref().map(|d| Preview::new(d, (src.w, src.h), cfg.exr.is_some())).transpose()?;
     let (done, rx) = flume::unbounded();
     let written = Arc::new(AtomicUsize::new(0));
     let sunk = written.clone();
     s.spawn(move || {
-        let r = sink(&rx, writers, (total, &sunk), &sh.abort);
+        let r = sink(&rx, (writers, preview), (total, &sunk), &sh.abort);
         if r.is_err() {
             sh.abort.store(true, Ordering::Release);
         }
-        let _ = sh.sinks.send(r);
+        drop(sh.sinks.send(r));
     });
     info!(
         "{total} frames {}x{} → {}x{}, window {}, stride {}",
@@ -275,7 +301,7 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
     }
     let gpu = Gpu::open(device, &sh.assets.ptx)?;
     let free = gpu.ctx.mem_get_info()?.0 as f64 / f64::from(1u32 << 30);
-    let m = Models::load(&gpu, &sh.assets.weights, &sh.assets.vfms)?;
+    let m = Models::load(&gpu, &sh.assets.weights, &sh.assets.vfms, sh.cfg.refine.as_deref())?;
     if k == 0 {
         m.front(&gpu)?;
     }
@@ -323,7 +349,7 @@ pub fn run(
         .map(|&d| Ok((Gpu::speed(d)?, d)))
         .collect::<Result<Vec<_>>>()?;
     ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let depth = ranked.iter().map(|r| (ranked[0].0 / r.0).ceil() as usize).collect();
+    let depth: Vec<usize> = ranked.iter().map(|r| (ranked[0].0 / r.0).ceil().max(0.0) as usize).collect();
     let devices: Vec<usize> = ranked.into_iter().map(|(_, d)| d).collect();
     let (sinks, results) = flume::unbounded();
     let sh = Shared {

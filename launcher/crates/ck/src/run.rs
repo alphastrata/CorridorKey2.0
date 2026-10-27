@@ -6,6 +6,7 @@ use eyre::Result;
 use crate::attn::Cache;
 use crate::frame::{Input, Look, Output};
 use crate::io::Source;
+use crate::refine::Refiner;
 use crate::stage1::Stage1;
 use crate::stage2::Stage2;
 use crate::vfm::Vfms;
@@ -19,6 +20,7 @@ pub struct Front {
 
 pub struct Models {
     pub s2: Stage2,
+    pub refiner: Option<Refiner>,
     pub cache: Cache,
     front: std::cell::OnceCell<Front>,
     paths: (PathBuf, PathBuf),
@@ -34,9 +36,10 @@ fn loader<'a>(gpu: &'a Gpu, weights: &'a Weights, prefix: &'a str) -> Loader<'a>
 }
 
 impl Models {
-    pub fn load(gpu: &Gpu, model: &Path, vfms: &Path) -> Result<Self> {
+    pub fn load(gpu: &Gpu, model: &Path, vfms: &Path, refiner: Option<&Path>) -> Result<Self> {
         Ok(Self {
             s2: Stage2::load(&loader(gpu, &Weights::open(model)?, "stage2."))?,
+            refiner: refiner.map(|p| Refiner::load(gpu, p)).transpose()?,
             cache: Cache::default(),
             front: std::cell::OnceCell::new(),
             paths: (model.to_path_buf(), vfms.to_path_buf()),
@@ -68,6 +71,7 @@ pub struct Config {
     pub carry_quality: f32,
     pub quantum: usize,
     pub scale: f64,
+    pub refine: Option<PathBuf>,
     pub frames: Option<usize>,
     pub dir_fps: f64,
     pub outputs: Vec<Output>,
@@ -76,6 +80,7 @@ pub struct Config {
     pub encoder: Encoder,
     pub exr: Option<Exr>,
     pub vfm_batch: usize,
+    pub preview: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -103,7 +108,11 @@ pub fn taper(t: usize, overlap: usize, first: bool, last: bool) -> Vec<f32> {
         return w;
     }
     let n = overlap.min(t);
-    let ramp = |k: usize| (0.5 * (1.0 - (std::f64::consts::PI * (k + 1) as f64 / (overlap + 1) as f64).cos())) as f32;
+    let overlap_f = (overlap + 1) as f64;
+    let ramp = |k: usize| {
+        let t = std::f64::consts::PI * f64::from(u32::try_from(k + 1).unwrap_or(u32::MAX)) / overlap_f;
+        (0.5 * (1.0 - t.cos())) as f32
+    };
     if !first {
         (0..n).for_each(|k| w[k] = ramp(k));
     }
@@ -126,7 +135,7 @@ pub(crate) fn clip_name(input: &Path) -> String {
 
 pub(crate) fn clip_names(inputs: &[PathBuf]) -> Vec<String> {
     let dupes = |names: &[String], n: &String| names.iter().filter(|m| *m == n).count() > 1;
-    let base: Vec<String> = inputs.iter().map(|p| clip_name(p)).collect();
+    let base: Vec<String> = inputs.iter().map(|p| clip_name(p.as_path())).collect();
     let named: Vec<String> = inputs
         .iter()
         .zip(&base)
@@ -153,7 +162,7 @@ fn stem(o: Output, despill: f32) -> String {
         Output::Alpha => "alpha".into(),
         Output::Fg => "fg".into(),
         Output::Cutout => "cutout".into(),
-        Output::Checker => format!("checker_comp_despill{:03}", (despill * 100.0) as u32),
+        Output::Checker => format!("checker_comp_despill{:03}", (despill * 100.0).clamp(0.0, 100.0) as u32),
     }
 }
 

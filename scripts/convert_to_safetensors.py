@@ -2,7 +2,7 @@
 """Convert legacy .pt runtime assets to .safetensors for public release.
 
 Writes `corridorkey_v2.safetensors` (state dict, with the model configuration
-in the file header) and `foundation_stats.safetensors` (the six normalization
+in the file header) and `foundation_stats.safetensors` (the six normalisation
 vectors). Training-side provenance stored in the .pt files is not carried over.
 """
 

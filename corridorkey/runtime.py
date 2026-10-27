@@ -682,7 +682,7 @@ def _resize_output_torch(x: torch.Tensor, meta: dict) -> torch.Tensor:
     if tuple(meta["model_native_hw"]) == tuple(meta["output_hw"]):
         return x
     raise RuntimeError(
-        "optimized runtime render path requires native model_scale=1.0; "
+        "optimised runtime render path requires native model_scale=1.0; "
         "non-native scaling would need explicit Lanczos output rendering")
 
 
@@ -738,7 +738,7 @@ def _render_predictions_exr_torch(meta: dict, outputs: set[str],
     """Render a stage-2 batch as unclamped scene-linear float32 NHWC arrays.
 
     HDR contract: `fg`, `cutout`, and `checker` color stays in decoded linear
-    light with no [0, 1] clamp and no quantization, so values above 1.0 (and
+    light with no [0, 1] clamp and no quantisation, so values above 1.0 (and
     negative values the model may emit) survive into the EXR files. Alpha is a
     matte and stays clamped to [0, 1].
     """

@@ -5,6 +5,7 @@ version.workspace = true
 
 [package.metadata.ptx]
 launch_bounds = [256, 4]
+entry_bounds  = {refine_conv = {61 = [256, 4], 75 = [256, 4], 80 = [256, 2], 90a = [256, 2], 100a = [256, 2], 120 = [256, 2]}, refine_in = {61 = [256, 2], 75 = [256, 2], 80 = [256, 2], 90a = [256, 2], 100a = [256, 2], 120 = [256, 2]}, refine_mma = {75 = [256, 2], 80 = [256, 2], 90a = [256, 2], 100a = [256, 2], 120 = [256, 2]}}
 
 [lib]
 crate-type = ["cdylib"]
