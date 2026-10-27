@@ -1,3 +1,4 @@
+use ck_arch::convert::Idx;
 use ck_arch::{bf16x2, commit, mma16, operand, pack, stage16, wait};
 use ptx::mma::{ldmatrix_x2_b16_u32, ldmatrix_x4_b16_u32, ldmatrix_x4_trans_b16_u32};
 use ptx::num::f32::ptx_exp2_approx;
@@ -17,18 +18,22 @@ pub const THREADS: usize = BR / (16 * RB) * 32;
 const KS: usize = 6;
 const DN: usize = 12;
 
+#[allow(clippy::cast_possible_truncation)]
 const fn row(d: usize) -> u32 {
     ((d + 8) * 2) as u32
 }
 
+#[allow(clippy::cast_possible_truncation)]
 const fn tile(d: usize) -> u32 {
     BC as u32 * row(d)
 }
 
+#[allow(clippy::cast_possible_truncation)]
 const fn slot_bytes(d: usize) -> u32 {
     2 * tile(d) + 4 * BC as u32
 }
 
+#[allow(clippy::cast_possible_truncation)]
 pub const fn shared(d: usize) -> u32 {
     STAGES as u32 * slot_bytes(d)
 }
@@ -53,6 +58,7 @@ fn quad_sum(v: f32) -> f32 {
 }
 
 #[inline(always)]
+#[allow(clippy::cast_possible_truncation, clippy::inline_always)]
 fn load<const D: usize, const MASK: bool>(
     (keys, values): (usize, usize),
     rid: GpuSlice<u32>,
@@ -60,6 +66,7 @@ fn load<const D: usize, const MASK: bool>(
     (window, kb): (usize, usize),
     slot: u32,
     (kmul, vmul): (f32, f32),
+
 ) {
     let s = shape;
     let tid = thread_idx_x() as usize;
@@ -69,15 +76,17 @@ fn load<const D: usize, const MASK: bool>(
         let (which, rem) = (i / (BC * dn), i % (BC * dn));
         let (key, ch) = (rem / dn, rem % dn);
         let token = (kb * BC + key).min(s.n - 1);
+
         let src = if which == 0 { keys } else { values } + 2 * (token * D + ch * 8);
         stage16(
-            slot + which as u32 * tile(D) + key as u32 * row(D) + ch as u32 * 16,
+            slot + which.u32() * tile(D) + key.u32() * row(D) + ch.u32() * 16,
             src,
             if which == 0 { kmul } else { vmul },
         );
     });
     if MASK && tid < BC {
         let token = (kb * BC + tid).min(s.n - 1);
+
         unsafe {
             shst_u32(
                 slot + 2 * tile(D) + 4 * tid as u32,
@@ -88,6 +97,7 @@ fn load<const D: usize, const MASK: bool>(
 }
 
 #[inline(always)]
+#[allow(clippy::inline_always)]
 fn softmax(m: &mut [f32; 2], l: &mut [f32; 2], s: &mut [[f32; 4]; 8], scale: f32) -> [f32; 2] {
     let mut corr = [0.0f32; 2];
     ptx::unroll!(2, |r| {
@@ -99,6 +109,7 @@ fn softmax(m: &mut [f32; 2], l: &mut [f32; 2], s: &mut [[f32; 4]; 8], scale: f32
         } else {
             -m_new * scale
         };
+
         corr[r] = ptx_exp2_approx(m[r].fma_rn(scale, shift));
         let mut sum = 0.0f32;
         ptx::unroll!(8, |j| {
@@ -113,6 +124,7 @@ fn softmax(m: &mut [f32; 2], l: &mut [f32; 2], s: &mut [[f32; 4]; 8], scale: f32
 }
 
 #[inline(always)]
+#[allow(clippy::cast_possible_truncation, clippy::inline_always)]
 fn step<const D: usize, const MASK: bool>(
     mut acc: Acc,
     qa: &[[[u32; 4]; KS]; RB],
@@ -121,6 +133,7 @@ fn step<const D: usize, const MASK: bool>(
     scale: f32,
 ) -> Acc {
     let lane = thread_idx_x() % 32;
+
     let (kbuf, vbuf, rbuf) = (buf, buf + tile(D), buf + 2 * tile(D));
     let mut s = [[[0.0f32; 4]; 8]; RB];
     ptx::unroll!(8, |j| {
@@ -131,6 +144,7 @@ fn step<const D: usize, const MASK: bool>(
             kf[2 * p] = [r[0], r[1]];
             kf[2 * p + 1] = [r[2], r[3]];
         });
+
         if D % 32 != 0 {
             kf[D / 16 - 1] =
                 unsafe { ldmatrix_x2_b16_u32(at + ((D / 8 - 2) as u32 + (lane / 8) % 2) * 16) };
@@ -141,6 +155,7 @@ fn step<const D: usize, const MASK: bool>(
             });
         });
     });
+
     if (MASK && masked) || valid < BC {
         let quad = (lane % 4) as usize;
         ptx::unroll!(8, |j| ptx::unroll!(2, |e| {
@@ -150,6 +165,7 @@ fn step<const D: usize, const MASK: bool>(
             } else {
                 0
             };
+
             ptx::unroll!(2, |rb| if rb < RB {
                 ptx::unroll!(
                     2,
@@ -160,6 +176,7 @@ fn step<const D: usize, const MASK: bool>(
             });
         }));
     }
+
     ptx::unroll!(2, |rb| if rb < RB {
         let corr = softmax(&mut acc.m[rb], &mut acc.l[rb], &mut s[rb], scale);
         ptx::unroll!(12, |dn| if dn < D / 8 {
@@ -170,6 +187,7 @@ fn step<const D: usize, const MASK: bool>(
     ptx::unroll!(4, |kk| {
         let pa: [[u32; 4]; RB] = core::array::from_fn(|rb| {
             let (x, y) = (s[rb][2 * kk], s[rb][2 * kk + 1]);
+
             [
                 pack(x[0], x[1]),
                 pack(x[2], x[3]),
@@ -180,6 +198,7 @@ fn step<const D: usize, const MASK: bool>(
         let key = kk as u32 * 16 + (mi % 2) * 8 + lane % 8;
         ptx::unroll!(6, |p| if p < D / 16 {
             let v = unsafe {
+
                 ldmatrix_x4_trans_b16_u32(vbuf + key * row(D) + (2 * p as u32 + mi / 2) * 16)
             };
             ptx::unroll!(2, |rb| if rb < RB {
@@ -192,6 +211,7 @@ fn step<const D: usize, const MASK: bool>(
 }
 
 #[inline(always)]
+#[allow(clippy::cast_possible_truncation, clippy::inline_always)]
 pub fn attn<const D: usize, const MASK: bool>(
     (query, key, value): (GpuSlice<u32>, GpuSlice<u32>, GpuSlice<u32>),
     (rid, spans, mul): (GpuSlice<u32>, GpuSlice<u32>, GpuSlice<f32>),
@@ -202,6 +222,7 @@ pub fn attn<const D: usize, const MASK: bool>(
     let s = shape;
     let (qmul, kmul, vmul) = (mul[0], mul[1], mul[2]);
     let scale = scale / (qmul * kmul);
+
     let smem = shared_window();
     let tid = thread_idx_x() as usize;
     let (lane, warp) = (tid % 32, tid / 32);
@@ -214,6 +235,7 @@ pub fn attn<const D: usize, const MASK: bool>(
         value.addr_at(base / 2) as usize,
     );
     let tiles = s.n.div_ceil(BC);
+
     let own = if MASK {
         let first = span(spans, tiles, w, 2 * qx);
         let second = span(spans, tiles, w, (2 * qx + 1).min(tiles - 1));
@@ -226,6 +248,7 @@ pub fn attn<const D: usize, const MASK: bool>(
         own.1 >= 0 && hi >= own.0 && lo <= own.1
     };
     let next = |t: usize| (t..tiles).find(|&t| !MASK || seen(t)).unwrap_or(tiles);
+
     let slot = |j: usize| smem + u32::from(STAGES == 2 && j % 2 == 1) * slot_bytes(D);
     let ld = |t: usize, j: usize| {
         if t < tiles {
@@ -236,6 +259,7 @@ pub fn attn<const D: usize, const MASK: bool>(
     let first = next(0);
     if STAGES == 2 {
         ld(first, 0);
+
     }
     let rows: [[usize; 2]; RB] = core::array::from_fn(|rb| {
         let top = qx * BR + (warp * RB + rb) * 16 + group;
@@ -246,6 +270,7 @@ pub fn attn<const D: usize, const MASK: bool>(
     };
     let mut qa = [[[0u32; 4]; KS]; RB];
     ptx::unroll!(2, |rb| if rb < RB {
+
         ptx::unroll!(6, |ks| if ks < D / 16 {
             let d = 16 * ks + 2 * quad;
             qa[rb][ks] = [
@@ -256,6 +281,7 @@ pub fn attn<const D: usize, const MASK: bool>(
             ];
         });
     });
+
     let qrid: [[u32; 2]; RB] = core::array::from_fn(|rb| {
         core::array::from_fn(|r| {
             if MASK {
@@ -265,6 +291,7 @@ pub fn attn<const D: usize, const MASK: bool>(
             }
         })
     });
+
     let init = Acc {
         m: [[f32::NEG_INFINITY; 2]; RB],
         l: [[0.0; 2]; RB],
@@ -278,6 +305,7 @@ pub fn attn<const D: usize, const MASK: bool>(
         } else {
             ld(next(t + 1), j + 1);
         }
+
         wait::<{ STAGES - 1 }>();
         sync_threads();
         let valid = (s.n - t * BC).min(BC);
@@ -293,12 +321,14 @@ pub fn attn<const D: usize, const MASK: bool>(
 }
 
 #[inline(always)]
+#[allow(clippy::cast_possible_wrap, clippy::inline_always)]
 fn write<const D: usize, const MASK: bool>(
     acc: &Acc,
     rows: &[[usize; 2]; RB],
     qrid: &[[u32; 2]; RB],
     (base, quad, vmul): (usize, usize, f32),
     out: &mut GpuSliceMut<u32>,
+
     n: usize,
 ) {
     ptx::unroll!(2, |rb| if rb < RB {
@@ -307,6 +337,7 @@ fn write<const D: usize, const MASK: bool>(
             let inv = if outside {
                 0.0
             } else {
+
                 1.0 / (quad_sum(acc.l[rb][r]) * vmul)
             };
             if rows[rb][r] < n {
