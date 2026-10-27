@@ -234,7 +234,35 @@ def main() -> None:
         tag = f"{gpus.replace(',', '+')}_{t}p_{launcher}"
         label = " + ".join(names[g] for g in gpus.split(","))
         rc, wall, meter = run(gpus, label, cmd, OUT / "logs" / f"{tag}.log", env or {})
-        if launcher == "stock":
+        log = (OUT / "logs" / f"{tag}.log").read_text(errors="replace").lower()
+        # Pre-sm_80 GPUs fall back to fp32 math for bf16 SDPA, so the stock
+        # VRAM tables underestimate; --low_vram pins hann_chunk=80, so also
+        # cap the window size on the retry ladder.
+        ladder = (
+            []
+            if launcher == "ck"
+            else [
+                ("low_vram", ["--low_vram"]),
+                ("low_vram hann24", ["--low_vram", "--hann_chunk", "24"]),
+                ("low_vram hann8", ["--low_vram", "--hann_chunk", "8"]),
+                ("low_vram hann2", ["--low_vram", "--hann_chunk", "2"]),
+            ]
+        )
+        for suffix, extra in ladder:
+            if not (rc and "out of memory" in log):
+                break
+            print(f"{tag}: out of memory, retrying with {' '.join(extra)}")
+            launcher = f"{launcher.rsplit(' (', 1)[0]} ({suffix})"
+            tag = f"{gpus.replace(',', '+')}_{t}p_{launcher}"
+            rc, wall, meter = run(
+                gpus,
+                label,
+                [*cmd, *extra],
+                OUT / "logs" / f"{tag}.log",
+                env or {},
+            )
+            log = (OUT / "logs" / f"{tag}.log").read_text(errors="replace").lower()
+        if rc == 0 and launcher.startswith("stock"):
             base[gpus + str(t)] = wall
         ok, ref = rc == 0, base.get(gpus + str(t))
         vram, util, watts, joules = meter.stats()
