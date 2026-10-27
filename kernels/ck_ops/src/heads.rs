@@ -1,4 +1,5 @@
 use crate::{gid, rn, sigmoid};
+use ck_arch::convert::Idx;
 use ptx::kernel;
 use ptx::mem::{ld_global_nc_v4_f32, ld_global_nc_v4_u32, st_global_v4_u32};
 use ptx::prelude::*;
@@ -88,6 +89,7 @@ struct Lanes {
     per: u32,
 }
 
+#[allow(clippy::cast_precision_loss)]
 fn head(
     vals: [f32; 8],
     norm: Option<GpuSlice<f32>>,
@@ -101,6 +103,7 @@ fn head(
         let sq = v.iter().fold(0.0f32, |acc, &e| e.fma_rn(e, acc));
         let sum = (0..l.per).fold(0.0, |acc, k| acc + shfl_idx(sq, (l.first + k) & 31));
         let inv = (sum / (8 * l.per) as f32 + eps).rsqrt();
+
         let (lo, hi) = (quad(w, at), quad(w, at + 4));
         ptx::unroll!(8, |j| v[j] *= inv * if j < 4 { lo[j] } else { hi[j - 4] });
     }
@@ -116,6 +119,8 @@ fn head(
 }
 
 #[kernel]
+#[allow(clippy::cast_possible_truncation)]
+
 pub fn split(
     qkv: &[u16],
     qw: &[f32],
@@ -129,6 +134,7 @@ pub fn split(
     windows: u32,
     t: u32,
     gh: u32,
+
     gw: u32,
     ph: u32,
     pw: u32,
@@ -141,6 +147,7 @@ pub fn split(
     eps: f32,
     mode: u32,
 ) {
+
     let [t, gh, gw, ph, pw, wh, ww] = [t, gh, gw, ph, pw, wh, ww].map(|v| v as usize);
     let [heads, d, head0, hc] = [heads, d, head0, hc].map(|v| v as usize);
     let win = Windows {
@@ -152,6 +159,7 @@ pub fn split(
         wh,
         ww,
     };
+
     let n = win.tokens();
     let per = d / 8;
     let lane = thread_idx_x() as usize % 32;
@@ -159,8 +167,9 @@ pub fn split(
     let i = (block_idx_x() as usize * 8 + thread_idx_x() as usize / 32) * (32 / per) + slot;
     let l = Lanes {
         part: lane % per,
-        first: (slot * per) as u32,
-        per: per as u32,
+        first: (slot * per).u32(),
+        per: per.u32(),
+
     };
     let live = slot < 32 / per && i < windows as usize * hc * n;
     let (hh, w) = (i / n % hc, i / (n * hc));
@@ -169,6 +178,7 @@ pub fn split(
     } else {
         0
     };
+
     let g = if live { win.grid(w, tok) } else { None };
     let row = g.map_or(0, |g| g * 3 * heads * d + (head0 + hh) * d) + 8 * l.part;
     let load = |at: usize| g.map_or([0.0; 8], |_| chunk(qkv, at));
@@ -177,6 +187,7 @@ pub fn split(
     let qv = head(load(row), norm.then_some(qw), rope, eps, &l);
     let kv = head(load(row + heads * d), norm.then_some(kw), rope, eps, &l);
     if !live {
+
         return;
     }
     let to = i * d + 8 * l.part;
@@ -196,6 +207,7 @@ pub fn merge(
     ld: u32,
     t: u32,
     gh: u32,
+
     gw: u32,
     ph: u32,
     pw: u32,
@@ -207,6 +219,7 @@ pub fn merge(
     hc: u32,
 ) {
     let [t, gh, gw, ph, pw, wh, ww] = [t, gh, gw, ph, pw, wh, ww].map(|v| v as usize);
+
     let [heads, d, head0, hc] = [heads, d, head0, hc].map(|v| v as usize);
     let win = Windows {
         t,
@@ -217,6 +230,7 @@ pub fn merge(
         wh,
         ww,
     };
+
     let i = gid();
     let per = d / 8;
     if i >= tokens as usize * hc * per {
@@ -227,6 +241,7 @@ pub fn merge(
     let tok = win.reorder(order, true, w, tok);
     let s = sigmoid(gate[g * heads + head0 + hh]);
     let vals = chunk(o, ((w * hc + hh) * win.tokens() + tok) * d + j).map(|x| x * s);
+
     let row = g * ld as usize;
     store(&mut out, row + (head0 + hh) * d + j, vals);
     if head0 + hh + j == 0 && ld as usize > heads * d {

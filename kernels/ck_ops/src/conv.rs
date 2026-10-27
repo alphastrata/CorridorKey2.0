@@ -25,6 +25,7 @@ impl Geo {
         } else {
             (col / (g.k * g.k), col / g.k % g.k, col % g.k)
         };
+
         let (b, oy, ox) = (row / (g.oh * g.ow), row / g.ow % g.oh, row % g.ow);
         [
             b,
@@ -62,6 +63,7 @@ pub fn im2col(
     oh: u32,
     ow: u32,
     nhwc: u32,
+
 ) {
     let [n, c, h, w, k, s, p, oh, ow] = [n, c, h, w, k, s, p, oh, ow].map(|v| v as usize);
     let g = Geo {
@@ -75,6 +77,7 @@ pub fn im2col(
         ow,
         nhwc: nhwc != 0,
     };
+
     let (i, total) = (gid() * 8, n * oh * ow * c * k * k);
     if i >= total {
         return;
@@ -85,6 +88,7 @@ pub fn im2col(
             let at = if g.nhwc {
                 [b, ch + e, iy, ix]
             } else {
+
                 [b, ch, iy, ix.wrapping_add(e)]
             };
             g.read(x, at)
@@ -103,6 +107,7 @@ pub fn col2im(
     n: u32,
     c: u32,
     th: u32,
+
     tw: u32,
     k: u32,
     s: u32,
@@ -111,6 +116,7 @@ pub fn col2im(
     ow: u32,
 ) {
     let i = gid();
+
     let [n, c, th, tw, k, s, p, oh, ow] = [n, c, th, tw, k, s, p, oh, ow].map(|v| v as usize);
     if i >= n * c * oh * ow {
         return;
@@ -121,6 +127,7 @@ pub fn col2im(
         let lo = (o + p + s).saturating_sub(k) / s;
         lo..=hi
     };
+
     let sum = taps(y, th).fold(bias[ch], |acc, ty| {
         taps(x, tw).fold(acc, |acc, tx| {
             let (ky, kx) = (y + p - ty * s, x + p - tx * s);
@@ -138,6 +145,7 @@ pub fn shuffle(x: &[f32], out: &mut [f32], n: u32, h: u32, w: u32, c: u32, r: u3
         return;
     }
     let (ch, xx, yy, b) = (
+
         i % c,
         i / c % (w * r),
         i / (c * w * r) % (h * r),

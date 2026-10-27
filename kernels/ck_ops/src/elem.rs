@@ -1,4 +1,5 @@
 use crate::{bf, gelu, gelu_tanh, gid, rn, silu};
+use ck_arch::convert::{Conv, F16Bits, Host};
 use ptx::kernel;
 use ptx::mem::{ld_global_nc_v4_f32, st_global_v4_f32};
 use ptx::num::f16::cvt_rn_f16_f32;
@@ -25,9 +26,9 @@ pub fn act_f32(x: &[f32], out: &mut [f32], n: u32, kind: u32) {
 #[kernel]
 pub fn act_bf16(x: &[f32], out: &mut [u16], n: u32, kind: u32, c: u32, ld: u32) {
     let i = gid();
-    if i < n as usize {
-        let (r, j, c) = (i / c as usize, i % c as usize, c as usize);
-        out.set(r * ld as usize + j, rn(act(x[i], kind)));
+    if i < n.usize() {
+        let (r, j, c) = (i / c.usize(), i % c.usize(), c.usize());
+        out.set(r * ld.usize() + j, rn(act(x[i], kind)));
         if j == 0 && ld as usize > c {
             tail(&mut out, r * ld as usize + c);
         }
@@ -55,10 +56,11 @@ pub fn to_bf16(x: &[f32], out: &mut [u16], n: u32) {
 }
 
 #[kernel]
+#[allow(clippy::cast_possible_truncation)]
 pub fn bf16_f16(x: &[u16], out: &mut [u16], n: u32) {
     let i = gid();
     if i < n as usize {
-        out.set(i, cvt_rn_f16_f32(bf(x[i]).clamp(-65504.0, 65504.0)) as u16);
+        out.set(i, cvt_rn_f16_f32(bf(x[i]).clamp(-65504.0, 65504.0)).u16());
     }
 }
 
@@ -99,6 +101,7 @@ pub fn add_bias(y: &mut [f32], b: &[f32], rows: u32, n: u32, ld: u32, off: u32) 
     }
     let (r, j) = (i / quads, 4 * (i % quads));
     let at = r * ld as usize + off as usize + j;
+
     let (v, w) = unsafe {
         (
             ld_global_nc_v4_f32(y.addr_at(at)),
@@ -121,6 +124,7 @@ pub fn add_gated(
     gld: u32,
 ) {
     let i = gid();
+
     let [rows, c, ld, off, per, gld] = [rows, c, ld, off, per, gld].map(|v| v as usize);
     if i >= rows * c {
         return;
@@ -135,12 +139,14 @@ pub fn add_gated(
 }
 
 #[kernel]
+#[allow(clippy::cast_precision_loss)]
 pub fn norm_mod(
     x: &[f32],
     weight: &[f32],
     params: &[f32],
     out: &mut [u16],
     pixels: u32,
+
     c: u32,
     eps: f32,
     per: u32,
@@ -149,6 +155,7 @@ pub fn norm_mod(
     scale: u32,
 ) {
     let p = (block_idx_x() * 8 + thread_idx_x() / 32) as usize;
+
     if p >= pixels as usize {
         return;
     }
@@ -160,7 +167,8 @@ pub fn norm_mod(
     let sq = [16, 8, 4, 2, 1].into_iter().fold(sq, |acc, m| {
         acc + f32::from_bits(shfl_bfly_sync_b32(acc.to_bits(), m, 0x1f))
     });
-    let inv = (sq / c as f32 + eps).rsqrt();
+
+    let inv = (sq / c.f32() + eps).rsqrt();
     let row = p / per as usize * ld as usize;
     (lane..c).step_by(32).for_each(|j| {
         let v = x[p * c + j] * inv * weight[j];

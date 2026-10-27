@@ -1,4 +1,5 @@
 use crate::{gid, rn, sigmoid};
+use ck_arch::convert::Host;
 use ptx::kernel;
 use ptx::num::f16::{cvt_f32_f16, cvt_rn_f16_f32};
 use ptx::prelude::*;
@@ -12,10 +13,11 @@ fn warp_sum(v: f32) -> f32 {
 }
 
 fn row(rows: u32) -> Option<(usize, usize)> {
-    let r = (block_idx_x() * 8 + thread_idx_x() / 32) as usize;
-    (r < rows as usize).then_some((r, thread_idx_x() as usize % 32))
+    let r = block_idx_x().usize() * 8 + thread_idx_x().usize() / 32;
+    (r < rows.usize()).then_some((r, thread_idx_x().usize() % 32))
 }
 
+#[allow(clippy::cast_precision_loss)]
 fn moments(x: GpuSlice<f32>, base: usize, c: usize, lane: usize, eps: f32) -> (f32, f32) {
     let mean = warp_sum((lane..c).step_by(32).fold(0.0, |a, j| a + x[base + j])) / c as f32;
     let var = warp_sum((lane..c).step_by(32).fold(0.0f32, |a, j| {
@@ -44,6 +46,7 @@ pub fn layer_norm_f32(
     rows: u32,
     c: u32,
     eps: f32,
+
 ) {
     let Some((r, lane)) = row(rows) else { return };
     let (c, base) = (c as usize, r * c as usize);
@@ -62,6 +65,7 @@ pub fn heads(
     b: u32,
     n: u32,
     heads: u32,
+
     d: u32,
     dp: u32,
 ) {
@@ -71,6 +75,7 @@ pub fn heads(
     if i >= 3 * per {
         return;
     }
+
     let (which, o) = (i / per, i % per);
     let (j, tok, h, bb) = (
         o % dp,
@@ -81,6 +86,7 @@ pub fn heads(
     let val = if j < d {
         qkv[(((bb * n + tok) * 3 + which) * heads + h) * d + j]
     } else {
+
         0
     };
     match which {
@@ -103,6 +109,7 @@ pub fn unheads(o: &[u16], out: &mut [u16], b: u32, n: u32, heads: u32, d: u32, d
         i / (d * heads) % n,
         i / (d * heads * n),
     );
+
     let row = (bb * n + tok) * ld as usize;
     out.set(row + h * d + j, o[((bb * heads + h) * n + tok) * dp + j]);
     if h + j == 0 && ld as usize > heads * d {
@@ -123,6 +130,7 @@ pub fn embed(
 ) {
     let i = gid();
     let [b, p, hw, c] = [b, p, hw, c].map(|v| v as usize);
+
     let n = p + hw;
     if i >= b * n * c {
         return;
@@ -150,6 +158,7 @@ pub fn standardise(
 ) {
     let i = gid();
     let [b, skip, hw, c] = [b, skip, hw, c].map(|v| v as usize);
+
     if i >= b * c * hw {
         return;
     }

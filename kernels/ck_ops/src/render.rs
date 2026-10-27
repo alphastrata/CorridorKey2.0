@@ -35,11 +35,13 @@ fn checker(x: usize, y: usize) -> f32 {
     })
 }
 
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn unorm(v: f32) -> u16 {
     (v.clamp(0.0, 1.0) * 65535.0) as u16
 }
 
 #[kernel]
+
 pub fn render(
     logits: &[f32],
     out: &mut [u16],
@@ -49,6 +51,7 @@ pub fn render(
     w: u32,
     top: u32,
     left: u32,
+
     kind: u32,
     strength: f32,
     linear_cutout: u32,
@@ -60,6 +63,7 @@ pub fn render(
     let i = gid();
     let [h0, w0, h, w, top, left] = [h0, w0, h, w, top, left].map(|v| v as usize);
     if i >= h0 * w0 {
+
         return;
     }
     let (x, y) = (i % w0, i / w0);
@@ -71,6 +75,7 @@ pub fn render(
         contrast,
         pivot,
     };
+
     let lin = linear(at, adj).map(|v| v.max(0.0));
     let srgb = lin.map(|v| to_srgb(v).clamp(0.0, 1.0));
     let (rgb, alpha) = match kind {
@@ -80,6 +85,7 @@ pub fn render(
             despill(if linear_cutout == 0 { srgb } else { lin }, strength),
             Some(a),
         ),
+
         _ => {
             let bg = checker(x, y);
             (
@@ -88,6 +94,7 @@ pub fn render(
                 None,
             )
         }
+
     };
     let ch = 3 + usize::from(alpha.is_some());
     [rgb[2], rgb[1], rgb[0]]
@@ -98,6 +105,7 @@ pub fn render(
 }
 
 #[kernel]
+
 pub fn render_exr(
     logits: &[f32],
     out: &mut [f32],
@@ -107,6 +115,7 @@ pub fn render_exr(
     w: u32,
     top: u32,
     left: u32,
+
     kind: u32,
     strength: f32,
     half: u32,
@@ -118,6 +127,7 @@ pub fn render_exr(
     let i = gid();
     let [h0, w0, h, w, top, left] = [h0, w0, h, w, top, left].map(|v| v as usize);
     if i >= h0 * w0 {
+
         return;
     }
     let (x, y) = (i % w0, i / w0);
@@ -129,6 +139,7 @@ pub fn render_exr(
         contrast,
         pivot,
     };
+
     let lin = linear(at, adj);
     let rgb = match kind {
         0 => [a; 3],
@@ -138,6 +149,7 @@ pub fn render_exr(
             let bg = checker(x, y);
             despill(lin, strength).map(|v| v * a + bg * (1.0 - a))
         }
+
     };
     let mut store = |p: usize, v: f32| {
         let v = if half == 0 {
@@ -145,6 +157,7 @@ pub fn render_exr(
         } else {
             cvt_f32_f16(cvt_rn_f16_f32(v.clamp(-65504.0, 65504.0)))
         };
+
         out.set(p * h0 * w0 + i, v);
     };
     if kind == 0 {
