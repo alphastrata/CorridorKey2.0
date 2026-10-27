@@ -520,9 +520,11 @@ component Inspector inherits Rectangle {
         PanelTitle {
             text: "INSPECTOR";
         }
-        ScrollView {
+        sv := ScrollView {
             vertical-stretch: 1;
+            viewport-width: self.visible-width;
             VerticalLayout {
+                width: sv.visible-width;
                 padding-right: 10px;
                 spacing: 6px;
                 Section {
@@ -544,6 +546,7 @@ component Inspector inherits Rectangle {
                         label: "Alpha hint";
                         enabled: Queue.editable;
                         ComboBox {
+                            min-width: 0;
                             model: ["No hint", "First-frame matte", "Full hint video or folder"];
                             current-index <=> Queue.hint-kind;
                             enabled: Queue.editable;
@@ -553,6 +556,7 @@ component Inspector inherits Rectangle {
                     HorizontalLayout {
                         spacing: 6px;
                         LineEdit {
+                            min-width: 0;
                             text <=> Queue.hint-path;
                             placeholder-text: "None attached";
                             enabled: Queue.editable && Queue.hint-kind != 0;
@@ -571,6 +575,7 @@ component Inspector inherits Rectangle {
                         label: "Run with";
                         enabled: !root.locked;
                         ComboBox {
+                            min-width: 0;
                             model: [Job.ck-built ? "ck · Rust launcher" : "ck · not built", "Python · our kernels", "Python · stock kernels"];
                             current-index <=> Job.backend;
                             enabled: !root.locked;
@@ -581,6 +586,7 @@ component Inspector inherits Rectangle {
                         label: "Encoder";
                         enabled: !root.locked && root.ck && !root.exr;
                         ComboBox {
+                            min-width: 0;
                             model: ["x264 · CPU", "HEVC · NVENC on the GPU"];
                             current-index <=> Job.codec;
                             enabled: !root.locked && root.ck && !root.exr;
@@ -594,12 +600,14 @@ component Inspector inherits Rectangle {
                         spacing: 8px;
                         Row {
                             CheckBox {
+                                min-width: 0;
                                 text: "Alpha matte";
                                 checked <=> Job.out-alpha;
                                 enabled: !root.locked;
                                 toggled => { Job.changed(); }
                             }
                             CheckBox {
+                                min-width: 0;
                                 text: "Foreground";
                                 checked <=> Job.out-fg;
                                 enabled: !root.locked;
@@ -608,12 +616,14 @@ component Inspector inherits Rectangle {
                         }
                         Row {
                             CheckBox {
+                                min-width: 0;
                                 text: "Cutout (RGBA)";
                                 checked <=> Job.out-cutout;
                                 enabled: !root.locked;
                                 toggled => { Job.changed(); }
                             }
                             CheckBox {
+                                min-width: 0;
                                 text: "Checker preview";
                                 checked <=> Job.out-checker;
                                 enabled: !root.locked;
@@ -625,6 +635,7 @@ component Inspector inherits Rectangle {
                         label: "Format";
                         enabled: !root.locked;
                         ComboBox {
+                            min-width: 0;
                             model: ["Preview video", "EXR sequence · HDR"];
                             current-index <=> Job.format;
                             enabled: !root.locked;
@@ -635,6 +646,7 @@ component Inspector inherits Rectangle {
                         label: "EXR type";
                         enabled: !root.locked && root.exr;
                         ComboBox {
+                            min-width: 0;
                             model: ["Half float", "Full float"];
                             current-index <=> Job.exr-type;
                             enabled: !root.locked && root.exr;
@@ -645,6 +657,7 @@ component Inspector inherits Rectangle {
                         label: "Cutout colour";
                         enabled: !root.locked && Job.out-cutout && !root.exr;
                         ComboBox {
+                            min-width: 0;
                             model: ["Straight sRGB", "Straight linear"];
                             current-index <=> Job.cutout-colour;
                             enabled: !root.locked && Job.out-cutout && !root.exr;
@@ -655,6 +668,7 @@ component Inspector inherits Rectangle {
                         label: "Despill";
                         enabled: !root.locked && (Job.out-cutout || Job.out-checker);
                         Slider {
+                            min-width: 0;
                             minimum: 0;
                             maximum: 1;
                             value <=> Job.despill;
@@ -672,6 +686,7 @@ component Inspector inherits Rectangle {
                         label: "Provided hint";
                         enabled: !root.locked;
                         Slider {
+                            min-width: 0;
                             minimum: 0;
                             maximum: 1;
                             value <=> Job.hint-quality;
@@ -683,7 +698,8 @@ component Inspector inherits Rectangle {
                         }
                     }
                     CheckBox {
-                        text: "Carry the model's own matte between windows";
+                        min-width: 0;
+                        text: "Carry own matte between windows";
                         checked <=> Job.carry;
                         enabled: !root.locked;
                         toggled => { Job.changed(); }
@@ -692,6 +708,7 @@ component Inspector inherits Rectangle {
                         label: "Carried hint";
                         enabled: !root.locked && Job.carry;
                         Slider {
+                            min-width: 0;
                             minimum: 0;
                             maximum: 1;
                             value <=> Job.carry-quality;
@@ -709,6 +726,7 @@ component Inspector inherits Rectangle {
                         label: "Mode";
                         enabled: !root.locked;
                         ComboBox {
+                            min-width: 0;
                             model: ["Auto · fit to free memory", "Manual"];
                             current-index <=> Job.vram-mode;
                             enabled: !root.locked;
@@ -716,7 +734,8 @@ component Inspector inherits Rectangle {
                         }
                     }
                     CheckBox {
-                        text: "Low-VRAM mode (staged, slower)";
+                        min-width: 0;
+                        text: "Low-VRAM (staged, slower)";
                         checked <=> Job.low-vram;
                         enabled: !root.locked && root.manual && !root.ck;
                         toggled => { Job.changed(); }
@@ -725,6 +744,7 @@ component Inspector inherits Rectangle {
                         label: "Window";
                         enabled: !root.locked && root.manual;
                         ComboBox {
+                            min-width: 0;
                             model: root.presets;
                             current-index: root.preset;
                             enabled: !root.locked && root.manual;
@@ -741,6 +761,7 @@ component Inspector inherits Rectangle {
                         label: "Chunk / stride";
                         enabled: !root.locked && root.manual;
                         SpinBox {
+                            min-width: 0;
                             minimum: 1;
                             maximum: 400;
                             value <=> Job.chunk;
@@ -748,6 +769,7 @@ component Inspector inherits Rectangle {
                             edited => { Job.changed(); }
                         }
                         SpinBox {
+                            min-width: 0;
                             minimum: 1;
                             maximum: 400;
                             value <=> Job.stride;
@@ -759,6 +781,7 @@ component Inspector inherits Rectangle {
                         label: "Scratch";
                         enabled: !root.locked && !root.ck;
                         LineEdit {
+                            min-width: 0;
                             text <=> Job.temp-dir;
                             placeholder-text: "System temp";
                             enabled: !root.locked && !root.ck;
@@ -778,7 +801,8 @@ component Inspector inherits Rectangle {
                         label: "Colour";
                         enabled: !root.locked;
                         ComboBox {
-                            model: ["Auto · EXR linear, PNG/JPG sRGB", "Scene-linear", "sRGB"];
+                            min-width: 0;
+                            model: ["Auto · EXR linear, else sRGB", "Scene-linear", "sRGB"];
                             current-index <=> Job.frame-colour;
                             enabled: !root.locked;
                             selected => { Job.changed(); }
@@ -788,6 +812,7 @@ component Inspector inherits Rectangle {
                         label: "Frame rate";
                         enabled: !root.locked;
                         LineEdit {
+                            min-width: 0;
                             text <=> Job.fps;
                             input-type: decimal;
                             enabled: !root.locked;
@@ -802,6 +827,7 @@ component Inspector inherits Rectangle {
                         label: "Length";
                         enabled: !root.locked;
                         SpinBox {
+                            min-width: 0;
                             minimum: 0;
                             maximum: 1000000;
                             value <=> Job.num-frames;
@@ -819,6 +845,7 @@ component Inspector inherits Rectangle {
                         label: "Take";
                         enabled: !root.locked && Job.num-frames > 0 && !root.ck;
                         ComboBox {
+                            min-width: 0;
                             model: ["From the start", "Centred segment", "Random segment"];
                             current-index <=> Job.start-mode;
                             enabled: !root.locked && Job.num-frames > 0 && !root.ck;
@@ -829,6 +856,7 @@ component Inspector inherits Rectangle {
                 Section {
                     title: "Output folder";
                     ComboBox {
+                        min-width: 0;
                         model: ["Next to each clip · out_<name>", "All in one folder"];
                         current-index <=> Job.out-mode;
                         enabled: !root.locked;
@@ -837,6 +865,7 @@ component Inspector inherits Rectangle {
                     HorizontalLayout {
                         spacing: 6px;
                         LineEdit {
+                            min-width: 0;
                             text <=> Job.out-parent;
                             placeholder-text: "Folder for every out_<name>";
                             enabled: !root.locked && Job.out-mode == 1;

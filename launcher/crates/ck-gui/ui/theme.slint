@@ -189,7 +189,8 @@ export component Row inherits HorizontalLayout {
     spacing: 10px;
     Text {
         text: root.label;
-        width: 96px;
+        width: 92px;
+        overflow: elide;
         font-size: T.body;
         color: root.enabled ? T.muted : T.disabled;
         vertical-alignment: center;
