@@ -74,6 +74,7 @@ def main() -> None:
     assert fm.moge is not None and fm.moge.encoder is not None
     assert fm.rvm is not None
     named0 = [
+
         (f"{tag}{i}", b)
         for tag, blocks in (
             ("cradio", fm.cradio.radio_model.model.blocks),
@@ -86,6 +87,7 @@ def main() -> None:
     save(
         f"vfm_{a.tier}",
         {"display": cpu(display[0])}
+
         | {k: v for k, v in feats.items() if not k.endswith(".in")},
     )
     with config(model, "stock"):

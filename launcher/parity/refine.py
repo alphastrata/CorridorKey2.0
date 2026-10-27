@@ -90,6 +90,7 @@ def main() -> None:
         return t[:, [1, 2, 0]]
     z = ref.srgb_to_linear(fg_low) / KNEE
     tensors = {
+
         "native": gbr(rgb), "low": gbr(rgb_low), "logits": torch.cat([alpha_low, torch.asinh(z) / DENOM], 1),
         "coef": coef, "bg_low": bg, "band_low": band, "a_gf": a_gf, "fg_in": fg_in,
         "alpha": alpha, "fg": fg, "bilinear": up(alpha_low),

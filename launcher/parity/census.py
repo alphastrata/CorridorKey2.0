@@ -44,6 +44,7 @@ def main() -> None:
     ap.add_argument("--hw", type=int, nargs=2, default=[256, 384])
     ap.add_argument("--frames", type=int, default=2)
     a = ap.parse_args()
+
     model = load_model(RuntimePaths.from_package(REPO, None)).cuda()
     h, w = a.hw
     x = torch.rand(1, a.frames, 3, h, w, device="cuda")
@@ -55,6 +56,8 @@ def main() -> None:
             "stage1": (model.stage1, lambda: stage1(model, x, f)),
             "stage2": (model.stage2, lambda: frame2(model, x[:, :1], baton)),
         }
+
+
         for name, (mod, fn) in parts.items():
             hit, hooks = leaves(mod)
             with Ops() as ops:
