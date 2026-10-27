@@ -3,8 +3,12 @@ use std::time::SystemTime;
 
 pub const VIDEO: [&str; 5] = ["mp4", "mov", "avi", "mkv", "webm"];
 pub const FRAMES: [&str; 8] = ["png", "jpg", "jpeg", "exr", "tif", "tiff", "webp", "dpx"];
-pub const OUTPUTS: [(&str, &str); 4] =
-    [("alpha", "alpha"), ("fg", "fg"), ("checker", "checker_comp_despill"), ("cutout", "cutout")];
+pub const OUTPUTS: [(&str, &str); 4] = [
+    ("alpha", "alpha"),
+    ("fg", "fg"),
+    ("checker", "checker_comp_despill"),
+    ("cutout", "cutout"),
+];
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Hint {
@@ -49,7 +53,10 @@ pub struct Clip {
 }
 
 fn ext(p: &Path) -> String {
-    p.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase()
+    p.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase()
 }
 
 fn stem(p: &Path) -> String {
@@ -57,15 +64,18 @@ fn stem(p: &Path) -> String {
 }
 
 fn entries(dir: &Path) -> Vec<PathBuf> {
-    let mut all: Vec<PathBuf> = std::fs::read_dir(dir)
-        .map_or_default(|d| d.filter_map(Result::ok).map(|e| e.path()).collect());
+    let mut all: Vec<PathBuf> =
+        std::fs::read_dir(dir).map_or_default(|d| d.filter_map(Result::ok).map(|e| e.path()).collect());
     all.sort();
     all
 }
 
 #[must_use]
 pub fn frame_files(dir: &Path) -> Vec<PathBuf> {
-    entries(dir).into_iter().filter(|p| p.is_file() && FRAMES.contains(&ext(p).as_str())).collect()
+    entries(dir)
+        .into_iter()
+        .filter(|p| p.is_file() && FRAMES.contains(&ext(p).as_str()))
+        .collect()
 }
 
 fn is_video(p: &Path) -> bool {
@@ -73,7 +83,11 @@ fn is_video(p: &Path) -> bool {
 }
 
 fn sequence(dir: &Path) -> Option<(PathBuf, Option<PathBuf>)> {
-    let sub = |name: &str| entries(dir).into_iter().find(|p| p.is_dir() && p.file_name().is_some_and(|n| n.eq_ignore_ascii_case(name)));
+    let sub = |name: &str| {
+        entries(dir)
+            .into_iter()
+            .find(|p| p.is_dir() && p.file_name().is_some_and(|n| n.eq_ignore_ascii_case(name)))
+    };
     let input = sub("input")?;
     (!frame_files(&input).is_empty()).then(|| (input, sub("alphahint")))
 }
@@ -84,7 +98,9 @@ fn alpha_hint(video: &Path) -> Option<PathBuf> {
     entries(video.parent()?).into_iter().find(|p| {
         p.is_file()
             && allowed.contains(&ext(p).as_str())
-            && p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.to_lowercase().starts_with(&prefix))
+            && p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.to_lowercase().starts_with(&prefix))
     })
 }
 
@@ -96,7 +112,8 @@ fn first_frame_hint(video: &Path) -> Option<PathBuf> {
             let s = stem(p).to_lowercase();
             p.is_file()
                 && images.contains(&ext(p).as_str())
-                && s.strip_prefix(&base).is_some_and(|r| r.trim_start_matches(['_', '-', ' ']).starts_with(tag))
+                && s.strip_prefix(&base)
+                    .is_some_and(|r| r.trim_start_matches(['_', '-', ' ']).starts_with(tag))
         })
     };
     tagged("framehint").or_else(|| tagged("alphahint"))
@@ -130,7 +147,10 @@ impl Clip {
     pub fn name(&self) -> String {
         let s = stem(&self.source);
         if ["input", "frames", "rgb"].contains(&s.to_lowercase().as_str()) {
-            return self.source.parent().map_or(s, |p| p.file_name().map_or(String::new(), |n| n.to_string_lossy().into_owned()));
+            return self.source.parent().map_or(s, |p| {
+                p.file_name()
+                    .map_or(String::new(), |n| n.to_string_lossy().into_owned())
+            });
         }
         s
     }
@@ -149,7 +169,11 @@ impl Clip {
 
     #[must_use]
     pub fn output_dir_for(&self, parent: &str) -> PathBuf {
-        let base = if parent.is_empty() { self.path.parent().map_or_default(Path::to_owned) } else { PathBuf::from(parent) };
+        let base = if parent.is_empty() {
+            self.path.parent().map_or_default(Path::to_owned)
+        } else {
+            PathBuf::from(parent)
+        };
         base.join(format!("out_{}", stem(&self.path)))
     }
 
@@ -161,11 +185,18 @@ impl Clip {
             all.iter()
                 .filter(|p| {
                     let n = p.file_name().unwrap_or_default().to_string_lossy();
-                    let Some(rest) = n.strip_prefix(&format!("{name}_{suffix}")) else { return false };
+                    let Some(rest) = n.strip_prefix(&format!("{name}_{suffix}")) else {
+                        return false;
+                    };
+
                     let rest = rest.trim_start_matches(|c: char| c.is_ascii_digit());
                     (p.is_file() && (rest == ".mp4" || rest == ".mov")) || (p.is_dir() && rest == "_exr")
                 })
-                .max_by_key(|p| p.metadata().and_then(|m| m.modified()).unwrap_or(SystemTime::UNIX_EPOCH))
+                .max_by_key(|p| {
+                    p.metadata()
+                        .and_then(|m| m.modified())
+                        .unwrap_or(SystemTime::UNIX_EPOCH)
+                })
                 .cloned()
         })
     }
@@ -181,6 +212,7 @@ pub fn discover(path: &Path) -> Vec<Clip> {
     }
     if let Some((input, hint)) = sequence(path) {
         let kind = if hint.is_some() { Hint::Video } else { Hint::None };
+
         return vec![Clip::new(path, &input, true, kind, hint)];
     }
     if !frame_files(path).is_empty() {

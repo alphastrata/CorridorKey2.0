@@ -1,3 +1,4 @@
+use crate::convert::Metric;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::thread;
@@ -36,10 +37,15 @@ fn tree(sys: &System, root: u32) -> AHashSet<u32> {
             m.entry(parent).or_default().push(pid);
             m
         });
+
     let mut all = AHashSet::from_iter([root]);
     let mut stack = vec![root];
     while let Some(p) = stack.pop() {
-        kids.get(&p).into_iter().flatten().filter_map(|&c| all.insert(c).then_some(c)).for_each(|c| stack.push(c));
+        kids.get(&p)
+            .into_iter()
+            .flatten()
+            .filter_map(|&c| all.insert(c).then_some(c))
+            .for_each(|c| stack.push(c));
     }
     all
 }
@@ -47,18 +53,25 @@ fn tree(sys: &System, root: u32) -> AHashSet<u32> {
 fn process(sys: &System, pids: &AHashSet<u32>, root: u32) -> String {
     let (mut rss, mut cpu, mut threads) = (0u64, 0f32, 0usize);
     let mut kids: AHashMap<String, usize> = AHashMap::new();
-    pids.iter().filter_map(|&p| Some((p, sys.process(Pid::from_u32(p))?))).for_each(|(pid, p)| {
-        rss += p.memory();
-        cpu += p.cpu_usage();
-        threads += p.tasks().map_or(1, |t| t.len().max(1));
-        if pid != root {
-            *kids.entry(p.name().to_string_lossy().into_owned()).or_default() += 1;
-        }
-    });
-    let kids = kids.iter().map(|(n, c)| if *c > 1 { format!("{n}×{c}") } else { n.clone() }).collect::<Vec<_>>().join(", ");
+    pids.iter()
+        .filter_map(|&p| Some((p, sys.process(Pid::from_u32(p))?)))
+        .for_each(|(pid, p)| {
+            rss += p.memory();
+            cpu += p.cpu_usage();
+            threads += p.tasks().map_or(1, |t| t.len().max(1));
+            if pid != root {
+                *kids.entry(p.name().to_string_lossy().into_owned()).or_default() += 1;
+            }
+
+        });
+    let kids = kids
+        .iter()
+        .map(|(n, c)| if *c > 1 { format!("{n}×{c}") } else { n.clone() })
+        .collect::<Vec<_>>()
+        .join(", ");
     format!(
         "pid {root} · RSS {:.1} GB · CPU {cpu:.0}% · {threads} threads · children {}",
-        rss as f64 / f64::from(1u32 << 30),
+        rss.f64() / f64::from(1u32 << 30),
         if kids.is_empty() { "none" } else { &kids }
     )
 }
@@ -70,10 +83,11 @@ fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Strin
     (0..count).filter_map(|i| Some((i, nvml.device_by_index(i).ok()?))).for_each(|(i, d)| {
         let name = short(&d.name().unwrap_or_default());
         let mem = d.memory_info().ok();
-        let gib = |b: u64| b as f64 / f64::from(1u32 << 30);
+        let gib = |b: u64| b.f64() / f64::from(1u32 << 30);
         if i == 0 {
             label = mem.as_ref().map_or_else(|| name.clone(), |m| format!("{name} · {:.1} of {:.0} GB free", gib(m.free), gib(m.total)));
         }
+
         if !detailed {
             return;
         }
@@ -84,6 +98,7 @@ fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Strin
             .filter(|p| mine.contains(&p.pid))
             .map(|p| if let UsedGpuMemory::Used(b) = p.used_gpu_memory { b } else { 0 })
             .sum();
+
         let util = d.utilization_rates().map_or(0, |u| u.gpu);
         let watts = d.power_usage().unwrap_or(0) / 1000;
         let cap = d.enforced_power_limit().unwrap_or(0) / 1000;
@@ -103,12 +118,24 @@ fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Strin
 #[must_use]
 pub fn devices() -> Vec<String> {
     let Ok(nvml) = Nvml::init() else { return vec![] };
-    (0..nvml.device_count().unwrap_or(0)).map(|i| format!("GPU{i} · {}", nvml.device_by_index(i).and_then(|d| d.name()).map_or_else(|_| "?".into(), |n| short(&n)))).collect()
+    (0..nvml.device_count().unwrap_or(0))
+        .map(|i| {
+            format!(
+                "GPU{i} · {}",
+                nvml.device_by_index(i)
+                    .and_then(|d| d.name())
+                    .map_or_else(|_| "?".into(), |n| short(&n))
+            )
+        })
+        .collect()
 }
 
 /// Samples GPUs every second and the job's process tree while `detailed` is set.
 pub fn start(tx: Sender<Snapshot>) -> Probe {
-    let probe = Probe { pid: Arc::default(), detailed: Arc::default() };
+    let probe = Probe {
+        pid: Arc::default(),
+        detailed: Arc::default(),
+    };
     let p = probe.clone();
     thread::Builder::new()
         .name("telemetry".into())
@@ -118,14 +145,29 @@ pub fn start(tx: Sender<Snapshot>) -> Probe {
             loop {
                 let detailed = p.detailed.load(Ordering::Acquire);
                 let root = p.pid.load(Ordering::Acquire);
+
                 let mine = if detailed && root != 0 {
-                    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing().with_memory().with_cpu().with_tasks());
+                    sys.refresh_processes_specifics(
+                        ProcessesToUpdate::All,
+                        true,
+                        ProcessRefreshKind::nothing().with_memory().with_cpu().with_tasks(),
+                    );
                     tree(&sys, root)
                 } else {
+
                     AHashSet::new()
                 };
-                let (label, gpus) = nvml.as_ref().map_or_else(|| ("no NVML".into(), vec![]), |n| gpus(n, &mine, detailed));
-                let process = if root == 0 { "idle".into() } else if detailed { process(&sys, &mine, root) } else { String::new() };
+                let (label, gpus) = nvml
+                    .as_ref()
+                    .map_or_else(|| ("no NVML".into(), vec![]), |n| gpus(n, &mine, detailed));
+                let process = if root == 0 {
+                    "idle".into()
+                } else if detailed {
+
+                    process(&sys, &mine, root)
+                } else {
+                    String::new()
+                };
                 if tx.send(Snapshot { label, gpus, process }).is_err() {
                     return;
                 }

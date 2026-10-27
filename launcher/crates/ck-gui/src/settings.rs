@@ -21,6 +21,7 @@ pub struct Settings {
     pub window: Option<(u32, u32)>,
     pub frame_colour: u8,
     pub fps: f32,
+
     pub frames: u32,
     pub scale: u8,
     pub refine: bool,
@@ -44,6 +45,7 @@ impl Default for Settings {
             window: None,
             frame_colour: 0,
             fps: 24.0,
+
             frames: 0,
             scale: 0,
             refine: true,
@@ -70,7 +72,9 @@ impl Settings {
     }
 
     pub fn save(&self) {
-        let (Some(f), Ok(bytes)) = (file(), rkyv::to_bytes::<rancor::Error>(self)) else { return };
+        let (Some(f), Ok(bytes)) = (file(), rkyv::to_bytes::<rancor::Error>(self)) else {
+            return;
+        };
         if let Some(dir) = f.parent() {
             drop(std::fs::create_dir_all(dir));
         }
@@ -85,7 +89,10 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let s = Settings { window: Some((64, 32)), ..Settings::default() };
+        let s = Settings {
+            window: Some((64, 32)),
+            ..Settings::default()
+        };
         let bytes = rkyv::to_bytes::<rancor::Error>(&s).unwrap();
         let back: Settings = rkyv::from_bytes::<Settings, rancor::Error>(&bytes).unwrap();
         assert_eq!(s, back);

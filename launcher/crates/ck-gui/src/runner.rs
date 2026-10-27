@@ -1,10 +1,11 @@
 #[cfg(unix)]
+use crate::convert::Float;
 use nix::sys::signal::{Signal, killpg};
 #[cfg(unix)]
 use nix::unistd::Pid;
+use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::process::ExitStatusExt;
-use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Stdio};
 use std::thread;
@@ -35,6 +36,7 @@ fn pump(mut from: impl Read + Send + 'static, pid: u32, tx: Sender<Event>) {
                     let text = String::from_utf8_lossy(&line).into_owned();
                     line.clear();
                     if !text.trim().is_empty() {
+
                         drop(tx.send(Event::Line(pid, text)));
                     }
                 } else {
@@ -61,13 +63,19 @@ fn describe(status: std::process::ExitStatus) -> eyre::Result<i32> {
 
 pub fn spawn(cmd: &Command, cwd: &Path, tx: &Sender<Event>) -> std::io::Result<Job> {
     let mut c = std::process::Command::new(&cmd.program);
-    c.args(&cmd.args).envs(cmd.env.iter().copied()).current_dir(cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    c.args(&cmd.args)
+        .envs(cmd.env.iter().copied())
+        .current_dir(cwd)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut c, 0);
     #[cfg(windows)]
     std::os::windows::process::CommandExt::creation_flags(&mut c, 0x0800_0000);
     let mut child: Child = c.spawn()?;
     let pid = child.id();
+
     if let Some(out) = child.stdout.take() {
         pump(out, pid, tx.clone());
     }
@@ -92,9 +100,14 @@ pub fn stop(job: &Job) {
             killpg(group, Signal::SIGKILL).ok();
         });
     }
+
     #[cfg(windows)]
     {
-        drop(std::process::Command::new("taskkill").args(["/PID", &job.pid.to_string(), "/T", "/F"]).output());
+        drop(
+            std::process::Command::new("taskkill")
+                .args(["/PID", &job.pid.to_string(), "/T", "/F"])
+                .output(),
+        );
     }
 }
 
@@ -113,7 +126,10 @@ const KEY_START: f32 = 0.15;
 const KEY_END: f32 = 0.97;
 
 fn nums(s: &str) -> Vec<usize> {
-    s.split(|c: char| !c.is_ascii_digit()).filter(|t| !t.is_empty()).filter_map(|t| t.parse().ok()).collect()
+    s.split(|c: char| !c.is_ascii_digit())
+        .filter(|t| !t.is_empty())
+        .filter_map(|t| t.parse().ok())
+        .collect()
 }
 
 fn after<'a>(s: &'a str, key: &str) -> Option<&'a str> {
@@ -125,8 +141,13 @@ impl Progress {
     pub fn feed(&mut self, line: &str) -> bool {
         let t = line.trim();
         let before = (self.value, self.detail.clone());
-        if let Some(head) = t.split(" frames written").next().filter(|_| t.contains(" frames written")) {
+        if let Some(head) = t
+            .split(" frames written")
+            .next()
+            .filter(|_| t.contains(" frames written"))
+        {
             if let [n, total] = nums(head.rsplit(' ').next().unwrap_or_default())[..] {
+
                 self.keyed = self.keyed.max(n);
                 self.detail = format!("{n}/{total} frames written");
             }
@@ -138,17 +159,21 @@ impl Progress {
             }
         } else if let Some(rest) = after(t, "window ").filter(|r| r.contains('/')) {
             let n = nums(rest);
+
             if let [done, total, ..] = n[..]
-                && total > 0 && (t.starts_with("window") || rest.contains(" [")) {
-                    self.at = (done, total);
-                    self.value = KEY_START + (KEY_END - KEY_START) * done as f32 / total as f32;
-                    self.detail = format!("Keying {done}/{total}");
-                }
+                && total > 0
+                && (t.starts_with("window") || rest.contains(" ["))
+            {
+                self.at = (done, total);
+                self.value = KEY_START + (KEY_END - KEY_START) * done.f32() / total.f32();
+                self.detail = format!("Keying {done}/{total}");
+            }
         } else if t.contains(" frames ") && t.contains(" → ") && t.contains(", window ") {
             let n = nums(t);
             if let [.., frames, w, h, mw, mh, chunk, stride] = n[..] {
                 self.frames = frames;
                 self.size = format!("{w}x{h} → model {mw}x{mh}");
+
                 self.window = format!("chunk {chunk} · stride {stride}");
             }
             self.value = KEY_START;

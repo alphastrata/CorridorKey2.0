@@ -1,3 +1,4 @@
+use crate::convert::Metric;
 use std::path::{Path, PathBuf};
 
 use crate::clips::{Clip, Hint, OUTPUTS};
@@ -20,15 +21,26 @@ pub fn repo() -> Option<PathBuf> {
 }
 
 fn exe(name: &str) -> String {
-    if cfg!(windows) { format!("{name}.exe") } else { name.to_owned() }
+    if cfg!(windows) {
+        format!("{name}.exe")
+    } else {
+        name.to_owned()
+    }
 }
 
 #[must_use]
 pub fn ck_binary() -> Option<PathBuf> {
     let beside = std::env::current_exe().ok().map(|e| e.with_file_name(exe("ck")));
-    let on_path = std::env::var_os("PATH").and_then(|p| std::env::split_paths(&p).map(|d| d.join(exe("ck"))).find(|c| c.is_file()));
+    let on_path = std::env::var_os("PATH").and_then(|p| {
+        std::env::split_paths(&p)
+            .map(|d| d.join(exe("ck")))
+            .find(|c| c.is_file())
+    });
     let built = repo().map(|r| r.join("launcher/target/release").join(exe("ck")));
-    [std::env::var_os("CK_BIN").map(PathBuf::from), beside, on_path, built].into_iter().flatten().find(|p| p.is_file())
+    [std::env::var_os("CK_BIN").map(PathBuf::from), beside, on_path, built]
+        .into_iter()
+        .flatten()
+        .find(|p| p.is_file())
 }
 
 /// Weights under `weights/` and the GPUs NVML reports, in PCI order (`CUDA_DEVICE_ORDER=PCI_BUS_ID`).
@@ -61,10 +73,17 @@ impl Catalogue {
 
     #[must_use]
     pub fn label(p: &Path) -> String {
-        let stem = file_name(p).trim_end_matches(".safetensors").trim_start_matches("corridorkey_").replace("edge_refiner_", "");
+        let stem = file_name(p)
+            .trim_end_matches(".safetensors")
+            .trim_start_matches("corridorkey_")
+            .replace("edge_refiner_", "");
         let (name, dtype) = stem.split_once('.').unwrap_or((&stem, "fp32"));
-        let size = p.metadata().map_or(0.0, |m| m.len() as f64 / f64::from(1u32 << 30));
-        if size < 0.1 { name.to_owned() } else { format!("{name} · {dtype} · {size:.1} GB") }
+        let size = p.metadata().map_or(0.0, |m| m.len().f64() / f64::from(1u32 << 30));
+        if size < 0.1 {
+            name.to_owned()
+        } else {
+            format!("{name} · {dtype} · {size:.1} GB")
+        }
     }
 
     #[must_use]
@@ -75,7 +94,10 @@ impl Catalogue {
 
     #[must_use]
     pub fn name(list: &[PathBuf], i: i32) -> String {
-        usize::try_from(i).ok().and_then(|i| list.get(i)).map_or_default(|p| file_name(p))
+        usize::try_from(i)
+            .ok()
+            .and_then(|i| list.get(i))
+            .map_or_default(|p| file_name(p))
     }
 }
 
@@ -85,12 +107,19 @@ fn linear(clip: &Clip, s: &Settings) -> bool {
     match s.frame_colour {
         1 => true,
         2 => false,
-        _ => crate::clips::frame_files(&clip.source).first().is_some_and(|f| f.extension().is_some_and(|e| e.eq_ignore_ascii_case("exr"))),
+        _ => crate::clips::frame_files(&clip.source)
+            .first()
+            .is_some_and(|f| f.extension().is_some_and(|e| e.eq_ignore_ascii_case("exr"))),
     }
 }
 
 fn outputs(s: &Settings) -> Vec<&'static str> {
-    OUTPUTS.iter().zip(s.outputs).filter(|&(_, on)| on).map(|((name, _), _)| *name).collect()
+    OUTPUTS
+        .iter()
+        .zip(s.outputs)
+        .filter(|&(_, on)| on)
+        .map(|((name, _), _)| *name)
+        .collect()
 }
 
 fn hint(clip: &Clip, flags: [&str; 2]) -> Vec<String> {
@@ -102,15 +131,24 @@ fn hint(clip: &Clip, flags: [&str; 2]) -> Vec<String> {
 }
 
 fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
-    let mut a = vec!["-o".into(), out.display().to_string(), "--outputs".into(), outputs(s).join(",")];
+    let mut a = vec![
+        "-o".into(),
+        out.display().to_string(),
+        "--outputs".into(),
+        outputs(s).join(","),
+    ];
     a.extend(hint(clip, ["--hint", "--hint-video"]));
     a.extend(["--hint-quality".into(), s.hint_quality.to_string()]);
+
     match s.carry {
         Some(q) => a.extend(["--carry-quality".into(), q.to_string()]),
         None => a.push("--no-carry".into()),
     }
-    if let Some(float) = s.exr { a.extend(["--exr".into(), if float { "float" } else { "half" }.into()]) } else {
+    if let Some(float) = s.exr {
+        a.extend(["--exr".into(), if float { "float" } else { "half" }.into()]);
+    } else {
         a.extend(["--codec".into(), if s.nvenc { "hevc_nvenc" } else { "libx264" }.into()]);
+
         if s.cutout_linear {
             a.push("--cutout-linear".into());
         }
@@ -119,11 +157,18 @@ fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
     if clip.frames {
         a.extend(["--fps".into(), s.fps.to_string()]);
         if linear(clip, s) {
+
             a.push("--linear".into());
         }
     }
     if let Some((chunk, stride)) = s.window {
-        a.extend(["--chunk".into(), chunk.to_string(), "--stride".into(), stride.to_string()]);
+        a.extend([
+            "--chunk".into(),
+            chunk.to_string(),
+            "--stride".into(),
+
+            stride.to_string(),
+        ]);
     }
     if let Some(scale) = SCALES.get(usize::from(s.scale)).filter(|_| s.scale > 0) {
         a.extend(["--model-scale".into(), (*scale).into()]);
@@ -139,10 +184,18 @@ fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
 }
 
 fn placement(s: &Settings, gpus: &[usize], preview: &Path) -> Vec<String> {
-    let weights = |name: &str| repo().map(|r| r.join("weights").join(name).display().to_string()).filter(|_| !name.is_empty());
+    let weights = |name: &str| {
+        repo()
+            .map(|r| r.join("weights").join(name).display().to_string())
+            .filter(|_| !name.is_empty())
+    };
     let mut a = vec!["--preview".into(), preview.display().to_string()];
     if !gpus.is_empty() {
-        a.extend(["--device".into(), gpus.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")]);
+        a.extend([
+            "--device".into(),
+
+            gpus.iter().map(ToString::to_string).collect::<Vec<_>>().join(","),
+        ]);
     }
     a.extend(weights(&s.model).into_iter().flat_map(|w| ["--weights".into(), w]));
     a.extend(weights(&s.refiner).into_iter().flat_map(|w| ["--refiner".into(), w]));
@@ -150,8 +203,13 @@ fn placement(s: &Settings, gpus: &[usize], preview: &Path) -> Vec<String> {
 }
 
 pub fn build(clip: &Clip, s: &Settings, out: &Path, (gpus, preview): (&[usize], &Path)) -> eyre::Result<Command> {
-    let program = ck_binary().ok_or_else(|| eyre::eyre!("ck is not built: cargo build --release -p ck in launcher/"))?;
+    let program =
+        ck_binary().ok_or_else(|| eyre::eyre!("ck is not built: cargo build --release -p ck in launcher/"))?;
     let mut args = placement(s, gpus, preview);
     args.extend(ck(clip, s, out));
-    Ok(Command { program, args, env: vec![("CUDA_DEVICE_ORDER", "PCI_BUS_ID")] })
+    Ok(Command {
+        program,
+        args,
+        env: vec![("CUDA_DEVICE_ORDER", "PCI_BUS_ID")],
+    })
 }
