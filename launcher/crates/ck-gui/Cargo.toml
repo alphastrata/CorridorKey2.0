@@ -17,11 +17,19 @@ rkyv = "0.8.18"
 slint = { version = "1.18.1", features = ["unstable-winit-030"] }
 sysinfo = "0.39.6"
 
-[lints]
-workspace = true
+[lints.clippy]
+pedantic                  = {level = "warn", priority = -1}
+perf                      = {level = "deny", priority = -1}
+missing_errors_doc        = "allow"
+missing_safety_doc        = "allow"
+missing_panics_doc        = "allow"
 
 [build-dependencies]
 slint-build = "1.18.1"
 
 [target."cfg(unix)".dependencies]
 nix = { version = "0.31.3", features = ["signal", "process"] }
+
+[[bench]]
+name = "convert"
+harness = false
