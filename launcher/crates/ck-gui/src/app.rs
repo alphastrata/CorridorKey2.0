@@ -479,6 +479,10 @@ impl State {
     }
 }
 
+fn later(task: impl std::future::Future<Output = ()> + 'static) {
+    let _ = slint::spawn_local(task);
+}
+
 fn dialog_dir() -> Option<PathBuf> {
     dirs::home_dir()
 }
@@ -596,16 +600,23 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
     q.on_remove(move || s.borrow_mut().remove());
     let s = state.clone();
     q.on_add_clips(move || {
-        let files = rfd::FileDialog::new().set_title("Add clips").add_filter("Clips", &CLIP_FILTER).set_directory(dialog_dir().unwrap_or_default()).pick_files();
-        if let Some(files) = files {
-            s.borrow_mut().add(&files);
-        }
+        let s = s.clone();
+        let picked = rfd::AsyncFileDialog::new().set_title("Add clips").add_filter("Clips", &CLIP_FILTER).set_directory(dialog_dir().unwrap_or_default()).pick_files();
+        later(async move {
+            if let Some(files) = picked.await {
+                s.borrow_mut().add(&files.iter().map(|f| f.path().to_owned()).collect::<Vec<_>>());
+            }
+        });
     });
     let s = state.clone();
     q.on_add_folder(move || {
-        if let Some(dir) = rfd::FileDialog::new().set_title("Add a frame folder or a folder of clips").pick_folder() {
-            s.borrow_mut().add(&[dir]);
-        }
+        let s = s.clone();
+        let picked = rfd::AsyncFileDialog::new().set_title("Add a frame folder or a folder of clips").set_directory(dialog_dir().unwrap_or_default()).pick_folder();
+        later(async move {
+            if let Some(dir) = picked.await {
+                s.borrow_mut().add(&[dir.path().to_owned()]);
+            }
+        });
     });
     let s = state.clone();
     q.on_hint_edited(move || {
@@ -624,15 +635,18 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
     });
     let w = ui.as_weak();
     q.on_choose_hint(move || {
-        let file = rfd::FileDialog::new()
+        let w = w.clone();
+        let picked = rfd::AsyncFileDialog::new()
             .set_title("Choose a hint")
             .add_filter("Hints", &["png", "jpg", "jpeg", "exr", "mp4", "mov", "avi", "mkv", "webm"])
             .pick_file();
-        if let (Some(f), Some(ui)) = (file, w.upgrade()) {
-            let q = ui.global::<Queue>();
-            q.set_hint_path(f.display().to_string().into());
-            q.invoke_hint_edited();
-        }
+        later(async move {
+            if let (Some(f), Some(ui)) = (picked.await, w.upgrade()) {
+                let q = ui.global::<Queue>();
+                q.set_hint_path(f.path().display().to_string().into());
+                q.invoke_hint_edited();
+            }
+        });
     });
 
     let v = ui.global::<View>();
@@ -681,17 +695,25 @@ pub fn run(paths: Vec<PathBuf>) -> Result<(), slint::PlatformError> {
     });
     let w = ui.as_weak();
     j.on_browse_out_parent(move || {
-        if let (Some(d), Some(ui)) = (rfd::FileDialog::new().set_title("Output folder").pick_folder(), w.upgrade()) {
-            ui.global::<Job>().set_out_parent(d.display().to_string().into());
-            ui.global::<Job>().invoke_changed();
-        }
+        let w = w.clone();
+        let picked = rfd::AsyncFileDialog::new().set_title("Output folder").pick_folder();
+        later(async move {
+            if let (Some(d), Some(ui)) = (picked.await, w.upgrade()) {
+                ui.global::<Job>().set_out_parent(d.path().display().to_string().into());
+                ui.global::<Job>().invoke_changed();
+            }
+        });
     });
     let w = ui.as_weak();
     j.on_browse_temp_dir(move || {
-        if let (Some(d), Some(ui)) = (rfd::FileDialog::new().set_title("Scratch folder").pick_folder(), w.upgrade()) {
-            ui.global::<Job>().set_temp_dir(d.display().to_string().into());
-            ui.global::<Job>().invoke_changed();
-        }
+        let w = w.clone();
+        let picked = rfd::AsyncFileDialog::new().set_title("Scratch folder").pick_folder();
+        later(async move {
+            if let (Some(d), Some(ui)) = (picked.await, w.upgrade()) {
+                ui.global::<Job>().set_temp_dir(d.path().display().to_string().into());
+                ui.global::<Job>().invoke_changed();
+            }
+        });
     });
 
     let s = state.clone();
