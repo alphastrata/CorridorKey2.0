@@ -833,7 +833,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
         events: flume::unbounded(),
     }));
 
-    let _timers = wire_timers(&state, shown_rx, snap_rx);
+    drop(wire_timers(&state, shown_rx, snap_rx));
     wire_actions(&ui, &state);
     wire_queue(&ui, &state);
     wire_view(&ui, &state);

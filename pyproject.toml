@@ -34,6 +34,7 @@ conflicts = [[{ group = "cu128" }, { group = "pascal" }]]
 "bench/*" = ["T201", "E402", "B010"]
 "corridorkey/ptx/*" = ["B010"]
 "corridorkey/runtime.py" = ["T201"]
+"launcher/parity/*" = ["T201", "E402"]
 
 [[tool.uv.index]]
 name = "pytorch"

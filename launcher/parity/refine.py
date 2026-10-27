@@ -4,8 +4,6 @@ refiner's intermediates and outputs (fp32), as ``launcher/fixtures/refine.safete
 uv run python launcher/parity/refine.py NATIVE.png LOW.png ALPHA.exr FG.exr
 """
 
-from __future__ import annotations
-
 import argparse
 import subprocess
 import sys
@@ -61,7 +59,7 @@ def main() -> None:
 
     root = Path(snapshot_download(REFINER, revision=REVISION, allow_patterns=["*.py", "*v10w.safetensors"]))
     sys.path.insert(0, str(root))
-    import corridorkey_refiner as ref
+    import corridorkey_refiner as ref  # ty: ignore[unresolved-import]
 
     rgb, rgb_low = image(a.native), image(a.low)
     alpha_low = image(a.alpha)[:, :1]
