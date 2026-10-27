@@ -39,6 +39,7 @@ impl Stage2 {
             swin((0, 0)),
             swin((hw, hw)),
         ];
+
         let last = [swin((hw, 0)), swin((0, hw))];
         let pair = |n: &str, mat: bool| -> Result<(Tensor, Tensor)> {
             let w = if mat {
@@ -50,6 +51,7 @@ impl Stage2 {
         };
         let patch1 = pair("patch_1.conv", true)?;
         Ok(Self {
+
             baton: ld.get("depatchify.deconv.weight")?.0[0] - patch1.0.shape[0],
             dim: ld.get("depatchify.deconv.weight")?.0[0],
             patch1,
@@ -65,6 +67,7 @@ impl Stage2 {
         self.pre.iter().chain(&self.last)
     }
 
+    #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
     pub fn forward(&self, gpu: &Gpu, cache: &Cache, rgb: &Tensor, baton: Baton) -> Result<Tensor> {
         let [n, _, hh, ww] = rgb.shape[..] else {
             eyre::bail!("rgb wants [n, 3, H, W]")

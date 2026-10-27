@@ -64,6 +64,7 @@ impl Source {
                     (!files.is_empty()).then_some((e, files))
                 })
                 .ok_or_eyre(format!("{}: no frames", path.display()))?;
+
             let (w, h, text) = size(&ext.1[0].to_string_lossy())?;
             let pattern = path.join(format!("*.{}", ext.0)).to_string_lossy().into_owned();
             let args = [
@@ -74,6 +75,7 @@ impl Source {
                 "-i",
                 &pattern,
             ];
+
             return Ok(Self {
                 args: args.map(String::from).to_vec(),
                 w,
@@ -84,6 +86,7 @@ impl Source {
             });
         }
         let name = path.to_string_lossy().into_owned();
+
         let (w, h, text) = size(&name)?;
         let fps = field(&text, "r_frame_rate")
             .and_then(|r| r.split_once('/'))
@@ -94,6 +97,7 @@ impl Source {
         } else {
             let text = ffprobe(&[
                 "-count_packets",
+
                 "-select_streams",
                 "v:0",
                 "-show_entries",
@@ -102,6 +106,7 @@ impl Source {
                 "default=nw=1",
                 &name,
             ])?;
+
             field(&text, "nb_read_packets").ok_or_eyre("no frame count")?.parse()?
         };
         Ok(Self {
@@ -151,6 +156,7 @@ impl Source {
         let len = self.w * self.h * size;
         let mut cmd = Command::new("ffmpeg");
         cmd.args(["-v", "error", "-nostdin"]).args(&self.args);
+
         if plane == Plane::Alpha {
             cmd.args(["-vf", "alphaextract"]);
         }
@@ -164,6 +170,7 @@ impl Source {
             "pipe:1",
         ])
         .stdout(Stdio::piped());
+
         std::thread::spawn(move || {
             let mut run = || -> Result<()> {
                 let mut child = cmd.spawn().wrap_err("ffmpeg")?;
@@ -178,6 +185,7 @@ impl Source {
                     };
                     tx.send(Ok(frame)).map_err(|_| eyre::eyre!("decoder dropped"))
                 })?;
+
                 drop(out);
                 child.wait()?;
                 Ok(())

@@ -66,6 +66,7 @@ fn stage1_720() -> Result<()> {
     let [_, _, h, w, c] = out.baton.shape[..] else {
         eyre::bail!("baton shape")
     };
+
     let baton = nchw(&gpu.download_f32(&out.baton)?, (h, w, c));
     let (ours, theirs) = report("baton", &baton, &fx, "out0")?;
     let (aux, aux_stock) = report("aux", &gpu.download_f32(&out.aux)?, &fx, "out1")?;
@@ -88,6 +89,7 @@ fn batched_blocks_match_single() -> Result<()> {
         prefix: "stage1.",
         half: gpu.half(),
     };
+
     let s1 = Stage1::load(&ld)?;
     let cache = Cache::default();
     let blocks: Vec<_> = s1.blocks().collect();
@@ -102,6 +104,7 @@ fn batched_blocks_match_single() -> Result<()> {
             };
             let both = [x.as_slice(), &other].concat();
             let batched = gpu.upload_f32(&both, &[[2].as_slice(), &shape[1..]].concat(), Dtype::F32)?;
+
             let got = gpu.download_f32(&blocks[i].forward(&gpu, &cache, &batched, None)?)?;
             let want = [single(&x)?, single(&other)?].concat();
             let (mean, max) = diff(&got, &want);

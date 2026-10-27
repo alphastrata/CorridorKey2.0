@@ -1,9 +1,9 @@
 fn periods(dim: usize, base: f32) -> Vec<f32> {
-    (0..dim / 2).map(|i| base.powf(i as f32 * 2.0 / dim as f32)).collect()
+    (0..dim / 2).map(|i| base.powf(i.f32() * 2.0 / dim.f32())).collect()
 }
 
 fn coords(n: usize) -> Vec<f32> {
-    (0..n).map(|i| 2.0 * ((i as f32 + 0.5) / n as f32) - 1.0).collect()
+    (0..n).map(|i| 2.0 * ((i.f32() + 0.5) / n.f32()) - 1.0).collect()
 }
 
 fn axis(n: usize, dim: usize, base: f32, stride: f32) -> Vec<Vec<f32>> {
@@ -27,6 +27,7 @@ pub fn angles(head: usize, (t, h, w): (usize, usize, usize), spatial: bool) -> V
     } else {
         let third = pairs / 3;
         let rem = pairs - 3 * third;
+
         vec![
             (t, 2 * third),
             (h, 2 * (third + usize::from(rem >= 2))),
@@ -35,6 +36,7 @@ pub fn angles(head: usize, (t, h, w): (usize, usize, usize), spatial: bool) -> V
     };
     let tables: Vec<Vec<Vec<f32>>> = dims.iter().map(|&(n, d)| axis(n, d, base, 1.0)).collect();
     let tokens = t * h * w;
+
     (0..tokens)
         .flat_map(|i| {
             let idx = if spatial {
@@ -56,3 +58,4 @@ pub fn tables(head: usize, block: (usize, usize, usize), spatial: bool) -> (Vec<
     let a = angles(head, block, spatial);
     (a.iter().map(|x| x.cos()).collect(), a.iter().map(|x| x.sin()).collect())
 }
+use crate::convert::Float;

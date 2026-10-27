@@ -47,6 +47,7 @@ impl Writer {
             (Format::Exr(_), _) => "gbrpf32le",
         };
         let mut cmd = Command::new("ffmpeg");
+
         cmd.args([
             "-y",
             "-hide_banner",
@@ -57,6 +58,7 @@ impl Writer {
             "rawvideo",
             "-pix_fmt",
             pix,
+
         ])
         .args([
             "-s:v",
@@ -67,6 +69,7 @@ impl Writer {
             "pipe:0",
             "-an",
         ]);
+
         match format {
             Format::Exr(t) => {
                 let fmt = if t == Exr::Half { "half" } else { "float" };
@@ -79,6 +82,7 @@ impl Writer {
                     fmt,
                     "-start_number",
                     "0",
+
                 ]);
             }
             Format::Video { linear, .. } if channels == 4 => {
@@ -90,6 +94,7 @@ impl Writer {
                     ("hevc_nvenc", "yuv444p10le") => "yuv444p16le",
                     (_, p) => p,
                 };
+
                 cmd.args(["-c:v", &enc.codec, "-preset", &enc.preset, "-pix_fmt", pix]);
                 if enc.codec.ends_with("_nvenc") {
                     cmd.args(["-rc", "vbr", "-cq", &enc.crf.to_string()]);
@@ -99,6 +104,7 @@ impl Writer {
                 tags(&mut cmd, linear);
             }
         }
+
         cmd.arg(path).stdin(Stdio::piped());
         let mut child = cmd.spawn().wrap_err("ffmpeg")?;
         let mut stdin = child.stdin.take().ok_or_eyre("ffmpeg stdin")?;
@@ -109,6 +115,7 @@ impl Writer {
             drop(stdin);
             let status = child.wait()?;
             if !status.success() {
+
                 bail!("ffmpeg failed ({status}): {name}");
             }
             Ok(())
