@@ -245,9 +245,9 @@ impl Worker {
                 Ok(req) => Err(Some(req)),
                 Err(TryRecvError::Disconnected) => Err(None),
                 Err(TryRecvError::Empty) if !self.cache.contains_key(&(path.to_owned(), i)) => {
-                    let src = self.sources.get_mut(path).map_err(|_| ())?;
+                    let Some(src) = self.sources.get_mut(path) else { return Err(None) };
                     let preview = src.preview;
-                    let px = src.decode(path, i, linear, preview).ok_or(None)?;
+                    let Ok(px) = src.decode(path, i, linear, preview) else { return Err(None) };
                     self.keep((path.to_owned(), i), px);
                     Ok(())
                 }

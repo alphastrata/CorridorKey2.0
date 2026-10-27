@@ -82,13 +82,6 @@ pub fn spawn(cmd: &Command, cwd: &Path, tx: &Sender<Event>) -> std::io::Result<J
     Ok(Job { pid })
 }
 
-#[cfg(unix)]
-use nix::sys::signal::{Signal, killpg};
-#[cfg(unix)]
-use nix::unistd::Pid;
-#[cfg(unix)]
-use std::os::unix::process::ExitStatusExt;
-
 pub fn stop(job: &Job) {
     #[cfg(unix)]
     {
@@ -132,7 +125,12 @@ impl Progress {
     pub fn feed(&mut self, line: &str) -> bool {
         let t = line.trim();
         let before = (self.value, self.detail.clone());
-        if t.ends_with("frames through stage 2") {
+        if let Some(head) = t.split(" frames written").next().filter(|_| t.contains(" frames written")) {
+            if let [n, total] = nums(head.rsplit(' ').next().unwrap_or_default())[..] {
+                self.keyed = self.keyed.max(n);
+                self.detail = format!("{n}/{total} frames written");
+            }
+        } else if t.ends_with("frames through stage 2") {
             let n = nums(t).into_iter().rev().nth(1).unwrap_or(0);
             if n > self.keyed {
                 self.keyed = n;
