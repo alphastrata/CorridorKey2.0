@@ -14,8 +14,11 @@ const EPS: f32 = 5e-4;
 const GAIN: f32 = 10.0;
 const LO: f32 = 0.004;
 
+const CHUNKS: usize = 29;
+
 struct Layer {
     w: Tensor,
+    half: Tensor,
     b: Tensor,
     cin: usize,
     dil: usize,
@@ -49,10 +52,20 @@ impl Refiner {
                 .flat_map(|k| (0..WIDTH).map(move |o| (k, o)))
                 .map(|(k, o)| if o < cout { v[(o * cin + k / 9) * 9 + k % 9] } else { 0.0 })
                 .collect();
+            let cin8 = cin.div_ceil(8);
+            let half: Vec<u16> = (0..WIDTH * CHUNKS * 8)
+                .map(|i| (i / (CHUNKS * 8), i / 8 % CHUNKS, i % 8))
+                .map(|(o, j, e)| {
+                    let (t, c) = (j / cin8, j % cin8 * 8 + e);
+                    let v = if o < cout && j < 9 * cin8 && c < cin { v[(o * cin + c) * 9 + t] } else { 0.0 };
+                    half::f16::from_f32(v).to_bits()
+                })
+                .collect();
             let (_, b) = w.get(&format!("{name}.bias"))?;
             let b: Vec<f32> = (0..WIDTH).map(|o| b.get(o).copied().unwrap_or(0.0)).collect();
             Ok(Layer {
                 w: gpu.upload_f32(&taps, &[cin * 9, WIDTH], Dtype::F32)?,
+                half: gpu.upload(bytemuck::cast_slice(&half), &[WIDTH, CHUNKS * 8], Dtype::U16)?,
                 b: gpu.upload_f32(&b, &[WIDTH], Dtype::F32)?,
                 cin,
                 dil,
@@ -101,7 +114,7 @@ impl Refiner {
         let core = (BUDGET / (4 * wn * (11 + 2 * WIDTH))).saturating_sub(2 * HALO).max(16).min(hn);
         let mut hid = (gpu.empty(&[WIDTH * (core + 2 * HALO) * wn], Dtype::F32)?, gpu.empty(&[WIDTH * (core + 2 * HALO) * wn], Dtype::F32)?);
         let x = gpu.empty(&[11 * (core + 2 * HALO) * wn], Dtype::F32)?;
-        let pix = gpu.global_u32("ck_ops", "REFINE_PIX")? as usize;
+        let xin = gpu.empty(&[WIDTH * (core + 2 * HALO) * wn], Dtype::F32)?;
         (0..hn).step_by(core).try_for_each(|c0| -> Result<()> {
             let take = core.min(hn - c0);
             let y0 = c0.saturating_sub(HALO);
@@ -109,13 +122,12 @@ impl Refiner {
             let (ly0, ly1) = (y0 * h / hn, ((y0 + rows) * h).div_ceil(hn).min(h));
             let net = mask[ly0.saturating_sub(1) * w..(ly1 + 1).min(h) * w].iter().any(|&b| b > 0.0);
             let plane = rows * wn;
-            let args = [[native, &lows, &coef, &bg, &x].map(Arg::from).as_slice(), &[y0, rows, hn, wn, h, w, usize::from(linear)].map(Arg::from)].concat();
+            let args = [[native, &lows, &coef, &bg, &x, &xin].map(Arg::from).as_slice(), &[y0, rows, hn, wn, h, w, usize::from(linear)].map(Arg::from)].concat();
             launch(gpu, "refine_in", plane, &args)?;
             if net {
                 self.layers.iter().enumerate().try_for_each(|(i, l)| {
-                    let src = if i == 0 { &x } else { &hid.0 };
-                    let args = [[src, &hid.1, &l.w, &l.b].map(Arg::from).as_slice(), &[l.cin, self.width, rows, wn, l.dil, usize::from(i > 0)].map(Arg::from)].concat();
-                    launch(gpu, "refine_conv", rows * wn.div_ceil(pix), &args)?;
+                    let src = if i == 0 { &xin } else { &hid.0 };
+                    conv(gpu, (src, &hid.1), l, (rows, wn), usize::from(i > 0), self.width)?;
                     std::mem::swap(&mut hid.0, &mut hid.1);
                     Ok::<_, eyre::Report>(())
                 })?;
@@ -126,6 +138,17 @@ impl Refiner {
         })?;
         Ok(out)
     }
+}
+
+fn conv(gpu: &Gpu, (src, dst): (&Tensor, &Tensor), l: &Layer, (rows, cols): (usize, usize), residual: usize, width: usize) -> Result<()> {
+    if gpu.sm >= 75 {
+        let shared = gpu.global_u32("ck_ops", "REFINE_SHARED")?;
+        let args = [[src, dst, &l.half, &l.b].map(Arg::from).as_slice(), &[l.cin.div_ceil(8), rows, cols, l.dil, residual].map(Arg::from)].concat();
+        return gpu.launch("ck_ops", "refine_mma", (cols.div_ceil(32) as u32, rows.div_ceil(8) as u32, 1), 256, shared, &args);
+    }
+    let pix = gpu.global_u32("ck_ops", "REFINE_PIX")? as usize;
+    let args = [[src, dst, &l.w, &l.b].map(Arg::from).as_slice(), &[l.cin, width, rows, cols, l.dil, residual].map(Arg::from)].concat();
+    launch(gpu, "refine_conv", rows * cols.div_ceil(pix), &args)
 }
 
 fn background(gpu: &Gpu, lows: &Tensor, (h, w): (usize, usize)) -> Result<Tensor> {

@@ -33,7 +33,7 @@ fn refine_matches_reference() -> Result<()> {
     let (mf, xf) = diff(&fg, &fx.get("fg")?.1);
     let (mb, _) = diff(&fx.get("bilinear")?.1, &fx.get("alpha")?.1);
     println!("alpha mean {ma:.2e} max {xa:.2e} · fg mean {mf:.2e} max {xf:.2e} · bilinear vs reference {mb:.2e}");
-    assert!(ma < 1e-5 && xa < 2e-3, "alpha");
-    assert!(mf < 1e-5 && xf < 2e-3, "fg");
+    assert!(ma < 2e-4 && xa < 3e-3, "alpha");
+    assert!(mf < 2e-4 && xf < 3e-3, "fg");
     Ok(())
 }

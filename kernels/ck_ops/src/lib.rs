@@ -8,6 +8,8 @@ mod elem;
 mod frame;
 mod heads;
 mod refine;
+#[cfg(not(feature = "sm_61"))]
+mod refine_mma;
 mod render;
 mod resize;
 mod vit;

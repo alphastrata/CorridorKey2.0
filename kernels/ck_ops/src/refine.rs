@@ -252,6 +252,7 @@ pub fn refine_in(
     coef: &[f32],
     bg: &[f32],
     x: &mut [f32],
+    xin: &mut [f32],
     y0: u32,
     rows: u32,
     hn: u32,
@@ -269,7 +270,10 @@ pub fn refine_in(
     let (yy, xx) = (y0 + i / wn, i % wn);
     let img = rgb(native, hn * wn, yy * wn + xx, linear != 0);
     let t = Taps::new((h, w), (yy, xx), (hn, wn));
-    let mut put = |c: usize, v: f32| x.set(c * plane + i, v);
+    let mut put = |c: usize, v: f32| {
+        x.set(c * plane + i, v);
+        xin.set(i * WIDTH + c, v);
+    };
     (0..3).for_each(|c| {
         put(c, img[c]);
         put(3 + c, t.get(bg, c));
@@ -278,6 +282,7 @@ pub fn refine_in(
     put(9, t.get(low, 3));
     let gf = (0..3).fold(t.get(coef, 3), |s, c| t.get(coef, c).fma_rn(img[c], s));
     put(10, gf.clamp(0.0, 1.0));
+    (11..WIDTH).for_each(|c| xin.set(i * WIDTH + c, 0.0));
 }
 
 #[kernel]
@@ -305,10 +310,10 @@ pub fn refine_conv(
         let (c, t) = (k / 9, k % 9);
         let sy = (y + (t / 3) * dil).wrapping_sub(dil);
         if sy < rows {
-            let row = c * plane + sy * cols;
+            let row = sy * cols;
             let v: [f32; PIX] = core::array::from_fn(|p| {
                 let sx = (x0 + p + (t % 3) * dil).wrapping_sub(dil);
-                if sx < cols { ld(x, row + sx) } else { 0.0 }
+                if sx < cols { ld(x, (row + sx) * WIDTH + c) } else { 0.0 }
             });
             ptx::unroll!(6, |q| {
                 let w4 = unsafe { ld_global_nc_v4_f32(wt.addr_at(k * WIDTH + 4 * q)) };
@@ -325,7 +330,7 @@ pub fn refine_conv(
         let at = y * cols + x0 + p;
         ptx::unroll!(24, |o| if o < width {
             let g = gelu(acc[p][o]);
-            out.set(o * plane + at, if residual == 0 { g } else { ld(x, o * plane + at) + g });
+            out.set(at * WIDTH + o, if residual == 0 { g } else { ld(x, at * WIDTH + o) + g });
         });
     });
 }
@@ -368,7 +373,7 @@ pub fn refine_out(
         (gf, fg_in)
     } else {
         let d: [f32; 4] = core::array::from_fn(|k| {
-            (0..width).fold(ld(bias, k), |s, c| ld(wt, k * WIDTH + c).fma_rn(ld(hid, c * plane + p), s))
+            (0..width).fold(ld(bias, k), |s, c| ld(wt, k * WIDTH + c).fma_rn(ld(hid, p * WIDTH + c), s))
         });
         let b = Taps::new((h, w), (yy, xx), (hn, wn)).get(band, 0);
         let mix = |r: f32, base: f32| b * r.clamp(0.0, 1.0) + (1.0 - b) * base;
