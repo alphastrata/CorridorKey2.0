@@ -51,7 +51,6 @@ pub fn fetch16(dst: u32, src: usize, live: bool) -> [u32; 4] {
 #[inline]
 pub fn put16(_dst: u32, _words: [u32; 4], _convert: bool) {}
 
-
 #[inline]
 #[must_use]
 pub fn widen(half: u16) -> f32 {
