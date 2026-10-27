@@ -3,8 +3,10 @@ members  = ["ck_arch", "ck_attn", "ck_dw", "ck_gemm", "ck_glue", "ck_ops"]
 resolver = "3"
 
 [workspace.package]
+# Kernel crates: MIT OR Apache-2.0 for compatibility with the rust project; the rest of the repo keeps the CorridorKey licence.
 edition = "2024"
 version = "0.1.0"
+license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 ptx        = {git = "https://codeberg.org/P-E-T-R-A/ptx.git", branch = "develop"}

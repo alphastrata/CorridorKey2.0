@@ -1,6 +1,7 @@
 [package]
 name              = "ck_gemm"
 edition.workspace = true
+license.workspace = true
 version.workspace = true
 
 [package.metadata.ptx]
