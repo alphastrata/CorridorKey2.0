@@ -60,6 +60,9 @@ export global Job {
 
 export global View {
     in property <image> frame;
+    in property <image> frame-b;
+    in property <bool> b-ready;
+    in-out property <int> view-b: -1;
     in property <int> src-w;
     in property <int> src-h;
     in property <int> count;
@@ -94,6 +97,11 @@ export global Queue {
 
 component ImageView inherits Rectangle {
     in property <image> frame;
+    in property <image> frame-b;
+    in property <bool> compare;
+    in property <string> label-a;
+    in property <string> label-b;
+    in-out property <float> wipe: 0.5;
     in property <int> src-w;
     in property <int> src-h;
     in property <string> placeholder;
@@ -178,6 +186,66 @@ component ImageView inherits Rectangle {
             return accept;
         }
     }
+    if root.src-w > 0 && root.compare: wipe := Rectangle {
+        property <length> w: root.src-w * 1px * root.scale;
+        property <length> x0: (root.width - self.w) / 2 + root.pan-x;
+        property <length> split: clamp(self.x0 + self.w * root.wipe, 0, root.width);
+        Rectangle {
+            x: parent.split;
+            width: root.width - parent.split;
+            clip: true;
+            Image {
+                source: root.frame-b;
+                x: wipe.x0 - parent.x;
+                y: (root.height - self.height) / 2 + root.pan-y;
+                width: wipe.w;
+                height: root.src-h * 1px * root.scale;
+                image-fit: fill;
+                image-rendering: root.scale < 2 ? smooth : pixelated;
+            }
+        }
+        Rectangle {
+            x: parent.split - 1px;
+            width: 2px;
+            background: T.brand;
+        }
+        for t[i] in [root.label-a, root.label-b]: Rectangle {
+            x: i == 0 ? max(8px, parent.split - self.width - 8px) : min(parent.split + 8px, root.width - self.width - 8px);
+            y: 8px;
+            width: tag.preferred-width + 12px;
+            height: 20px;
+            border-radius: 2px;
+            background: #000000aa;
+            tag := Text {
+                text: (i == 0 ? "A · " : "B · ") + t;
+                color: T.text;
+                font-size: T.small;
+            }
+        }
+        Rectangle {
+            x: parent.split - 9px;
+            y: (root.height - self.height) / 2;
+            width: 18px;
+            height: 44px;
+            border-radius: 2px;
+            background: T.brand;
+            Text {
+                text: "⇔";
+                color: T.brand-ink;
+                font-size: T.small;
+            }
+        }
+        TouchArea {
+            x: parent.split - 9px;
+            width: 18px;
+            mouse-cursor: col-resize;
+            moved => {
+                if self.pressed && parent.w > 0 {
+                    root.wipe = clamp((self.x + self.mouse-x - parent.x0) / parent.w, 0, 1);
+                }
+            }
+        }
+    }
 }
 
 component Scrubber inherits Rectangle {
@@ -250,6 +318,12 @@ component IconButton inherits Rectangle {
 component Viewer inherits Rectangle {
     in property <bool> stats-visible;
     in property <[Stat]> stats;
+    property <[string]> names: ["Input", "Alpha", "Foreground", "Checker", "Cutout"];
+    property <bool> ab;
+    changed ab => {
+        View.view-b = !root.ab ? -1 : View.view != 0 ? 0 : View.has[3] ? 3 : View.has[1] ? 1 : View.has[2] ? 2 : 4;
+        View.show(View.view, View.index);
+    }
     callback focus-me();
     background: T.canvas;
     VerticalLayout {
@@ -263,7 +337,7 @@ component Viewer inherits Rectangle {
                 border-radius: 2px;
                 background: T.canvas-2;
                 HorizontalLayout {
-                    for name[i] in ["Input", "Alpha", "Foreground", "Checker", "Cutout"]: Tab {
+                    for name[i] in root.names: Tab {
                         text: name;
                         checked: View.view == i;
                         enabled: View.has[i];
@@ -282,6 +356,16 @@ component Viewer inherits Rectangle {
             }
             Rectangle {
                 horizontal-stretch: 1;
+            }
+            Toggle {
+                text: "A|B";
+                checked <=> root.ab;
+            }
+            if root.ab: ComboBox {
+                width: 130px;
+                model: root.names;
+                current-index <=> View.view-b;
+                selected => { View.show(View.view, View.index); }
             }
             Btn {
                 text: "Fit";
@@ -313,6 +397,10 @@ component Viewer inherits Rectangle {
                 src-w: View.src-w;
                 src-h: View.src-h;
                 placeholder: View.message;
+                frame-b: View.frame-b;
+                compare: root.ab && View.b-ready && View.view-b != View.view;
+                label-a: root.names[View.view];
+                label-b: root.names[View.view-b];
                 focus-me => { root.focus-me(); }
             }
             if root.stats-visible: Rectangle {

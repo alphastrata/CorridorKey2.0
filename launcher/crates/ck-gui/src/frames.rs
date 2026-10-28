@@ -27,6 +27,7 @@ pub struct Shown {
     pub fps: f32,
     pub source: (u32, u32),
     pub pixels: Pixels,
+    pub b: Option<(PathBuf, Pixels)>,
 }
 
 enum Req {
@@ -35,6 +36,7 @@ enum Req {
         index: usize,
         linear: bool,
         full: bool,
+        b: Option<(PathBuf, bool)>,
     },
     Release,
 }
@@ -52,12 +54,14 @@ impl Frames {
         Self(tx)
     }
 
-    pub fn show(&self, path: &Path, index: usize, linear: bool, full: bool) {
+    /// Decodes `path` at `index`, plus the same frame of `b` for an A|B wipe.
+    pub fn show(&self, path: &Path, index: usize, linear: bool, full: bool, b: Option<(PathBuf, bool)>) {
         drop(self.0.send(Req::Show {
             path: path.to_owned(),
             index,
             linear,
             full,
+            b,
         }));
     }
 
@@ -335,6 +339,7 @@ impl Worker {
             fps,
             source: size,
             pixels,
+            b: None,
         })
     }
 
@@ -387,13 +392,20 @@ impl Worker {
                     index,
                     linear,
                     full,
+                    b,
                 } => {
-                    let result = self.frame(&path, index, linear, full);
+                    let result = self.frame(&path, index, linear, full).map(|mut s| {
+                        s.b = b.as_ref().and_then(|(p, lin)| {
+                            Some((p.clone(), self.frame(p, s.index, *lin, full).ok()?.pixels))
+                        });
+                        s
+                    });
                     let next = result.as_ref().ok().map(|s| s.index);
-
                     shown(result);
                     if let Some(i) = next {
-                        pending = self.prefetch(&path, i, linear, rx);
+                        pending = self.prefetch(&path, i, linear, rx).or_else(|| {
+                            b.as_ref().and_then(|(p, lin)| self.prefetch(p, i, *lin, rx))
+                        });
                     }
                 }
             }

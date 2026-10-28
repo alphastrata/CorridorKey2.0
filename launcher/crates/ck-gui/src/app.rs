@@ -373,10 +373,16 @@ impl State {
             return;
         }
         self.awaiting = true;
+        let mut b = None;
         if let Some(ui) = self.ui() {
-            ui.global::<View>().set_busy(true);
+            let v = ui.global::<View>();
+            v.set_busy(true);
+            b = usize::try_from(v.get_view_b())
+                .ok()
+                .filter(|&k| k != view)
+                .and_then(|k| Some((self.views.get(k).cloned().flatten().filter(|p| !is_ppm(p))?, self.linear(k))));
         }
-        self.frames.show(&path, index, self.linear(view), self.detail);
+        self.frames.show(&path, index, self.linear(view), self.detail, b);
     }
 
     fn ready(&self) -> Vec<bool> {
@@ -420,6 +426,7 @@ impl State {
 
         if let Ok(px) = frames::ppm(&path) {
             self.live = stamp;
+            v.set_b_ready(false);
             v.set_src_h(px.height().cast_signed());
             v.set_src_w(px.width().cast_signed());
             v.set_frame(Image::from_rgb8(px));
@@ -447,6 +454,10 @@ impl State {
                     return;
                 }
                 v.set_frame(Image::from_rgb8(s.pixels));
+                v.set_b_ready(s.b.is_some());
+                if let Some((_, px)) = s.b {
+                    v.set_frame_b(Image::from_rgb8(px));
+                }
 
                 v.set_src_h(s.source.1.cast_signed());
                 v.set_src_w(s.source.0.cast_signed());
