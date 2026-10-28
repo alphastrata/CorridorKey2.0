@@ -33,6 +33,8 @@ pub struct Settings {
     pub refiner: String,
     /// This job's own resource shares; `None` follows the Preferences defaults.
     pub share: Option<Share>,
+    /// GPUs this job runs on together; `None` follows the Preferences placement.
+    pub gpus: Option<Vec<usize>>,
 }
 
 /// Percentages of the machine a job may take.
@@ -99,6 +101,7 @@ impl Default for Settings {
             model: String::new(),
             refiner: String::new(),
             share: None,
+            gpus: None,
         }
     }
 }

@@ -61,12 +61,16 @@ export global Job {
     in-out property <int> model;
     in property <[string]> refiners;
     in-out property <int> refiner;
+    in-out property <bool> own-gpus;
+    in property <[bool]> gpu-pick;
     in-out property <bool> own-share;
     in-out property <float> priority: 50;
     in-out property <float> vram: 90;
     in-out property <float> cpu: 75;
     callback changed();
     callback browse-out-parent();
+    /// Index -1 resets the pick to the GPUs enabled in Preferences.
+    callback gpu-picked(int, bool);
 }
 
 /// Machine-wide preferences, edited in the Preferences sheet.
@@ -1121,9 +1125,29 @@ component Inspector inherits Rectangle {
                     }
                 }
                 Section {
-                    title: "GPU memory";
+                    title: "GPU";
+                    CheckBox {
+                        min-width: 0;
+                        text: "Choose GPUs for this clip";
+                        checked <=> Job.own-gpus;
+                        enabled: Prefs.gpu-names.length > 0;
+                        toggled => { Job.gpu-picked(-1, false); }
+                    }
+                    for name[i] in Prefs.gpu-names: CheckBox {
+                        min-width: 0;
+                        text: name;
+                        enabled: Job.own-gpus;
+                        checked: Job.own-gpus ? Job.gpu-pick[i] : Prefs.gpu-on[i];
+                        toggled => { Job.gpu-picked(i, self.checked); }
+                    }
+                    Text {
+                        text: Job.own-gpus ? "Runs on every ticked GPU at once, waiting until all are idle." : "Follows the GPUs and placement set in Preferences.";
+                        color: T.subtle;
+                        font-size: T.small;
+                        wrap: word-wrap;
+                    }
                     Row {
-                        label: "Mode";
+                        label: "Memory";
                         ComboBox {
                             min-width: 0;
                             model: ["Auto · fit to free memory", "Manual"];
@@ -1134,7 +1158,7 @@ component Inspector inherits Rectangle {
                     Row {
                         label: "Window";
                         enabled: root.manual;
-                        ComboBox {
+                        window := ComboBox {
                             min-width: 0;
                             model: root.presets;
                             current-index: root.preset;
@@ -1157,7 +1181,10 @@ component Inspector inherits Rectangle {
                             maximum: 400;
                             value <=> Job.chunk;
                             enabled: root.manual;
-                            edited => { Job.changed(); }
+                            edited => {
+                                window.current-index = root.preset;
+                                Job.changed();
+                            }
                         }
                         SpinBox {
                             min-width: 0;
@@ -1165,7 +1192,10 @@ component Inspector inherits Rectangle {
                             maximum: 400;
                             value <=> Job.stride;
                             enabled: root.manual;
-                            edited => { Job.changed(); }
+                            edited => {
+                                window.current-index = root.preset;
+                                Job.changed();
+                            }
                         }
                     }
                 }

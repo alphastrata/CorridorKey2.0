@@ -163,6 +163,10 @@ fn settings_to_ui(s: &Settings, j: &Job, cat: &Catalogue) {
     j.set_refine(s.refine);
     j.set_out_mode(i32::from(s.out_parent.is_some()));
     j.set_out_parent(s.out_parent.clone().unwrap_or_default().into());
+    j.set_own_gpus(s.gpus.is_some());
+    j.set_gpu_pick(ModelRc::new(VecModel::from(
+        (0..cat.gpus.len()).map(|i| s.gpus.as_ref().is_some_and(|g| g.contains(&i))).collect::<Vec<_>>(),
+    )));
     j.set_own_share(s.share.is_some());
     if let Some(sh) = s.share {
         crate::prefs::share_to_ui(sh, |p, v, c| (j.set_priority(p), j.set_vram(v), j.set_cpu(c)));
@@ -203,6 +207,10 @@ fn settings_from_ui(j: &Job, cat: &Catalogue) -> Settings {
         out_parent: (j.get_out_mode() == 1).then(|| j.get_out_parent().into()),
         model: Catalogue::name(&cat.models, j.get_model()),
         refiner: Catalogue::name(&cat.refiners, j.get_refiner()),
+        gpus: j
+            .get_own_gpus()
+            .then(|| j.get_gpu_pick().iter().enumerate().filter(|(_, on)| *on).map(|(i, _)| i).collect::<Vec<_>>())
+            .filter(|g| !g.is_empty()),
         share: j.get_own_share().then(|| crate::prefs::share((j.get_priority(), j.get_vram(), j.get_cpu()))),
     }
 }
@@ -679,7 +687,7 @@ impl State {
             .ui()
             .map_or_default(|ui| settings_from_ui(&ui.global::<Job>(), &self.catalogue));
         self.persist();
-        if self.slots().iter().all(Vec::is_empty) && !self.catalogue.gpus.is_empty() {
+        if self.settings.gpus.is_none() && self.slots().iter().all(Vec::is_empty) && !self.catalogue.gpus.is_empty() {
             if let Some(ui) = self.ui() {
                 ui.set_status("Every GPU is switched off. Enable one under GPUs.".into());
             }
@@ -735,13 +743,18 @@ impl State {
         }
     }
 
+    /// The first queued clip whose GPUs are all idle, with those GPUs.
     fn vacancy(&self) -> Option<(usize, Vec<usize>)> {
-        let i = self.clips.iter().position(|c| c.status == Status::Queued)?;
-        let slot = self
-            .slots()
-            .into_iter()
-            .find(|s| !self.runs.iter().any(|r| r.gpus == *s))?;
-        Some((i, slot))
+        let idle = |s: &[usize]| {
+            !self.runs.iter().any(|r| r.gpus.iter().any(|g| s.contains(g)) || r.gpus.is_empty() && s.is_empty())
+        };
+        let slots = self.slots();
+        self.clips.iter().enumerate().filter(|(_, c)| c.status == Status::Queued).find_map(|(i, c)| {
+            match c.settings.as_ref().and_then(|s| s.gpus.clone()) {
+                Some(own) => idle(&own).then_some((i, own)),
+                None => slots.iter().find(|s| idle(s)).map(|s| (i, s.clone())),
+            }
+        })
     }
 
     fn fill(&mut self) {
@@ -1358,6 +1371,21 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
             st.own_settings();
             st.persist();
         }
+    });
+    let s = state.clone();
+    j.on_gpu_picked(move |i, on| {
+        let mut st = s.borrow_mut();
+        let Some(ui) = st.ui() else { return };
+        let j = ui.global::<Job>();
+        if i < 0 {
+            let enabled = ui.global::<crate::Prefs>().get_gpu_on();
+            j.set_gpu_pick(ModelRc::new(VecModel::from(enabled.iter().collect::<Vec<_>>())));
+        } else {
+            j.get_gpu_pick().set_row_data(usize::try_from(i).unwrap_or_default(), on);
+        }
+        st.settings = settings_from_ui(&j, &st.catalogue);
+        st.own_settings();
+        st.persist();
     });
     let s = state.clone();
     let p = ui.global::<crate::Prefs>();
