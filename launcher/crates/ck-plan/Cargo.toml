@@ -1,0 +1,10 @@
+[package]
+name = "ck-plan"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]

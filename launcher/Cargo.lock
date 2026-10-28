@@ -930,6 +930,7 @@ dependencies = [
  "bytemuck",
  "ck-gpu",
  "ck-ipc",
+ "ck-plan",
  "color-eyre",
  "eyre",
  "flume",
@@ -962,6 +963,7 @@ dependencies = [
  "ahash",
  "argh",
  "ck-ipc",
+ "ck-plan",
  "color-eyre",
  "dirs",
  "eyre",
@@ -990,6 +992,10 @@ dependencies = [
  "thiserror 2.0.21",
  "uuid",
 ]
+
+[[package]]
+name = "ck-plan"
+version = "0.1.0"
 
 [[package]]
 name = "clang-sys"
