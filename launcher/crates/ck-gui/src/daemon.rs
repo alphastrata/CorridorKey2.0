@@ -42,11 +42,17 @@ impl Daemon {
             env: cmd.env.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect(),
             cwd: cwd.to_string_lossy().into_owned(),
             preview: true,
+            resident: true,
         };
         match self.0.call(&req)? {
             ck_ipc::Reply::Started { id, pid } => Ok(Job { pid, id: Some(id) }),
             r => Err(eyre::eyre!("ckd replied {r:?}")),
         }
+    }
+
+    pub fn stop(&mut self, pid: u32) -> eyre::Result<()> {
+        self.0.call(&ck_ipc::Request::Stop { pid })?;
+        Ok(())
     }
 
     /// The job's record and buffered output; `None` when `ckd` no longer knows it.

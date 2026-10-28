@@ -949,16 +949,28 @@ impl State {
             self.mode = Mode::Stopping;
         }
         let selected = self.selected();
-        self.runs
+        let pids: Vec<u32> = self
+            .runs
             .iter_mut()
             .filter(|r| all || Some(r.index) == selected)
-            .for_each(|r| {
+            .map(|r| {
                 r.stopping = true;
-                runner::stop(&r.job);
-            });
+                r.job.pid
+            })
+            .collect();
+        pids.into_iter().for_each(|pid| self.halt(pid));
         if self.runs.is_empty() && self.mode == Mode::Running {
             self.finish();
         }
+    }
+
+    /// Asks `ckd` to stop the job (a resident worker aborts and keeps its models), else signals it.
+    fn halt(&mut self, pid: u32) {
+        #[cfg(unix)]
+        if self.daemon.as_mut().is_some_and(|d| d.stop(pid).is_ok()) {
+            return;
+        }
+        runner::stop(pid);
     }
 
     fn stats(&self) -> Vec<Stat> {

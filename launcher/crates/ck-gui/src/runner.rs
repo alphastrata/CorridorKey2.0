@@ -94,10 +94,10 @@ pub fn spawn(cmd: &Command, cwd: &Path, tx: &Sender<Event>) -> std::io::Result<J
     Ok(Job { pid, id: None })
 }
 
-pub fn stop(job: &Job) {
+pub fn stop(pid: u32) {
     #[cfg(unix)]
     {
-        let group = Pid::from_raw(job.pid.cast_signed());
+        let group = Pid::from_raw(pid.cast_signed());
         killpg(group, Signal::SIGTERM).ok();
         thread::spawn(move || {
             thread::sleep(Duration::from_secs(3));
@@ -109,7 +109,7 @@ pub fn stop(job: &Job) {
     {
         drop(
             std::process::Command::new("taskkill")
-                .args(["/PID", &job.pid.to_string(), "/T", "/F"])
+                .args(["/PID", &pid.to_string(), "/T", "/F"])
                 .output(),
         );
     }
