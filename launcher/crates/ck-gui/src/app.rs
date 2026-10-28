@@ -72,7 +72,9 @@ struct State {
     input: Option<(u32, u32, f32, usize)>,
     last_dir: Option<PathBuf>,
     /// Live-view frames from `ckd`, keyed by the `.ppm` path they stand in for.
-    latest: AHashMap<PathBuf, (SystemTime, frames::Pixels)>,
+    latest: AHashMap<PathBuf, (SystemTime, frames::Pixels, usize)>,
+    /// The B side of a live A|B: when it last changed, and a decode in flight to match A's frame.
+    live_b: (Option<SystemTime>, Option<(PathBuf, Instant)>),
     probe: Probe,
     events: (Sender<Event>, Receiver<Event>),
     #[cfg(unix)]
@@ -535,6 +537,7 @@ impl State {
         };
         if is_ppm(&path) {
             self.live = None;
+            self.live_b = (None, None);
             self.live();
             return;
         }
@@ -581,26 +584,51 @@ impl State {
             v.set_playing(false);
             v.set_view(i32::try_from(k).unwrap_or_default());
             self.live = None;
+            self.live_b = (None, None);
         }
-        let Some(path) = self.views.get(view).cloned().flatten().filter(|p| is_ppm(p)) else {
-            return;
-        };
-        let held = self.latest.get(&path).cloned();
-        let stamp = held
-            .as_ref()
-            .map(|(t, _)| *t)
-            .or_else(|| std::fs::metadata(&path).and_then(|m| m.modified()).ok());
-        if stamp.is_none() || stamp == self.live {
+        let at = self.views.get(view).cloned().flatten().filter(|p| is_ppm(p)).and_then(|path| {
+            let held = self.latest.get(&path).cloned();
+            let stamp = held
+                .as_ref()
+                .map(|(t, ..)| *t)
+                .or_else(|| std::fs::metadata(&path).and_then(|m| m.modified()).ok());
+            if stamp.is_some() && stamp != self.live {
+                let (px, at) = match held {
+                    Some((_, px, at)) => (px, Some(at)),
+                    None => (frames::ppm(&path).ok()?, None),
+                };
+                self.live = stamp;
+                v.set_src_h(px.height().cast_signed());
+                v.set_src_w(px.width().cast_signed());
+                v.set_frame(Image::from_rgb8(px));
+                v.set_count(1);
+                v.set_index(0);
+                return at;
+            }
+            None
+        });
+        if let Some(b) = usize::try_from(v.get_view_b()).ok().filter(|&b| b != view && v.get_compare()) {
+            self.live_b(b, at);
+        }
+    }
+
+    /// Fills the B side of a wipe during a run: another live output straight from memory,
+    /// or the input decoded at the frame A shows.
+    fn live_b(&mut self, b: usize, at: Option<usize>) {
+        let (Some(ui), Some(path)) = (self.ui(), self.views.get(b).cloned().flatten()) else { return };
+        let v = ui.global::<View>();
+        if !is_ppm(&path) {
+            let idle = self.live_b.1.as_ref().is_none_or(|(_, t)| t.elapsed() > Duration::from_secs(2));
+            if let Some(i) = at.filter(|_| idle) {
+                self.frames.show(&path, i, self.linear(b), false, None);
+                self.live_b.1 = Some((path, Instant::now()));
+            }
             return;
         }
-        if let Ok(px) = held.map_or_else(|| frames::ppm(&path), |(_, px)| Ok(px)) {
-            self.live = stamp;
-            v.set_b_ready(false);
-            v.set_src_h(px.height().cast_signed());
-            v.set_src_w(px.width().cast_signed());
-            v.set_frame(Image::from_rgb8(px));
-            v.set_count(1);
-            v.set_index(0);
+        if let Some((t, px, _)) = self.latest.get(&path).filter(|(t, ..)| Some(*t) != self.live_b.0) {
+            self.live_b.0 = Some(*t);
+            v.set_frame_b(Image::from_rgb8(px.clone()));
+            v.set_b_ready(true);
         }
     }
 
@@ -609,6 +637,16 @@ impl State {
         let Some(ui) = self.ui() else { return };
         let v = ui.global::<View>();
         v.set_busy(false);
+        if s.is_err() {
+            self.live_b.1 = None;
+        }
+        if self.live_b.1.take_if(|(p, _)| s.as_ref().is_ok_and(|s| s.path == *p)).is_some() {
+            if let Ok(s) = s {
+                v.set_frame_b(Image::from_rgb8(s.pixels));
+                v.set_b_ready(true);
+            }
+            return;
+        }
         match s {
             Err(e) => {
                 v.set_message(e.to_string().into());
@@ -623,7 +661,13 @@ impl State {
                     return;
                 }
                 v.set_frame(Image::from_rgb8(s.pixels));
-                v.set_b_ready(s.b.is_some());
+                let b_live = usize::try_from(v.get_view_b())
+                    .ok()
+                    .and_then(|b| self.views.get(b).cloned().flatten())
+                    .is_some_and(|p| is_ppm(&p));
+                if !b_live {
+                    v.set_b_ready(s.b.is_some());
+                }
                 if let Some((_, px)) = s.b {
                     v.set_frame_b(Image::from_rgb8(px));
                 }
@@ -1086,9 +1130,9 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
                     }
                 }
                 Event::Exit(pid, code) => st.exited(pid, &code, Instant::now()),
-                Event::Frame(pid, name, px) => {
+                Event::Frame(pid, name, px, at) => {
                     if let Some(key) = st.runs.iter().find(|r| r.job.pid == pid).map(|r| r.preview.join(format!("{name}.ppm"))) {
-                        st.latest.insert(key, (SystemTime::now(), px));
+                        st.latest.insert(key, (SystemTime::now(), px, at));
                     }
                 }
             }
@@ -1382,6 +1426,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
         runs: vec![],
         catalogue,
         live: None,
+        live_b: (None, None),
         jumped: false,
         launches: 0,
         mode: Mode::Idle,

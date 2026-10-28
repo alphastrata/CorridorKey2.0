@@ -26,6 +26,7 @@ pub fn connect(tx: &Sender<Event>) -> Option<Daemon> {
                     pid,
                     frame.output,
                     slint::SharedPixelBuffer::clone_from_slice(&frame.rgb, frame.w, frame.h),
+                    frame.index as usize,
                 ),
             })
             .try_for_each(|e| tx.send(e))

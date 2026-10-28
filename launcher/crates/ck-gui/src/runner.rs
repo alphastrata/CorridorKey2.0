@@ -20,7 +20,7 @@ pub enum Event {
     Line(u32, String, Option<u64>),
     Exit(u32, eyre::Result<i32>),
     /// A live-view snapshot of one output, from `ckd`.
-    Frame(u32, String, crate::frames::Pixels),
+    Frame(u32, String, crate::frames::Pixels, usize),
 }
 
 pub struct Job {
