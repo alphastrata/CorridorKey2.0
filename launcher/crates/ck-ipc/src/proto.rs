@@ -45,6 +45,20 @@ pub struct JobInfo {
     pub exit: Option<Exit>,
 }
 
+/// `ckd` → a resident `ck --serve` worker, on fd `CONTROL_FD`.
+#[derive(Archive, Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum Work {
+    /// Run one job with these `ck` arguments.
+    Run(Vec<String>),
+    Abort,
+}
+
+/// Worker → `ckd`: the job finished with this exit code.
+#[derive(Archive, Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Done {
+    pub code: i32,
+}
+
 /// A downscaled 8-bit RGB snapshot of one output.
 #[derive(Archive, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Frame {

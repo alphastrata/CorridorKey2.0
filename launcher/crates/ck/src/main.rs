@@ -1,9 +1,13 @@
 use std::io::IsTerminal;
+use std::sync::atomic::AtomicBool;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use argh::FromArgs;
-use ck::farm::{Assets, run};
+
+#[cfg(unix)]
+mod serve;
+use ck::farm::{Assets, Session, run_in};
 use ck::frame::{Adjust, Look, Output};
 use ck::run::{Config, Hints, PreviewTo};
 use ck::write::{Encoder, Exr};
@@ -24,6 +28,9 @@ struct Args {
     #[argh(description = "input videos or frame directories")]
     #[argh(positional)]
     inputs: Vec<PathBuf>,
+    #[argh(description = "stay resident: take jobs from ckd on fd 4, keeping models loaded between them")]
+    #[argh(switch)]
+    serve: bool,
     #[argh(description = "output directory")]
     #[argh(option, short = 'o', default = "PathBuf::from(\"output\")")]
     output: PathBuf,
@@ -242,6 +249,15 @@ fn main() -> Result<()> {
         Theme::new()
     };
     HookBuilder::default().theme(theme).install()?;
+    #[cfg(unix)]
+    if a.serve {
+        return serve::run();
+    }
+    let abort = AtomicBool::new(false);
+    job(a, Session { resident: None, abort: &abort })
+}
+
+fn job(a: Args, session: Session<'_>) -> Result<()> {
     ensure!(!a.inputs.is_empty(), "no inputs");
     if let Some(p) = a.inputs.iter().find(|p| !p.exists()) {
         bail!("{}: no such file or directory", p.display());
@@ -318,7 +334,7 @@ fn main() -> Result<()> {
         vfms: asset(&a.vfms, "uv run python scripts/download_weights.py")?,
         ptx: asset(&a.ptx, "just ptx")?,
     };
-    run(&assets, &devices, &a.inputs, &a.output, &cfg, &hints)?;
+    run_in(session, &assets, &devices, &a.inputs, &a.output, &cfg, &hints)?;
     info!("done in {:.1} s", start.elapsed().as_secs_f64());
     Ok(())
 }

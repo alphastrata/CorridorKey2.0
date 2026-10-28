@@ -18,13 +18,15 @@ use rkyv::util::AlignedVec;
 
 pub use client::Client;
 pub use hub::Snapshot;
-pub use proto::{Event, Exit, Frame, JobInfo, Reply, Request};
+pub use proto::{Done, Event, Exit, Frame, JobInfo, Reply, Request, Work};
 
 pub const BUS_BYTES: usize = 1 << 26;
 /// Bump when `proto` changes: the socket name carries it, so a stale daemon is never spoken to.
 pub const PROTOCOL: u32 = 3;
 /// The descriptor a job inherits its preview socket on.
 pub const PREVIEW_FD: i32 = 3;
+/// The descriptor a resident worker takes `Work` on and answers `Done`.
+pub const CONTROL_FD: i32 = 4;
 const SPIN: u32 = 2000;
 
 #[derive(Debug, thiserror::Error)]
