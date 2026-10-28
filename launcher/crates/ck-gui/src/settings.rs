@@ -68,7 +68,7 @@ pub struct Layout {
     pub log: bool,
     pub stats: bool,
     pub view_b: i32,
-    /// Where the add dialogs last picked from.
+    /// Where the add dialogues last picked from.
     pub last_dir: Option<PathBuf>,
 }
 
