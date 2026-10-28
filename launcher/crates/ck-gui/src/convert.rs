@@ -13,6 +13,20 @@ impl Float for usize {
     }
 }
 
+impl Float for u32 {
+    #[allow(clippy::cast_precision_loss)]
+    fn f32(self) -> f32 {
+        self as f32
+    }
+}
+
+impl Float for f64 {
+    #[allow(clippy::cast_possible_truncation)]
+    fn f32(self) -> f32 {
+        self as f32
+    }
+}
+
 /// Byte-count float view for telemetry.
 pub trait Metric {
     #[must_use]

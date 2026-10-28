@@ -944,6 +944,7 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
         if let Some(snap) = snap_rx.try_iter().last() {
             if let Some(ui) = st.ui() {
                 ui.set_gpu(snap.label.clone().into());
+                ui.set_plots(ModelRc::new(VecModel::from(snap.plots.clone())));
             }
             st.snapshot = snap;
         }

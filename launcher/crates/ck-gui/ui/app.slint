@@ -16,6 +16,13 @@ export struct LogLine {
     kind: int,
 }
 
+export struct Plot {
+    label: string,
+    value: string,
+    line: string,
+    area: string,
+}
+
 export struct Stat {
     key: string,
     value: string,
@@ -327,6 +334,7 @@ component IconButton inherits Rectangle {
 component Viewer inherits Rectangle {
     in property <bool> stats-visible;
     in property <[Stat]> stats;
+    in property <[Plot]> plots;
     property <[string]> names: ["Input", "Alpha", "Foreground", "Checker", "Cutout"];
     property <bool> ab <=> View.compare;
     changed ab => {
@@ -449,6 +457,69 @@ component Viewer inherits Rectangle {
                             font-family: T.mono;
                             font-size: 11px;
                             color: T.text;
+                        }
+                    }
+                }
+            }
+            if root.stats-visible && root.plots.length > 0: Rectangle {
+                x: parent.width - self.width - 12px;
+                y: 40px;
+                width: graphs.preferred-width;
+                height: min(graphs.preferred-height, parent.height - 52px);
+                clip: true;
+                background: #080a0ce0;
+                border-width: 1px;
+                border-color: #ffffff28;
+                border-radius: 6px;
+                graphs := VerticalLayout {
+                    padding: 12px;
+                    padding-top: 8px;
+                    spacing: 4px;
+                    Text {
+                        text: "HARDWARE · 5 s";
+                        font-family: T.mono;
+                        font-size: 11px;
+                        font-weight: 700;
+                        letter-spacing: 1.2px;
+                        color: T.brand;
+                    }
+                    for p in root.plots: HorizontalLayout {
+                        spacing: 10px;
+                        height: 22px;
+                        Text {
+                            text: p.label;
+                            width: 74px;
+                            font-family: T.mono;
+                            font-size: 11px;
+                            color: T.subtle;
+                            vertical-alignment: center;
+                        }
+                        Rectangle {
+                            width: 110px;
+                            background: #ffffff08;
+                            border-radius: 2px;
+                            Path {
+                                commands: p.area;
+                                viewbox-width: 110;
+                                viewbox-height: 22;
+                                fill: #fff20322;
+                            }
+                            Path {
+                                commands: p.line;
+                                viewbox-width: 110;
+                                viewbox-height: 22;
+                                stroke: T.brand;
+                                stroke-width: 1.2px;
+                            }
+                        }
+                        Text {
+                            text: p.value;
+                            width: 84px;
+                            font-family: T.mono;
+                            font-size: 11px;
+                            color: T.text;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
                         }
                     }
                 }
@@ -1085,6 +1156,7 @@ export component AppWindow inherits Window {
     in-out property <length> left-width: 340px;
     in-out property <length> right-width: 380px;
     in property <[Stat]> stats;
+    in property <[Plot]> plots;
     callback run();
     callback stop();
     callback stats-toggled(bool);
@@ -1224,6 +1296,7 @@ export component AppWindow inherits Window {
                     horizontal-stretch: 1;
                     stats-visible: root.stats-visible;
                     stats: root.stats;
+                    plots: root.plots;
                     focus-me => { keys.focus(); }
                 }
                 Splitter {

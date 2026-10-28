@@ -1,4 +1,5 @@
-use crate::Stat;
+use crate::plots::{History, TICK_MS};
+use crate::{Plot, Stat};
 use crate::convert::Metric;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -18,6 +19,7 @@ pub struct Snapshot {
     pub label: String,
     pub gpus: Vec<Stat>,
     pub process: Vec<Stat>,
+    pub plots: Vec<Plot>,
 }
 
 pub fn kv(key: impl Into<SharedString>, value: impl Into<SharedString>) -> Stat {
@@ -152,7 +154,7 @@ pub fn devices() -> Vec<String> {
         .collect()
 }
 
-/// Samples GPUs every second and the job's process tree while `detailed` is set.
+/// Samples GPUs every few seconds; while `detailed` is set, also the job's process tree each second and plots at 4 Hz.
 pub fn start(tx: Sender<Snapshot>) -> Probe {
     let probe = Probe {
         pid: Arc::default(),
@@ -164,29 +166,32 @@ pub fn start(tx: Sender<Snapshot>) -> Probe {
         .spawn(move || {
             let nvml = Nvml::init().ok();
             let mut sys = System::new();
+            let (mut history, mut tick, mut last) = (History::default(), 0u64, Snapshot::default());
             loop {
                 let detailed = p.detailed.load(Ordering::Acquire);
                 let root = p.pid.load(Ordering::Acquire);
-
-                let mine = if detailed && root != 0 {
-                    sys.refresh_processes_specifics(
-                        ProcessesToUpdate::All,
-                        true,
-                        ProcessRefreshKind::nothing().with_memory().with_cpu().with_tasks(),
-                    );
-                    tree(&sys, root)
-                } else {
-
-                    AHashSet::new()
-                };
-                let (label, gpus) = nvml
-                    .as_ref()
-                    .map_or_else(|| ("no NVML".into(), vec![]), |n| gpus(n, &mine, detailed));
-                let process = if detailed && root != 0 { process(&sys, &mine, root) } else { vec![] };
-                if tx.send(Snapshot { label, gpus, process }).is_err() {
+                if !detailed || tick.is_multiple_of(1000 / TICK_MS) {
+                    let mine = if detailed && root != 0 {
+                        sys.refresh_processes_specifics(
+                            ProcessesToUpdate::All,
+                            true,
+                            ProcessRefreshKind::nothing().with_memory().with_cpu().with_tasks(),
+                        );
+                        tree(&sys, root)
+                    } else {
+                        AHashSet::new()
+                    };
+                    (last.label, last.gpus) = nvml
+                        .as_ref()
+                        .map_or_else(|| ("no NVML".into(), vec![]), |n| gpus(n, &mine, detailed));
+                    last.process = if detailed && root != 0 { process(&sys, &mine, root) } else { vec![] };
+                }
+                last.plots = if detailed { history.sample(nvml.as_ref(), &mut sys) } else { vec![] };
+                if tx.send(last.clone()).is_err() {
                     return;
                 }
-                thread::sleep(Duration::from_secs(if detailed { 1 } else { 3 }));
+                tick += 1;
+                thread::sleep(Duration::from_millis(if detailed { TICK_MS } else { 3000 }));
             }
         })
         .ok();

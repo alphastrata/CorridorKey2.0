@@ -6,6 +6,7 @@ mod command;
 pub mod convert;
 mod frames;
 mod log;
+mod plots;
 mod runner;
 mod settings;
 mod telemetry;
