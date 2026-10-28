@@ -19,6 +19,8 @@ pub use client::Client;
 pub use proto::{Event, JobInfo, Reply, Request};
 
 pub const BUS_BYTES: usize = 1 << 26;
+/// Bump when `proto` changes: the socket name carries it, so a stale daemon is never spoken to.
+pub const PROTOCOL: u32 = 1;
 const SPIN: u32 = 2000;
 
 #[derive(Debug, thiserror::Error)]
@@ -47,7 +49,7 @@ pub fn dir() -> Result<PathBuf> {
 }
 
 pub fn socket() -> Result<PathBuf> {
-    Ok(dir()?.join("ck.sock"))
+    Ok(dir()?.join(format!("ck-{PROTOCOL}.sock")))
 }
 
 pub fn encode<T>(v: &T) -> Result<AlignedVec>
