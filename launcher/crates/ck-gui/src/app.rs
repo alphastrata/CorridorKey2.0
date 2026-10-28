@@ -36,6 +36,8 @@ struct Run {
     phases: Vec<(String, Instant)>,
     last: String,
     error: Vec<String>,
+    /// `ckd` lines below this sequence number were already replayed on reattach.
+    seen: u64,
 }
 
 #[derive(PartialEq)]
@@ -281,7 +283,7 @@ impl State {
             .into_iter()
             .filter(|c| c.path.exists())
             .map(|mut c| {
-                if c.status == Status::Running {
+                if c.status == Status::Running && c.job.is_none() {
                     (c.status, c.progress, c.detail) = (Status::Queued, 0.0, String::new());
                 }
                 c
@@ -289,6 +291,12 @@ impl State {
             .collect();
         self.rows.extend(clips.iter().map(row));
         self.clips.extend(clips);
+        #[cfg(unix)]
+        (0..self.clips.len())
+            .filter(|&i| self.clips[i].status == Status::Running)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|i| self.hydrate(i));
         if let Some(i) = saved.selected.filter(|&i| i < self.clips.len()) {
             ui.global::<Queue>().set_selected(i32::try_from(i).unwrap_or_default());
         }
@@ -296,6 +304,51 @@ impl State {
         if let Some(ui) = self.ui().filter(AppWindow::get_stats_visible) {
             ui.set_stats(ModelRc::new(VecModel::from(self.stats())));
         }
+    }
+
+    /// Reattaches a clip to its `ckd` job, replaying buffered output to rebuild log, progress and phases.
+    #[cfg(unix)]
+    fn hydrate(&mut self, i: usize) {
+        let Some(id) = self.clips[i].job.clone() else { return };
+        if self.daemon.is_none() {
+            self.daemon = crate::daemon::connect(&self.events.0);
+        }
+        let Some(Ok(Some((info, lines)))) = self.daemon.as_mut().map(|d| d.attach(&id)) else {
+            let c = &mut self.clips[i];
+            (c.status, c.progress, c.detail, c.job) = (Status::Stopped, 0.0, "Lost: ckd no longer has this job".into(), None);
+            return self.refresh_row(i);
+        };
+        let arg = |k: &str| info.args.iter().skip_while(|a| *a != k).nth(1).cloned();
+        let started = Instant::now()
+            .checked_sub(Duration::from_millis(info.elapsed_ms))
+            .unwrap_or_else(Instant::now);
+        self.runs.push(Run {
+            index: i,
+            gpus: arg("--device").map_or_default(|d| d.split(',').filter_map(|g| g.parse().ok()).collect()),
+            preview: arg("--preview").map_or_default(PathBuf::from),
+            job: Running { pid: info.pid, id: Some(id) },
+            progress: Progress::default(),
+            started,
+            phases: vec![("Starting".into(), started)],
+            last: String::new(),
+            error: vec![],
+            seen: info.lines,
+        });
+        self.log(log::line(Kind::Head, format!("=== {} (reattached) ===", self.clips[i].name())));
+        lines
+            .into_iter()
+            .map(|(ms, t)| (started + Duration::from_millis(ms), t))
+            .for_each(|(at, t)| self.line(info.pid, &t, at));
+        if let Some(e) = info.exit {
+            let end = started + Duration::from_millis(info.elapsed_ms);
+            return self.exited(info.pid, &crate::daemon::status(e), end);
+        }
+        self.mode = Mode::Running;
+        self.watch();
+        if let Some(ui) = self.ui() {
+            ui.set_running(true);
+        }
+        self.update_bar(i);
     }
 
     fn refresh_row(&self, i: usize) {
@@ -680,7 +733,7 @@ impl State {
                 self.refresh_row(i);
             }
             Ok(job) => {
-
+                c.job.clone_from(&job.id);
                 (c.status, c.progress) = (Status::Running, 0.0);
                 c.detail = if gpus.is_empty() {
                     "Starting ck".into()
@@ -702,6 +755,7 @@ impl State {
                     phases: vec![("Starting".into(), now)],
                     last: String::new(),
                     error: vec![],
+                    seen: 0,
 
                 });
                 self.watch();
@@ -723,7 +777,7 @@ impl State {
         ui.set_status(format!("{} · {}", c.name(), c.detail).into());
     }
 
-    fn line(&mut self, pid: u32, text: &str) {
+    fn line(&mut self, pid: u32, text: &str, at: Instant) {
         let tag = self
             .runs
             .iter()
@@ -771,7 +825,7 @@ impl State {
             };
 
             if run.phases.last().is_none_or(|(p, _)| *p != phase) {
-                run.phases.push((phase, Instant::now()));
+                run.phases.push((phase, at));
             }
             let i = run.index;
             let (value, detail) = (run.progress.value, run.progress.detail.clone());
@@ -782,7 +836,7 @@ impl State {
         }
     }
 
-    fn exited(&mut self, pid: u32, status: &Result<i32, eyre::Report>) {
+    fn exited(&mut self, pid: u32, status: &Result<i32, eyre::Report>, end: Instant) {
         let Some(k) = self.runs.iter().position(|r| r.job.pid == pid) else {
             return;
         };
@@ -827,7 +881,7 @@ impl State {
         if c.status == Status::Done {
             run.progress.keyed = run.progress.frames;
         }
-        self.finished = Some(summary(c, &run, Instant::now(), true));
+        self.finished = Some(summary(c, &run, end, true));
         self.persist();
         self.refresh_row(i);
         if let (Some(ui), Some(why)) = (self.ui(), failed) {
@@ -950,8 +1004,12 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
         let mut dispatched: VecDeque<Event> = events.into();
         while let Some(e) = dispatched.pop_front() {
             match e {
-                Event::Line(pid, l) => st.line(pid, &l),
-                Event::Exit(pid, code) => st.exited(pid, &code),
+                Event::Line(pid, l, seq) => {
+                    if !st.runs.iter().any(|r| r.job.pid == pid && seq.is_some_and(|s| s < r.seen)) {
+                        st.line(pid, &l, Instant::now());
+                    }
+                }
+                Event::Exit(pid, code) => st.exited(pid, &code, Instant::now()),
             }
         }
 
@@ -1202,7 +1260,13 @@ fn wire_window(ui: &AppWindow, state: &StateRef) {
     ui.window().on_close_requested(move || {
         let mut st = s.borrow_mut();
         st.persist();
-        st.stop();
+        #[cfg(unix)]
+        let detach = st.daemon.is_some();
+        #[cfg(not(unix))]
+        let detach = false;
+        if !detach {
+            st.stop();
+        }
         slint::CloseRequestResponse::HideWindow
     });
 }

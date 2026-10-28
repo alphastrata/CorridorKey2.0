@@ -56,6 +56,9 @@ pub struct Clip {
     pub output_dir: Option<PathBuf>,
     #[serde(default)]
     pub settings: Option<Settings>,
+    /// The `ckd` job id while it runs, so a restarted GUI can reattach.
+    #[serde(default)]
+    pub job: Option<String>,
 }
 
 fn ext(p: &Path) -> String {
@@ -147,6 +150,7 @@ impl Clip {
             detail: String::new(),
             output_dir: None,
             settings: None,
+            job: None,
         }
     }
 

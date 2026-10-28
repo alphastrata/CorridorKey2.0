@@ -6,7 +6,7 @@ use flume::Sender;
 use crate::command::Command;
 use crate::runner::{Event, Job};
 
-fn status(exit: ck_ipc::Exit) -> eyre::Result<i32> {
+pub fn status(exit: ck_ipc::Exit) -> eyre::Result<i32> {
     exit.signal.map_or(Ok(exit.code.unwrap_or(-1)), |s| Err(eyre::eyre!(s)))
 }
 
@@ -20,7 +20,7 @@ pub fn connect(tx: &Sender<Event>) -> Option<Daemon> {
     thread::spawn(move || {
         rx.iter()
             .map(|e| match e {
-                ck_ipc::Event::Line { pid, text, .. } => Event::Line(pid, text),
+                ck_ipc::Event::Line { pid, text, seq, .. } => Event::Line(pid, text, Some(seq)),
                 ck_ipc::Event::Exit { pid, exit, .. } => Event::Exit(pid, status(exit)),
             })
             .try_for_each(|e| tx.send(e))
@@ -38,8 +38,18 @@ impl Daemon {
             cwd: cwd.to_string_lossy().into_owned(),
         };
         match self.0.call(&req)? {
-            ck_ipc::Reply::Started { pid, .. } => Ok(Job { pid }),
+            ck_ipc::Reply::Started { id, pid } => Ok(Job { pid, id: Some(id) }),
             r => Err(eyre::eyre!("ckd replied {r:?}")),
+        }
+    }
+
+    /// The job's record and buffered output; `None` when `ckd` no longer knows it.
+    pub fn attach(&mut self, id: &str) -> eyre::Result<Option<ck_ipc::Snapshot>> {
+        match self.0.call(&ck_ipc::Request::Attach { id: id.to_owned() }) {
+            Ok(ck_ipc::Reply::Job { info, lines }) => Ok(Some((info, lines))),
+            Ok(r) => Err(eyre::eyre!("ckd replied {r:?}")),
+            Err(ck_ipc::Error::Daemon(_)) => Ok(None),
+            Err(e) => Err(e.into()),
         }
     }
 }

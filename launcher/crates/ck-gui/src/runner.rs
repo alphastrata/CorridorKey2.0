@@ -16,12 +16,14 @@ use flume::Sender;
 use crate::command::Command;
 
 pub enum Event {
-    Line(u32, String),
+    /// Output line; `Some(seq)` when it came from `ckd`.
+    Line(u32, String, Option<u64>),
     Exit(u32, eyre::Result<i32>),
 }
 
 pub struct Job {
     pub pid: u32,
+    pub id: Option<String>,
 }
 
 fn pump(mut from: impl Read + Send + 'static, pid: u32, tx: Sender<Event>) {
@@ -37,7 +39,7 @@ fn pump(mut from: impl Read + Send + 'static, pid: u32, tx: Sender<Event>) {
                     line.clear();
                     if !text.trim().is_empty() {
 
-                        drop(tx.send(Event::Line(pid, text)));
+                        drop(tx.send(Event::Line(pid, text, None)));
                     }
                 } else {
                     line.push(b);
@@ -45,7 +47,7 @@ fn pump(mut from: impl Read + Send + 'static, pid: u32, tx: Sender<Event>) {
             });
         }
         if !line.is_empty() {
-            drop(tx.send(Event::Line(pid, String::from_utf8_lossy(&line).into_owned())));
+            drop(tx.send(Event::Line(pid, String::from_utf8_lossy(&line).into_owned(), None)));
         }
     });
 }
@@ -87,7 +89,7 @@ pub fn spawn(cmd: &Command, cwd: &Path, tx: &Sender<Event>) -> std::io::Result<J
         let status = child.wait().map_or_else(|e| Err(e.into()), describe);
         drop(tx.send(Event::Exit(pid, status)));
     });
-    Ok(Job { pid })
+    Ok(Job { pid, id: None })
 }
 
 pub fn stop(job: &Job) {
