@@ -631,7 +631,6 @@ component Value inherits Text {
 }
 
 component Inspector inherits Rectangle {
-    in property <bool> locked;
     property <bool> exr: Job.format == 1;
     property <bool> manual: Job.vram-mode == 1;
     property <[string]> presets: ["80 / 40 · max continuity", "48 / 24", "24 / 12", "8 / 4", "1 / 1 · single frames", "Custom"];
@@ -708,12 +707,12 @@ component Inspector inherits Rectangle {
                     }
                     Row {
                         label: "Codec";
-                        enabled: !root.locked && !root.exr;
+                        enabled: !root.exr;
                         ComboBox {
                             min-width: 0;
                             model: ["x264 · CPU", "HEVC · NVENC on the GPU"];
                             current-index <=> Job.codec;
-                            enabled: !root.locked && !root.exr;
+                            enabled: !root.exr;
                             selected => { Job.changed(); }
                         }
                     }
@@ -729,7 +728,6 @@ component Inspector inherits Rectangle {
                             min-width: 0;
                             text: "Alpha matte";
                             checked <=> Job.out-alpha;
-                            enabled: !root.locked;
                             toggled => { Job.changed(); }
                         }
                         CheckBox {
@@ -738,7 +736,6 @@ component Inspector inherits Rectangle {
                             min-width: 0;
                             text: "Foreground";
                             checked <=> Job.out-fg;
-                            enabled: !root.locked;
                             toggled => { Job.changed(); }
                         }
                         CheckBox {
@@ -747,7 +744,6 @@ component Inspector inherits Rectangle {
                             min-width: 0;
                             text: "Cutout (RGBA)";
                             checked <=> Job.out-cutout;
-                            enabled: !root.locked;
                             toggled => { Job.changed(); }
                         }
                         CheckBox {
@@ -756,52 +752,49 @@ component Inspector inherits Rectangle {
                             min-width: 0;
                             text: "Checker preview";
                             checked <=> Job.out-checker;
-                            enabled: !root.locked;
                             toggled => { Job.changed(); }
                         }
                     }
                     Row {
                         label: "Format";
-                        enabled: !root.locked;
                         ComboBox {
                             min-width: 0;
                             model: ["Preview video", "EXR sequence · HDR"];
                             current-index <=> Job.format;
-                            enabled: !root.locked;
                             selected => { Job.changed(); }
                         }
                     }
                     Row {
                         label: "EXR type";
-                        enabled: !root.locked && root.exr;
+                        enabled: root.exr;
                         ComboBox {
                             min-width: 0;
                             model: ["Half float", "Full float"];
                             current-index <=> Job.exr-type;
-                            enabled: !root.locked && root.exr;
+                            enabled: root.exr;
                             selected => { Job.changed(); }
                         }
                     }
                     Row {
                         label: "Cutout colour";
-                        enabled: !root.locked && Job.out-cutout && !root.exr;
+                        enabled: Job.out-cutout && !root.exr;
                         ComboBox {
                             min-width: 0;
                             model: ["Straight sRGB", "Straight linear"];
                             current-index <=> Job.cutout-colour;
-                            enabled: !root.locked && Job.out-cutout && !root.exr;
+                            enabled: Job.out-cutout && !root.exr;
                             selected => { Job.changed(); }
                         }
                     }
                     Row {
                         label: "Despill";
-                        enabled: !root.locked && (Job.out-cutout || Job.out-checker);
+                        enabled: (Job.out-cutout || Job.out-checker);
                         Slider {
                             min-width: 0;
                             minimum: 0;
                             maximum: 1;
                             value <=> Job.despill;
-                            enabled: !root.locked && (Job.out-cutout || Job.out-checker);
+                            enabled: (Job.out-cutout || Job.out-checker);
                             released => { Job.changed(); }
                         }
                         Value {
@@ -813,13 +806,11 @@ component Inspector inherits Rectangle {
                     title: "Hint trust";
                     Row {
                         label: "Provided hint";
-                        enabled: !root.locked;
                         Slider {
                             min-width: 0;
                             minimum: 0;
                             maximum: 1;
                             value <=> Job.hint-quality;
-                            enabled: !root.locked;
                             released => { Job.changed(); }
                         }
                         Value {
@@ -830,18 +821,17 @@ component Inspector inherits Rectangle {
                         min-width: 0;
                         text: "Carry own matte between windows";
                         checked <=> Job.carry;
-                        enabled: !root.locked;
                         toggled => { Job.changed(); }
                     }
                     Row {
                         label: "Carried hint";
-                        enabled: !root.locked && Job.carry;
+                        enabled: Job.carry;
                         Slider {
                             min-width: 0;
                             minimum: 0;
                             maximum: 1;
                             value <=> Job.carry-quality;
-                            enabled: !root.locked && Job.carry;
+                            enabled: Job.carry;
                             released => { Job.changed(); }
                         }
                         Value {
@@ -853,23 +843,21 @@ component Inspector inherits Rectangle {
                     title: "GPU memory";
                     Row {
                         label: "Mode";
-                        enabled: !root.locked;
                         ComboBox {
                             min-width: 0;
                             model: ["Auto · fit to free memory", "Manual"];
                             current-index <=> Job.vram-mode;
-                            enabled: !root.locked;
                             selected => { Job.changed(); }
                         }
                     }
                     Row {
                         label: "Window";
-                        enabled: !root.locked && root.manual;
+                        enabled: root.manual;
                         ComboBox {
                             min-width: 0;
                             model: root.presets;
                             current-index: root.preset;
-                            enabled: !root.locked && root.manual;
+                            enabled: root.manual;
                             selected => {
                                 if self.current-index < 5 {
                                     Job.chunk = root.chunks[self.current-index];
@@ -881,13 +869,13 @@ component Inspector inherits Rectangle {
                     }
                     Row {
                         label: "Chunk / stride";
-                        enabled: !root.locked && root.manual;
+                        enabled: root.manual;
                         SpinBox {
                             min-width: 0;
                             minimum: 1;
                             maximum: 400;
                             value <=> Job.chunk;
-                            enabled: !root.locked && root.manual;
+                            enabled: root.manual;
                             edited => { Job.changed(); }
                         }
                         SpinBox {
@@ -895,7 +883,7 @@ component Inspector inherits Rectangle {
                             minimum: 1;
                             maximum: 400;
                             value <=> Job.stride;
-                            enabled: !root.locked && root.manual;
+                            enabled: root.manual;
                             edited => { Job.changed(); }
                         }
                     }
@@ -904,23 +892,23 @@ component Inspector inherits Rectangle {
                     title: "Model";
                     Row {
                         label: "Weights";
-                        enabled: !root.locked && Job.models.length > 1;
+                        enabled: Job.models.length > 1;
                         ComboBox {
                             min-width: 0;
                             model: Job.models;
                             current-index <=> Job.model;
-                            enabled: !root.locked && Job.models.length > 1;
+                            enabled: Job.models.length > 1;
                             selected => { Job.changed(); }
                         }
                     }
                     Row {
                         label: "Refiner";
-                        enabled: !root.locked && Job.refiners.length > 1 && Job.scale > 0 && Job.refine;
+                        enabled: Job.refiners.length > 1 && Job.scale > 0 && Job.refine;
                         ComboBox {
                             min-width: 0;
                             model: Job.refiners;
                             current-index <=> Job.refiner;
-                            enabled: !root.locked && Job.refiners.length > 1 && Job.scale > 0 && Job.refine;
+                            enabled: Job.refiners.length > 1 && Job.scale > 0 && Job.refine;
                             selected => { Job.changed(); }
                         }
                     }
@@ -937,14 +925,13 @@ component Inspector inherits Rectangle {
                         min-width: 0;
                         text: name;
                         checked: Job.gpu-on[i];
-                        enabled: !root.locked;
                         toggled => { Job.gpu-toggled(i, self.checked); }
                     }
                     CheckBox {
                         min-width: 0;
                         text: "One clip per GPU at a time";
                         checked <=> Job.parallel;
-                        enabled: !root.locked && Job.gpu-names.length > 1;
+                        enabled: Job.gpu-names.length > 1;
                         toggled => { Job.changed(); }
                     }
                     if Job.gpu-names.length == 0: Text {
@@ -958,12 +945,10 @@ component Inspector inherits Rectangle {
                     title: "Speed";
                     Row {
                         label: "Model scale";
-                        enabled: !root.locked;
                         ComboBox {
                             min-width: 0;
                             model: ["Full resolution", "½ · faster", "¼ · fastest", "⅛ · preview"];
                             current-index <=> Job.scale;
-                            enabled: !root.locked;
                             selected => { Job.changed(); }
                         }
                     }
@@ -971,7 +956,7 @@ component Inspector inherits Rectangle {
                         min-width: 0;
                         text: "Edge refiner (best at ¼ and below)";
                         checked <=> Job.refine;
-                        enabled: !root.locked && Job.scale > 0;
+                        enabled: Job.scale > 0;
                         toggled => { Job.changed(); }
                     }
                 }
@@ -980,23 +965,19 @@ component Inspector inherits Rectangle {
                     expanded: false;
                     Row {
                         label: "Colour";
-                        enabled: !root.locked;
                         ComboBox {
                             min-width: 0;
                             model: ["Auto · EXR linear, else sRGB", "Scene-linear", "sRGB"];
                             current-index <=> Job.frame-colour;
-                            enabled: !root.locked;
                             selected => { Job.changed(); }
                         }
                     }
                     Row {
                         label: "Frame rate";
-                        enabled: !root.locked;
                         LineEdit {
                             min-width: 0;
                             text <=> Job.fps;
                             input-type: decimal;
-                            enabled: !root.locked;
                             edited => { Job.changed(); }
                         }
                     }
@@ -1006,13 +987,11 @@ component Inspector inherits Rectangle {
                     expanded: false;
                     Row {
                         label: "Length";
-                        enabled: !root.locked;
                         SpinBox {
                             min-width: 0;
                             minimum: 0;
                             maximum: 1000000;
                             value <=> Job.num-frames;
-                            enabled: !root.locked;
                             edited => { Job.changed(); }
                         }
                         Text {
@@ -1029,7 +1008,6 @@ component Inspector inherits Rectangle {
                         min-width: 0;
                         model: ["Next to each clip · out_<name>", "All in one folder"];
                         current-index <=> Job.out-mode;
-                        enabled: !root.locked;
                         selected => { Job.changed(); }
                     }
                     HorizontalLayout {
@@ -1038,12 +1016,12 @@ component Inspector inherits Rectangle {
                             min-width: 0;
                             text <=> Job.out-parent;
                             placeholder-text: "Folder for every out_<name>";
-                            enabled: !root.locked && Job.out-mode == 1;
+                            enabled: Job.out-mode == 1;
                             edited => { Job.changed(); }
                         }
                         Btn {
                             text: "…";
-                            enabled: !root.locked && Job.out-mode == 1;
+                            enabled: Job.out-mode == 1;
                             clicked => { Job.browse-out-parent(); }
                         }
                     }
@@ -1234,7 +1212,6 @@ export component AppWindow inherits Window {
                 }
                 Inspector {
                     width: root.right-width;
-                    locked: root.running;
                 }
             }
             if root.log-visible: Rectangle {
@@ -1330,9 +1307,8 @@ export component AppWindow inherits Window {
                         clicked => { root.stop(); }
                     }
                     Btn {
-                        text: "Run queue";
+                        text: root.running ? "Add to queue" : "Run queue";
                         primary: true;
-                        enabled: !root.running;
                         clicked => { root.run(); }
                     }
                 }

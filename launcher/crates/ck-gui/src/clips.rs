@@ -3,6 +3,8 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
+use crate::settings::Settings;
+
 pub const VIDEO: [&str; 5] = ["mp4", "mov", "avi", "mkv", "webm"];
 pub const FRAMES: [&str; 8] = ["png", "jpg", "jpeg", "exr", "tif", "tiff", "webp", "dpx"];
 pub const OUTPUTS: [(&str, &str); 4] = [
@@ -52,6 +54,8 @@ pub struct Clip {
     pub progress: f32,
     pub detail: String,
     pub output_dir: Option<PathBuf>,
+    #[serde(default)]
+    pub settings: Option<Settings>,
 }
 
 fn ext(p: &Path) -> String {
@@ -142,6 +146,7 @@ impl Clip {
             progress: 0.0,
             detail: String::new(),
             output_dir: None,
+            settings: None,
         }
     }
 

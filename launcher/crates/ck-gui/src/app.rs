@@ -546,7 +546,7 @@ impl State {
     }
 
     fn start(&mut self) {
-        if self.mode != Mode::Idle {
+        if self.mode == Mode::Stopping {
             return;
         }
         self.settings = self
@@ -570,8 +570,21 @@ impl State {
             self.clips[i].status = Status::Queued;
             self.clips[i].progress = 0.0;
             self.clips[i].detail.clear();
-
+            self.clips[i].settings = None;
             self.refresh_row(i);
+        }
+        let settings = self.settings.clone();
+        self.clips
+            .iter_mut()
+            .filter(|c| c.status == Status::Queued && c.settings.is_none())
+            .for_each(|c| c.settings = Some(settings.clone()));
+        self.persist();
+        if self.mode == Mode::Running {
+            if let Some(ui) = self.ui() {
+                ui.set_status("Queued with the current settings; it starts when a GPU frees up.".into());
+            }
+            self.fill();
+            return;
         }
         self.counts = [0; 3];
         self.mode = Mode::Running;
@@ -622,10 +635,11 @@ impl State {
         let preview = std::env::temp_dir()
             .join(format!("corridorkey-{}", std::process::id()))
             .join(self.launches.to_string());
-        let out = self.clips[i].output_dir_for(self.settings.out_parent.as_deref().unwrap_or(""));
+        let settings = self.clips[i].settings.clone().unwrap_or_else(|| self.settings.clone());
+        let out = self.clips[i].output_dir_for(settings.out_parent.as_deref().unwrap_or(""));
         self.clips[i].output_dir = Some(out.clone());
         let cwd = command::repo().unwrap_or_else(|| PathBuf::from("."));
-        let spawned = command::build(&self.clips[i], &self.settings, &out, (&gpus, &preview)).and_then(|cmd| {
+        let spawned = command::build(&self.clips[i], &settings, &out, (&gpus, &preview)).and_then(|cmd| {
             self.log(log::line(Kind::Head, format!("=== {} ===", self.clips[i].name())));
 
             self.log(log::line(
