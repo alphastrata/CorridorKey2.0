@@ -24,6 +24,7 @@ perf                      = {level = "deny", priority = -1}
 missing_errors_doc        = "allow"
 missing_safety_doc        = "allow"
 missing_panics_doc        = "allow"
+needless_for_each         = "allow"
 
 [build-dependencies]
 slint-build = "1.18.1"
