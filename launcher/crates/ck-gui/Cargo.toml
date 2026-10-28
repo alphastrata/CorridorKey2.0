@@ -36,6 +36,10 @@ slint-build = "1.18.1"
 ck-ipc = { version = "0.1.0", path = "../ck-ipc" }
 nix = { version = "0.31.3", features = ["signal", "process"] }
 
+[[test]]
+name = "gui"
+path = "gui_tests/main.rs"
+
 [[bench]]
 name = "convert"
 harness = false
