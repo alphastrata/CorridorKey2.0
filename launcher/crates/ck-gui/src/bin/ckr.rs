@@ -6,7 +6,7 @@ use ck_ipc::remote::{Act, Answer, Remote};
 use eyre::{WrapErr, eyre};
 
 #[derive(argh::FromArgs)]
-/// Steps: `x,y` click, `h:x,y` hover, `s:x,y,dy` scroll (dy < 0 scrolls down), `k:ctrl+,` keys, `w:ms` wait, `l:n` last n log lines, `p:file.png` snapshot.
+/// Steps: `x,y` click, `h:x,y` hover, `s:x,y,dy` scroll (dy < 0 scrolls down), `k:ctrl+,` keys, `w:ms` wait, `l:n` last n log lines, `t:` status, `p:file.png` snapshot; by element (`id:Comp::name`, `type:CheckBox` or a label, `#n` for the nth): `f:` find, `c:` click, `a:` activate, `v:query=value` set.
 struct Args {
     #[argh(positional)]
     steps: Vec<String>,
@@ -14,6 +14,11 @@ struct Args {
 
 fn coords(s: &str) -> eyre::Result<Vec<f32>> {
     s.split(',').map(|v| v.trim().parse::<f32>().wrap_err_with(|| format!("bad number in {s}"))).collect()
+}
+
+/// `query#n` picks the `n`th match; plain `query` the first.
+fn nth(s: &str) -> (String, u32) {
+    s.rsplit_once('#').and_then(|(q, n)| Some((q.to_owned(), n.parse().ok()?))).unwrap_or_else(|| (s.to_owned(), 0))
 }
 
 fn step(r: &mut Remote, s: &str) -> eyre::Result<()> {
@@ -25,6 +30,22 @@ fn step(r: &mut Remote, s: &str) -> eyre::Result<()> {
             image::RgbaImage::from_raw(w, h, px).ok_or_else(|| eyre!("short snapshot"))?.save(rest)?;
             println!("{rest}: {w}x{h} at scale {scale}");
         }
+        ("f", _) => r.find(rest)?.iter().for_each(|e| {
+            println!(
+                "{} {:?} label={:?} value={:?} checked={:?} enabled={:?} visible={} at {:.0},{:.0} {:.0}x{:.0}",
+                e.kind, e.id, e.label, e.value, e.checked, e.enabled, e.visible, e.x, e.y, e.w, e.h
+            );
+        }),
+        ("c" | "a", _) => {
+            let (query, n) = nth(rest);
+            drop(r.act(&if kind == "c" { Act::Press { query, n } } else { Act::Activate { query, n } })?);
+        }
+        ("v", _) => {
+            let (target, value) = rest.rsplit_once('=').ok_or_else(|| eyre!("v: wants query=value"))?;
+            let (query, n) = nth(target);
+            drop(r.act(&Act::Set { query, n, value: value.into() })?);
+        }
+        ("t", _) => println!("{}", r.text(&Act::Status)?),
         ("l", _) => {
             if let Answer::Text(t) = r.act(&Act::Log(rest.parse()?))? {
                 print!("{t}");

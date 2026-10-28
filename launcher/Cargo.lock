@@ -968,6 +968,7 @@ dependencies = [
  "dirs",
  "eyre",
  "flume",
+ "i-slint-backend-testing",
  "image",
  "nix",
  "nvml-wrapper",
