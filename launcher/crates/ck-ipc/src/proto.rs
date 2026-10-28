@@ -11,6 +11,8 @@ pub enum Request {
         cwd: String,
         /// Hand the job a preview socket on fd `PREVIEW_FD` and relay its frames as `Event::Frame`.
         preview: bool,
+        /// Run in a resident `ck --serve` worker that keeps models loaded between jobs.
+        resident: bool,
     },
     Stop { pid: u32 },
     List,
@@ -45,18 +47,13 @@ pub struct JobInfo {
     pub exit: Option<Exit>,
 }
 
-/// `ckd` → a resident `ck --serve` worker, on fd `CONTROL_FD`.
+/// `ckd` → a resident `ck --serve` worker, on fd `CONTROL_FD`; the worker answers with `hub::DONE` on stderr.
 #[derive(Archive, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Work {
-    /// Run one job with these `ck` arguments.
-    Run(Vec<String>),
-    Abort,
-}
-
-/// Worker → `ckd`: the job finished with this exit code.
-#[derive(Archive, Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct Done {
-    pub code: i32,
+    /// Run job `job` with these `ck` arguments.
+    Run { job: u64, args: Vec<String> },
+    /// Abort job `job`, whether running or still waiting.
+    Abort(u64),
 }
 
 /// A downscaled 8-bit RGB snapshot of one output.

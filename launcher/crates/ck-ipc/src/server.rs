@@ -1,19 +1,14 @@
-use std::io::Read;
-use std::os::fd::AsRawFd;
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::os::unix::process::{CommandExt, ExitStatusExt};
-use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use flume::{Receiver, Sender};
-use nix::sys::signal::{Signal, killpg};
-use nix::unistd::Pid;
 use tachyon::{Bus, TachyonError};
 
 use crate::hub::{self, Hub};
-use crate::{Error, Event, Exit, Frame, PREVIEW_FD, Reply, Request, Result, encode, recv, send, socket};
+use crate::process::Spec;
+use crate::{Error, Event, Reply, Request, Result, encode, recv, send, socket};
 
 /// Runs the daemon until the listener fails; refuses to start beside a live one.
 pub fn serve() -> Result<()> {
@@ -24,7 +19,8 @@ pub fn serve() -> Result<()> {
     drop(std::fs::remove_file(&path));
     let listener = UnixListener::bind(&path)?;
     let (tx, rx) = flume::unbounded();
-    thread::spawn(move || hub::run(&rx));
+    let hub_tx = tx.clone();
+    thread::spawn(move || hub::run(hub_tx, &rx));
     listener.incoming().flatten().for_each(|s| {
         let tx = tx.clone();
         thread::spawn(move || session(s, &tx));
@@ -44,12 +40,18 @@ fn session(stream: UnixStream, hub: &Sender<Hub>) {
                 thread::spawn(move || publish(&events, &rx));
                 Reply::Ok
             }
-            Request::Submit { program, args, env, cwd, preview } => match spawn(&program, &args, &env, (&cwd, preview), hub) {
-                Ok((id, pid)) => Reply::Started { id, pid },
-                Err(e) => Reply::Error(format!("could not start {program}: {e}")),
-            },
+            Request::Submit { program, args, env, cwd, preview, resident } => {
+                let (tx, rx) = flume::bounded(1);
+                let spec = Spec { program: program.clone(), args, env, cwd };
+                drop(hub.send(Hub::Submit { spec, preview, resident, reply: tx }));
+                match rx.recv() {
+                    Ok(Ok((id, pid))) => Reply::Started { id, pid },
+                    Ok(Err(e)) => Reply::Error(format!("could not start {program}: {e}")),
+                    Err(_) => Reply::Error("ckd is shutting down".into()),
+                }
+            }
             Request::Stop { pid } => {
-                stop(pid);
+                drop(hub.send(Hub::Stop(pid)));
                 Reply::Ok
             }
             Request::List => {
@@ -93,93 +95,4 @@ fn publish(path: &str, rx: &Receiver<Event>) {
             }
         })
         .ok();
-}
-
-fn lines(mut from: impl Read + Send + 'static, pid: u32, hub: Sender<Hub>) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        let (mut buf, mut line) = ([0u8; 8192], Vec::new());
-        let emit = |line: &mut Vec<u8>| {
-            let text = String::from_utf8_lossy(line).into_owned();
-            line.clear();
-            if !text.trim().is_empty() {
-                drop(hub.send(Hub::Line(pid, text)));
-            }
-        };
-        while let Ok(n @ 1..) = from.by_ref().read(&mut buf) {
-            buf[..n].iter().for_each(|&b| match b {
-                b'\n' | b'\r' => emit(&mut line),
-                _ => line.push(b),
-            });
-        }
-        emit(&mut line);
-    })
-}
-
-fn spawn(
-    program: &str,
-    args: &[String],
-    env: &[(String, String)],
-    (cwd, preview): (&str, bool),
-    hub: &Sender<Hub>,
-) -> std::io::Result<(String, u32)> {
-    let mut cmd = Command::new(program);
-    cmd.args(args)
-        .envs(env.iter().map(|(k, v)| (k, v)))
-        .current_dir(cwd)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .process_group(0);
-    let pair = preview.then(UnixStream::pair).transpose()?;
-    if let Some((_, theirs)) = &pair {
-        let fd = theirs.as_raw_fd();
-        cmd.args(["--preview-fd", &PREVIEW_FD.to_string()]);
-        // SAFETY: only async-signal-safe calls between fork and exec; dup2 leaves the copy inheritable.
-        unsafe {
-            cmd.pre_exec(move || {
-                let moved = if fd == PREVIEW_FD { libc::fcntl(fd, libc::F_SETFD, 0) } else { libc::dup2(fd, PREVIEW_FD) };
-                if moved < 0 { Err(std::io::Error::last_os_error()) } else { Ok(()) }
-            });
-        }
-    }
-    let mut child = cmd.spawn()?;
-    let pid = child.id();
-    if let Some((mut ours, theirs)) = pair {
-        drop(theirs);
-        let hub = hub.clone();
-        thread::spawn(move || {
-            while let Ok(f) = recv::<Frame>(&mut ours) {
-                drop(hub.send(Hub::Frame(pid, f)));
-            }
-        });
-    }
-    let id = uuid::Uuid::new_v4().to_string();
-    drop(hub.send(Hub::Started { id: id.clone(), pid, args: args.to_vec() }));
-    let readers: Vec<_> = [
-        child.stdout.take().map(|o| lines(o, pid, hub.clone())),
-        child.stderr.take().map(|e| lines(e, pid, hub.clone())),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
-    let hub = hub.clone();
-    thread::spawn(move || {
-        let status = child.wait().ok();
-        readers.into_iter().map(thread::JoinHandle::join).for_each(drop);
-        let signal = status.and_then(|s| s.signal()).map(|s| {
-            Signal::try_from(s).map_or_else(|_| format!("signal {s}"), |s| s.to_string())
-        });
-        drop(hub.send(Hub::Exit(pid, Exit { code: status.and_then(|s| s.code()), signal })));
-    });
-    Ok((id, pid))
-}
-
-/// SIGTERM to the job's process group, then SIGKILL after three seconds.
-pub fn stop(pid: u32) {
-    let group = Pid::from_raw(pid.cast_signed());
-    killpg(group, Signal::SIGTERM).ok();
-    thread::spawn(move || {
-        thread::sleep(Duration::from_secs(3));
-        killpg(group, Signal::SIGKILL).ok();
-    });
 }

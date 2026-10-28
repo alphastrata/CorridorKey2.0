@@ -482,7 +482,6 @@ pub fn run_in(
     let devices: Vec<usize> = ranked.into_iter().map(|(_, d)| d).collect();
     let (sinks, results) = flume::unbounded();
 
-    session.abort.store(false, Ordering::Release);
     let sh = Shared {
         assets,
         resident: session.resident,

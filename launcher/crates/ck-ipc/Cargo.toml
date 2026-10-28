@@ -4,6 +4,11 @@ edition.workspace = true
 version.workspace = true
 authors.workspace = true
 
+[[bin]]
+name = "ck-fake-worker"
+path = "tests/support/fake_worker.rs"
+test = false
+
 [lints]
 workspace = true
 
