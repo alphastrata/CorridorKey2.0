@@ -296,8 +296,8 @@ fn lead<'s, 'e>(
         .collect::<Result<Vec<_>>>()?;
     let preview = cfg
         .preview
-        .as_deref()
-        .map(|d| Preview::new(d, (src.w, src.h), cfg.exr.is_some()))
+        .as_ref()
+        .map(|to| Preview::new(to, (src.w, src.h), cfg.exr.is_some()))
         .transpose()?;
 
     let (done, rx) = flume::unbounded();

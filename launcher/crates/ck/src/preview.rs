@@ -1,17 +1,27 @@
 use crate::convert::Quant;
-use std::path::{Path, PathBuf};
+#[cfg(unix)]
+use std::os::unix::net::UnixStream;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use eyre::Result;
 
 use crate::frame::Output;
+use crate::run::PreviewTo;
 
 const WIDTH: usize = 960;
 const EVERY: Duration = Duration::from_millis(250);
 
-/// Downscaled 8-bit snapshots of the latest written frame, one `<output>.ppm` per output, for a live view.
+enum Sink {
+    Dir(PathBuf),
+    #[cfg(unix)]
+    Socket(UnixStream),
+    Gone,
+}
+
+/// Downscaled 8-bit snapshots of the latest written frame, per output, for a live view.
 pub struct Preview {
-    dir: PathBuf,
+    sink: Sink,
     size: (usize, usize),
     exr: bool,
     last: Option<Instant>,
@@ -26,10 +36,23 @@ fn srgb(x: f32) -> f32 {
 }
 
 impl Preview {
-    pub fn new(dir: &Path, size: (usize, usize), exr: bool) -> Result<Self> {
-        std::fs::create_dir_all(dir)?;
+    pub fn new(to: &PreviewTo, size: (usize, usize), exr: bool) -> Result<Self> {
+        let sink = match to {
+            PreviewTo::Dir(d) => {
+                std::fs::create_dir_all(d)?;
+                Sink::Dir(d.clone())
+            }
+            #[cfg(unix)]
+            PreviewTo::Fd(fd) => {
+                // SAFETY: `ckd` hands this descriptor down open for the life of the process; we use a duplicate.
+                let fd = unsafe { std::os::fd::BorrowedFd::borrow_raw(*fd) }.try_clone_to_owned()?;
+                Sink::Socket(UnixStream::from(fd))
+            }
+            #[cfg(not(unix))]
+            PreviewTo::Fd(_) => Sink::Gone,
+        };
         Ok(Self {
-            dir: dir.to_owned(),
+            sink,
             size,
             exr,
             last: None,
@@ -70,22 +93,40 @@ impl Preview {
     }
 
     #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
-    fn write(&self, o: Output, img: &[u8]) -> Result<()> {
+    fn write(&mut self, o: Output, img: &[u8]) -> Result<()> {
         let (w, h) = self.size;
         let step = w.div_ceil(WIDTH).max(1);
         let (pw, ph) = (w / step, h / step);
-        let mut ppm = format!("P6\n{pw} {ph}\n255\n").into_bytes();
-        ppm.extend((0..ph).flat_map(|y| (0..pw).map(move |x| (x, y))).flat_map(|(x, y)| {
-            let [r, g, b, a] = self.rgba(o, img, y * step * w + x * step);
-
-            let under = if (x / 8 + y / 8) % 2 == 0 { 0.4 } else { 0.6 };
-            [r, g, b].map(|v| ((v * a + under * (1.0 - a)).clamp(0.0, 1.0) * 255.0 + 0.5).u8())
-        }));
-        let (tmp, out) = (
-            self.dir.join(format!(".{}.ppm", o.name())),
-            self.dir.join(format!("{}.ppm", o.name())),
-        );
-        std::fs::write(&tmp, ppm)?;
-        Ok(std::fs::rename(tmp, out)?)
+        let rgb: Vec<u8> = (0..ph)
+            .flat_map(|y| (0..pw).map(move |x| (x, y)))
+            .flat_map(|(x, y)| {
+                let [r, g, b, a] = self.rgba(o, img, y * step * w + x * step);
+                let under = if (x / 8 + y / 8) % 2 == 0 { 0.4 } else { 0.6 };
+                [r, g, b].map(|v| ((v * a + under * (1.0 - a)).clamp(0.0, 1.0) * 255.0 + 0.5).u8())
+            })
+            .collect();
+        match &mut self.sink {
+            Sink::Dir(dir) => {
+                let (tmp, out) = (dir.join(format!(".{}.ppm", o.name())), dir.join(format!("{}.ppm", o.name())));
+                let mut ppm = format!("P6\n{pw} {ph}\n255\n").into_bytes();
+                ppm.extend(rgb);
+                std::fs::write(&tmp, ppm)?;
+                std::fs::rename(tmp, out)?;
+            }
+            #[cfg(unix)]
+            Sink::Socket(s) => {
+                let frame = ck_ipc::Frame {
+                    output: o.name().into(),
+                    w: u32::try_from(pw)?,
+                    h: u32::try_from(ph)?,
+                    rgb,
+                };
+                if ck_ipc::send(s, &frame).is_err() {
+                    self.sink = Sink::Gone;
+                }
+            }
+            Sink::Gone => {}
+        }
+        Ok(())
     }
 }

@@ -929,6 +929,7 @@ dependencies = [
  "argh",
  "bytemuck",
  "ck-gpu",
+ "ck-ipc",
  "color-eyre",
  "eyre",
  "flume",

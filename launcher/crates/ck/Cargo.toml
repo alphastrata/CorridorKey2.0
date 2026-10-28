@@ -22,6 +22,9 @@ tracing-error = "0.2.1"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 zip = "9.1.0"
 
+[target."cfg(unix)".dependencies]
+ck-ipc = { version = "0.1.0", path = "../ck-ipc" }
+
 [lints.clippy]
 pedantic                  = {level = "warn", priority = -1}
 perf                      = {level = "deny", priority = -1}

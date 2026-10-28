@@ -86,7 +86,14 @@ pub struct Config {
     pub encoder: Encoder,
     pub exr: Option<Exr>,
     pub vfm_batch: usize,
-    pub preview: Option<PathBuf>,
+    pub preview: Option<PreviewTo>,
+}
+
+/// Where live-view snapshots go: `<output>.ppm` files, or frames on a socket `ckd` handed down.
+#[derive(Clone, Debug)]
+pub enum PreviewTo {
+    Dir(PathBuf),
+    Fd(i32),
 }
 
 #[derive(Default)]

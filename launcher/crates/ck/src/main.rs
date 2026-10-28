@@ -5,7 +5,7 @@ use std::time::Instant;
 use argh::FromArgs;
 use ck::farm::{Assets, run};
 use ck::frame::{Adjust, Look, Output};
-use ck::run::{Config, Hints};
+use ck::run::{Config, Hints, PreviewTo};
 use ck::write::{Encoder, Exr};
 use ck_gpu::Gpu;
 use color_eyre::config::{HookBuilder, Theme};
@@ -82,6 +82,9 @@ struct Args {
     #[argh(description = "write downscaled snapshots of the latest frame here (`<output>.ppm`), for a live view")]
     #[argh(option)]
     preview: Option<PathBuf>,
+    #[argh(description = "send live-view snapshots over this inherited socket instead (set by ckd)")]
+    #[argh(option)]
+    preview_fd: Option<i32>,
     #[argh(description = "do not carry each window's alpha into the next as a hint")]
     #[argh(switch)]
     no_carry: bool,
@@ -302,7 +305,7 @@ fn main() -> Result<()> {
         },
 
         vfm_batch: a.vfm_batch,
-        preview: a.preview,
+        preview: a.preview_fd.map(PreviewTo::Fd).or(a.preview.map(PreviewTo::Dir)),
     };
     let hints = Hints {
         first: a.hint,
