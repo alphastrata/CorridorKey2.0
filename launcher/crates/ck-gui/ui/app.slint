@@ -9,6 +9,13 @@ export struct ClipRow {
     detail: string,
 }
 
+export struct LogLine {
+    time: string,
+    level: string,
+    text: string,
+    kind: int,
+}
+
 export struct Stat {
     key: string,
     value: string,
@@ -984,7 +991,7 @@ export component AppWindow inherits Window {
     in property <float> progress;
     in property <string> gpu;
     in property <bool> running;
-    in property <[string]> log;
+    in property <[LogLine]> log;
     in property <int> log-count;
     in-out property <bool> log-visible: true;
     in-out property <bool> stats-visible;
@@ -1148,13 +1155,34 @@ export component AppWindow inherits Window {
                     background: T.line;
                 }
                 log-view := ListView {
-                    for line in root.log: Text {
-                        text: line;
-                        color: T.muted;
-                        font-family: T.mono;
-                        font-size: 12px;
-                        x: 10px;
+                    for line in root.log: HorizontalLayout {
+                        property <color> tint: [T.muted, T.brand, #8fb8de, T.disabled, T.chroma, #ffb347, T.danger][line.kind];
+                        padding-left: 10px;
+                        spacing: 8px;
                         height: 17px;
+                        if line.time != "": Text {
+                            text: line.time;
+                            width: 64px;
+                            color: T.disabled;
+                            font-family: T.mono;
+                            font-size: 12px;
+                            horizontal-alignment: right;
+                        }
+                        if line.level != "": Text {
+                            text: line.level;
+                            width: 40px;
+                            color: parent.tint;
+                            font-family: T.mono;
+                            font-size: 12px;
+                            font-weight: 700;
+                        }
+                        Text {
+                            text: line.text;
+                            color: line.kind == 4 ? T.muted : parent.tint;
+                            font-family: T.mono;
+                            font-size: 12px;
+                            font-weight: line.kind == 1 ? 700 : 400;
+                        }
                     }
                 }
             }

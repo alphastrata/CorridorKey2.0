@@ -14,10 +14,11 @@ use slint::{ComponentHandle, Image, Model, ModelRc, SharedString, Timer, TimerMo
 use crate::clips::{self, Clip, Hint, Status};
 use crate::command::{self, Catalogue};
 use crate::frames::{self, Frames, Shown};
+use crate::log::{self, Kind};
 use crate::runner::{self, Event, Job as Running, Progress};
 use crate::settings::{Placement, Settings};
 use crate::telemetry::{self, Probe, Snapshot, head, kv};
-use crate::{AppWindow, ClipRow, Job, Queue, Stat, View};
+use crate::{AppWindow, ClipRow, Job, LogLine, Queue, Stat, View};
 
 const LOG_LINES: usize = 5000;
 const CLIP_FILTER: [&str; 5] = clips::VIDEO;
@@ -59,7 +60,7 @@ struct State {
     counts: [usize; 3],
     finished: Option<Finished>,
 
-    log: Rc<VecModel<SharedString>>,
+    log: Rc<VecModel<LogLine>>,
     rows: Rc<VecModel<ClipRow>>,
     frames: Frames,
     views: [Option<PathBuf>; 5],
@@ -211,8 +212,8 @@ impl State {
             .filter(|&i| i < self.clips.len())
     }
 
-    fn log(&self, line: impl Into<SharedString>) {
-        self.log.push(line.into());
+    fn log(&self, line: LogLine) {
+        self.log.push(line);
         if self.log.row_count() > LOG_LINES {
             self.log.remove(0);
         }
@@ -538,14 +539,15 @@ impl State {
         self.clips[i].output_dir = Some(out.clone());
         let cwd = command::repo().unwrap_or_else(|| PathBuf::from("."));
         let spawned = command::build(&self.clips[i], &self.settings, &out, (&gpus, &preview)).and_then(|cmd| {
-            self.log(format!("=== {} ===", self.clips[i].name()));
+            self.log(log::line(Kind::Head, format!("=== {} ===", self.clips[i].name())));
 
-            self.log(
+            self.log(log::line(
+                Kind::Command,
                 std::iter::once(cmd.program.display().to_string())
                     .chain(cmd.args.iter().cloned())
                     .collect::<Vec<_>>()
                     .join(" "),
-            );
+            ));
             runner::spawn(&cmd, &cwd, &self.events.0)
                 .wrap_err_with(|| format!("could not start {}", cmd.program.display()))
         });
@@ -556,7 +558,7 @@ impl State {
                 let why = e.to_string();
                 (c.status, c.detail) = (Status::Failed, why.clone());
                 self.counts[1] += 1;
-                self.log(why);
+                self.log(log::line(Kind::Error, why));
                 self.refresh_row(i);
             }
             Ok(job) => {
@@ -610,7 +612,7 @@ impl State {
             .filter(|_| self.runs.len() > 1)
             .find(|r| r.job.pid == pid)
             .map(|r| format!("[{}] ", self.clips[r.index].name()));
-        self.log(format!("{}{text}", tag.unwrap_or_default()));
+        self.log(log::parse(&tag.unwrap_or_default(), text));
         let Some(run) = self.runs.iter_mut().find(|r| r.job.pid == pid) else {
             return;
         };
