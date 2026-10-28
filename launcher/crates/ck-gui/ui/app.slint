@@ -719,6 +719,7 @@ component Value inherits Text {
 }
 
 component Inspector inherits Rectangle {
+    in property <bool> locked;
     property <bool> exr: Job.format == 1;
     property <bool> manual: Job.vram-mode == 1;
     property <[string]> presets: ["80 / 40 · max continuity", "48 / 24", "24 / 12", "8 / 4", "1 / 1 · single frames", "Custom"];
@@ -733,8 +734,16 @@ component Inspector inherits Rectangle {
         padding-top: 12px;
         padding-right: 8px;
         spacing: 8px;
-        PanelTitle {
-            text: "INSPECTOR";
+        HorizontalLayout {
+            PanelTitle {
+                text: "INSPECTOR";
+            }
+            if root.locked: Text {
+                text: "Running · read-only";
+                color: T.brand;
+                font-size: T.small;
+                horizontal-alignment: right;
+            }
         }
         sv := ScrollView {
             vertical-stretch: 1;
@@ -1124,6 +1133,17 @@ component Inspector inherits Rectangle {
             }
         }
     }
+    if root.locked: Rectangle {
+        y: 36px;
+        height: parent.height - 36px;
+        background: #13131266;
+        TouchArea {
+            scroll-event(e) => {
+                sv.content-y = clamp(sv.content-y + e.delta-y, min(0px, sv.visible-height - sv.content-height), 0px);
+                return accept;
+            }
+        }
+    }
 }
 
 component Splitter inherits Rectangle {
@@ -1316,6 +1336,7 @@ export component AppWindow inherits Window {
                 }
                 Inspector {
                     width: root.right-width;
+                    locked: root.picked == "Running";
                 }
             }
             if root.log-visible: Rectangle {

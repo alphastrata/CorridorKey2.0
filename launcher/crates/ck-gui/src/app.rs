@@ -359,9 +359,19 @@ impl State {
         self.update_bar(i);
     }
 
+    /// Inspector edits belong to the selected clip, unless it is already running.
+    fn own_settings(&mut self) {
+        if let Some(c) = self.selected().map(|i| &mut self.clips[i]).filter(|c| c.status != Status::Running) {
+            c.settings = Some(self.settings.clone());
+        }
+    }
+
     fn mark(&mut self, i: usize, status: Status, settings: Option<&Settings>) {
         let c = &mut self.clips[i];
-        (c.status, c.progress, c.settings) = (status, 0.0, settings.cloned());
+        (c.status, c.progress) = (status, 0.0);
+        if let Some(s) = settings {
+            c.settings = Some(s.clone());
+        }
         c.detail.clear();
         self.refresh_row(i);
     }
@@ -390,7 +400,11 @@ impl State {
 
         let first = self.clips.len();
         self.rows.extend(fresh.iter().map(row));
-        self.clips.extend(fresh);
+        let settings = self.settings.clone();
+        self.clips.extend(fresh.into_iter().map(|mut c| {
+            c.settings = Some(settings.clone());
+            c
+        }));
         if let Some(ui) = self.ui() {
             ui.set_status(status.into());
             if self.selected().is_none() && self.clips.len() > first {
@@ -447,6 +461,12 @@ impl State {
             v.set_playing(false);
             return;
         };
+        if let Some(own) = self.clips[i].settings.clone() {
+            settings_to_ui(&own, &ui.global::<Job>(), &self.catalogue);
+            if self.clips[i].status != Status::Running {
+                self.settings = own;
+            }
+        }
         let c = &self.clips[i];
         q.set_clip_name(c.name().into());
         q.set_clip_where(
@@ -648,8 +668,13 @@ impl State {
             }
             return;
         }
-        let settings = self.settings.clone();
-        picked.iter().for_each(|&i| self.mark(i, Status::Queued, Some(&settings)));
+        if let Some(i) = self.selected() {
+            self.clips[i].settings = Some(self.settings.clone());
+        }
+        picked.iter().for_each(|&i| {
+            let own = self.clips[i].settings.clone().unwrap_or_else(|| self.settings.clone());
+            self.mark(i, Status::Queued, Some(&own));
+        });
         self.persist();
         if self.mode == Mode::Running {
             if let Some(ui) = self.ui() {
@@ -1269,6 +1294,7 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
         let mut st = s.borrow_mut();
         if let Some(ui) = st.ui() {
             st.settings = settings_from_ui(&ui.global::<Job>(), &st.catalogue);
+            st.own_settings();
             st.persist();
         }
     });
@@ -1280,6 +1306,7 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
         let j = ui.global::<Job>();
         j.get_gpu_on().set_row_data(usize::try_from(i).unwrap_or_default(), on);
         st.settings = settings_from_ui(&j, &st.catalogue);
+        st.own_settings();
         st.persist();
     });
     let w = ui.as_weak();
