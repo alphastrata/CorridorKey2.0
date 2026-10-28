@@ -379,7 +379,8 @@ component Viewer inherits Rectangle {
                 horizontal-stretch: 1;
             }
             Toggle {
-                text: "A|B";
+                icon: @image-url("icons/compare.svg");
+                tip: "A|B wipe";
                 checked <=> root.ab;
             }
             if root.ab: ComboBox {
@@ -389,7 +390,8 @@ component Viewer inherits Rectangle {
                 selected => { View.show(View.view, View.index); }
             }
             Btn {
-                text: "Fit";
+                icon: @image-url("icons/fit.svg");
+                tip: "Fit (F)";
                 enabled: View.src-w > 0;
                 clicked => {
                     image.zoom = 1;
@@ -399,6 +401,7 @@ component Viewer inherits Rectangle {
             }
             Btn {
                 text: "1:1";
+                tip: "Actual pixels (1)";
                 enabled: View.src-w > 0;
                 clicked => {
                     image.zoom = 1 / image.fit;
@@ -407,7 +410,8 @@ component Viewer inherits Rectangle {
                 }
             }
             Btn {
-                text: "Open folder";
+                icon: @image-url("icons/folder-open.svg");
+                tip: "Open output folder";
                 clicked => { View.open-folder(); }
             }
         }
@@ -679,18 +683,23 @@ component QueuePanel inherits Rectangle {
         HorizontalLayout {
             spacing: 6px;
             Btn {
-                text: "Add clips…";
+                icon: @image-url("icons/file-plus.svg");
+                text: "Clips";
+                tip: "Add clips (Ctrl+O)";
                 horizontal-stretch: 1;
                 clicked => { Queue.add-clips(); }
             }
             Btn {
-                text: "Add folder…";
+                icon: @image-url("icons/folder-plus.svg");
+                text: "Folder";
+                tip: "Add a folder of clips";
                 horizontal-stretch: 1;
                 clicked => { Queue.add-folder(); }
             }
             Btn {
-                text: "Remove";
-                horizontal-stretch: 1;
+                icon: @image-url("icons/trash.svg");
+                tip: "Remove from queue";
+                tip-up: true;
                 enabled: Queue.selected >= 0;
                 clicked => { Queue.remove(); }
             }
@@ -770,7 +779,8 @@ component Inspector inherits Rectangle {
                             edited => { Queue.hint-edited(); }
                         }
                         Btn {
-                            text: "Choose…";
+                            icon: @image-url("icons/folder-open.svg");
+                            tip: "Choose hint";
                             enabled: Queue.editable && Queue.hint-kind != 0;
                             clicked => { Queue.choose-hint(); }
                         }
@@ -1387,21 +1397,27 @@ export component AppWindow inherits Window {
                         vertical-alignment: center;
                     }
                     Toggle {
-                        text: "Stats";
+                        icon: @image-url("icons/activity.svg");
+                        tip: "Stats for nerds (Ctrl+Shift+S)";
+                        tip-up: true;
                         checked <=> root.stats-visible;
                         toggled(on) => { root.stats-toggled(on); }
                     }
                     Toggle {
-                        text: "Log";
+                        icon: @image-url("icons/log.svg");
+                        tip: "Log (Ctrl+L)";
+                        tip-up: true;
                         checked <=> root.log-visible;
                     }
                     Btn {
+                        icon: @image-url("icons/stop.svg");
                         text: "Stop";
                         danger: true;
                         enabled: root.running;
                         clicked => { root.stop(); }
                     }
                     Btn {
+                        icon: root.running ? @image-url("icons/queue.svg") : @image-url("icons/run.svg");
                         text: root.running ? "Add to queue" : "Run queue";
                         primary: true;
                         clicked => { root.run(); }

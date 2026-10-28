@@ -27,15 +27,64 @@ export global T {
     out property <length> small: 11px;
 }
 
+component Tip inherits PopupWindow {
+    in property <string> text;
+    close-policy: no-auto-close;
+    Rectangle {
+        background: #000000ee;
+        border-width: 1px;
+        border-color: T.line-strong;
+        border-radius: 2px;
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            padding-top: 4px;
+            padding-bottom: 4px;
+            Text {
+                text: root.text;
+                font-size: T.small;
+                color: T.text;
+            }
+        }
+    }
+}
+
+component Face inherits HorizontalLayout {
+    in property <image> icon;
+    in property <string> text;
+    in property <color> ink;
+    in property <bool> bold;
+    alignment: center;
+    spacing: 6px;
+    padding-left: root.text == "" ? 5px : 10px;
+    padding-right: self.padding-left;
+    if root.icon.width > 0: Image {
+        source: root.icon;
+        colorize: root.ink;
+        width: 15px;
+        height: 15px;
+        y: (parent.height - self.height) / 2;
+    }
+    if root.text != "": Text {
+        text: root.text;
+        font-size: T.body;
+        font-weight: root.bold ? 700 : 400;
+        color: root.ink;
+        vertical-alignment: center;
+    }
+}
+
 export component Btn inherits Rectangle {
     in property <string> text;
+    in property <image> icon;
     in property <bool> enabled: true;
     in property <bool> primary;
     in property <bool> danger;
     in property <string> tip;
+    in property <bool> tip-up;
     callback clicked();
     min-height: 28px;
-    min-width: label.preferred-width + 24px;
+    min-width: max(28px, face.preferred-width + 4px);
     border-radius: 2px;
     border-width: 1px;
     background: !root.enabled ? (root.primary ? T.line : T.surface)
@@ -46,42 +95,65 @@ export component Btn inherits Rectangle {
         : root.primary ? T.text
         : root.danger ? (touch.has-hover ? T.danger : T.danger-line)
         : touch.has-hover ? T.line-hover : T.line-strong;
-    label := Text {
+    face := Face {
+        icon: root.icon;
         text: root.text;
-        font-size: T.body;
-        font-weight: root.primary ? 700 : 400;
-        color: !root.enabled ? (root.primary ? T.subtle : T.disabled)
+        bold: root.primary;
+        ink: !root.enabled ? (root.primary ? T.subtle : T.disabled)
             : root.primary ? T.canvas : root.danger ? T.danger : T.text;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+    }
+    pop := Tip {
+        text: root.tip;
+        y: root.tip-up ? -28px : root.height + 4px;
     }
     touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: pointer;
-        clicked => { root.clicked(); }
+        mouse-cursor: root.enabled ? pointer : default;
+        changed has-hover => {
+            if self.has-hover && root.tip != "" {
+                pop.show();
+            } else {
+                pop.close();
+            }
+        }
+        clicked => {
+            if root.enabled {
+                root.clicked();
+            }
+        }
     }
 }
 
 export component Toggle inherits Rectangle {
     in property <string> text;
+    in property <image> icon;
     in-out property <bool> checked;
     in property <string> tip;
+    in property <bool> tip-up;
     callback toggled(bool);
     min-height: 26px;
-    min-width: label.preferred-width + 20px;
+    min-width: max(28px, face.preferred-width + 4px);
     border-radius: 2px;
     border-width: 1px;
     background: root.checked ? T.surface-brand : touch.has-hover ? T.button-hover : T.button;
     border-color: root.checked ? T.line-brand : touch.has-hover ? T.line-hover : T.line-strong;
-    label := Text {
+    face := Face {
+        icon: root.icon;
         text: root.text;
-        font-size: T.body;
-        color: T.text;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+        ink: root.checked ? T.brand : T.text;
+    }
+    pop := Tip {
+        text: root.tip;
+        y: root.tip-up ? -28px : root.height + 4px;
     }
     touch := TouchArea {
         mouse-cursor: pointer;
+        changed has-hover => {
+            if self.has-hover && root.tip != "" {
+                pop.show();
+            } else {
+                pop.close();
+            }
+        }
         clicked => {
             root.checked = !root.checked;
             root.toggled(root.checked);
