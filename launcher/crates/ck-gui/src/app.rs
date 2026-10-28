@@ -38,6 +38,7 @@ struct Run {
     error: Vec<String>,
     /// `ckd` lines below this sequence number were already replayed on reattach.
     seen: u64,
+    stopping: bool,
 }
 
 #[derive(PartialEq)]
@@ -286,8 +287,8 @@ impl State {
             .into_iter()
             .filter(|c| c.path.exists())
             .map(|mut c| {
-                if c.status == Status::Running && c.job.is_none() {
-                    (c.status, c.progress, c.detail) = (Status::Queued, 0.0, String::new());
+                if c.status == Status::Queued || (c.status == Status::Running && c.job.is_none()) {
+                    (c.status, c.progress, c.detail) = (Status::Ready, 0.0, String::new());
                 }
                 c
             })
@@ -336,6 +337,7 @@ impl State {
             last: String::new(),
             error: vec![],
             seen: info.lines,
+            stopping: false,
         });
         self.log(log::line(Kind::Head, format!("=== {} (reattached) ===", self.clips[i].name())));
         lines
@@ -352,6 +354,13 @@ impl State {
             ui.set_running(true);
         }
         self.update_bar(i);
+    }
+
+    fn mark(&mut self, i: usize, status: Status, settings: Option<&Settings>) {
+        let c = &mut self.clips[i];
+        (c.status, c.progress, c.settings) = (status, 0.0, settings.cloned());
+        c.detail.clear();
+        self.refresh_row(i);
     }
 
     fn refresh_row(&self, i: usize) {
@@ -603,7 +612,8 @@ impl State {
         }
     }
 
-    fn start(&mut self) {
+    /// Queues the selected clip, or every ready clip when `all`, with the inspector's current settings.
+    fn start(&mut self, all: bool) {
         if self.mode == Mode::Stopping {
             return;
         }
@@ -618,24 +628,22 @@ impl State {
 
             return;
         }
-        if !self.clips.iter().any(|c| c.status == Status::Queued) {
-            let Some(i) = self.selected() else {
-                if let Some(ui) = self.ui() {
-                    ui.set_status("Nothing queued. Add clips, or select finished ones to run again.".into());
-                }
-                return;
-            };
-            self.clips[i].status = Status::Queued;
-            self.clips[i].progress = 0.0;
-            self.clips[i].detail.clear();
-            self.clips[i].settings = None;
-            self.refresh_row(i);
+        let picked: Vec<usize> = if all {
+            (0..self.clips.len()).filter(|&i| self.clips[i].status == Status::Ready).collect()
+        } else {
+            self.selected()
+                .filter(|&i| !matches!(self.clips[i].status, Status::Running | Status::Queued))
+                .into_iter()
+                .collect()
+        };
+        if picked.is_empty() {
+            if let Some(ui) = self.ui() {
+                ui.set_status("Nothing to run. Select a clip that is not already running or queued.".into());
+            }
+            return;
         }
         let settings = self.settings.clone();
-        self.clips
-            .iter_mut()
-            .filter(|c| c.status == Status::Queued && c.settings.is_none())
-            .for_each(|c| c.settings = Some(settings.clone()));
+        picked.iter().for_each(|&i| self.mark(i, Status::Queued, Some(&settings)));
         self.persist();
         if self.mode == Mode::Running {
             if let Some(ui) = self.ui() {
@@ -759,6 +767,7 @@ impl State {
                     last: String::new(),
                     error: vec![],
                     seen: 0,
+                    stopping: false,
 
                 });
                 self.watch();
@@ -848,7 +857,7 @@ impl State {
         drop(std::fs::remove_dir_all(&run.preview));
         let i = run.index;
         let c = &mut self.clips[i];
-        let stopping = self.mode == Mode::Stopping;
+        let stopping = run.stopping || self.mode == Mode::Stopping;
         match (status, stopping) {
 
             (_, true) => (c.status, c.progress, c.detail) = (Status::Stopped, 0.0, "Stopped".into()),
@@ -923,10 +932,25 @@ impl State {
         q.set_editable(self.selected().is_some());
     }
 
-    fn stop(&mut self) {
-        if !self.runs.is_empty() {
+    /// Stops the selected clip (unqueuing it if it has not started), or everything when `all`.
+    fn stop(&mut self, all: bool) {
+        let unqueue: Vec<usize> = (0..self.clips.len())
+            .filter(|&i| self.clips[i].status == Status::Queued && (all || self.selected() == Some(i)))
+            .collect();
+        unqueue.iter().for_each(|&i| self.mark(i, Status::Ready, None));
+        if all && !self.runs.is_empty() {
             self.mode = Mode::Stopping;
-            self.runs.iter().for_each(|r| runner::stop(&r.job));
+        }
+        let selected = self.selected();
+        self.runs
+            .iter_mut()
+            .filter(|r| all || Some(r.index) == selected)
+            .for_each(|r| {
+                r.stopping = true;
+                runner::stop(&r.job);
+            });
+        if self.runs.is_empty() && self.mode == Mode::Running {
+            self.finish();
         }
     }
 
@@ -1066,9 +1090,9 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
 
 fn wire_actions(ui: &AppWindow, state: &StateRef) {
     let s = state.clone();
-    ui.on_run(move || s.borrow_mut().start());
+    ui.on_run(move |all| s.borrow_mut().start(all));
     let s = state.clone();
-    ui.on_stop(move || s.borrow_mut().stop());
+    ui.on_stop(move |all| s.borrow_mut().stop(all));
     let s = state.clone();
     ui.on_stats_toggled(move |on| {
         let st = s.borrow();
@@ -1275,7 +1299,7 @@ fn wire_window(ui: &AppWindow, state: &StateRef) {
         #[cfg(not(unix))]
         let detach = false;
         if !detach {
-            st.stop();
+            st.stop(true);
         }
         slint::CloseRequestResponse::HideWindow
     });

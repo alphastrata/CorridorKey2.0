@@ -1167,8 +1167,9 @@ export component AppWindow inherits Window {
     in-out property <length> right-width: 380px;
     in property <[Stat]> stats;
     in property <[Plot]> plots;
-    callback run();
-    callback stop();
+    callback run(bool);
+    callback stop(bool);
+    property <string> picked: Queue.selected >= 0 && Queue.selected < Queue.rows.length ? Queue.rows[Queue.selected].status : "";
     callback stats-toggled(bool);
     init => {
         Palette.color-scheme = ColorScheme.dark;
@@ -1181,9 +1182,7 @@ export component AppWindow inherits Window {
                 return accept;
             }
             if e.modifiers.control && e.text == Key.Return {
-                if !root.running {
-                    root.run();
-                }
+                root.run(e.modifiers.shift);
                 return accept;
             }
             if e.modifiers.control && e.modifiers.shift && (e.text == "s" || e.text == "S") {
@@ -1411,16 +1410,36 @@ export component AppWindow inherits Window {
                     }
                     Btn {
                         icon: @image-url("icons/stop.svg");
-                        text: "Stop";
+                        tip: "Stop every job and clear the queue";
+                        tip-up: true;
                         danger: true;
                         enabled: root.running;
-                        clicked => { root.stop(); }
+                        clicked => { root.stop(true); }
                     }
                     Btn {
-                        icon: root.running ? @image-url("icons/queue.svg") : @image-url("icons/run.svg");
-                        text: root.running ? "Add to queue" : "Run queue";
+                        icon: @image-url("icons/stop.svg");
+                        text: root.picked == "Queued" ? "Unqueue" : "Stop";
+                        tip: "Stop the selected clip";
+                        tip-up: true;
+                        danger: true;
+                        enabled: root.picked == "Running" || root.picked == "Queued";
+                        clicked => { root.stop(false); }
+                    }
+                    Btn {
+                        icon: @image-url("icons/queue.svg");
+                        text: "Run all";
+                        tip: "Queue every ready clip (Ctrl+Shift+Enter)";
+                        tip-up: true;
+                        clicked => { root.run(true); }
+                    }
+                    Btn {
+                        icon: @image-url("icons/run.svg");
+                        text: root.running ? "Queue selected" : "Run selected";
+                        tip: "Run the selected clip with these settings (Ctrl+Enter)";
+                        tip-up: true;
                         primary: true;
-                        clicked => { root.run(); }
+                        enabled: root.picked != "" && root.picked != "Running" && root.picked != "Queued";
+                        clicked => { root.run(false); }
                     }
                 }
             }

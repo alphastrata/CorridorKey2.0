@@ -23,6 +23,7 @@ pub enum Hint {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Status {
+    Ready,
     Queued,
     Running,
     Done,
@@ -34,6 +35,7 @@ impl Status {
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
+            Self::Ready => "Ready",
             Self::Queued => "Queued",
             Self::Running => "Running",
             Self::Done => "Done",
@@ -145,7 +147,7 @@ impl Clip {
             frames,
             hint,
             hint_path,
-            status: Status::Queued,
+            status: Status::Ready,
             progress: 0.0,
             detail: String::new(),
             output_dir: None,
