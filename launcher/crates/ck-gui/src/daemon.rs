@@ -36,16 +36,16 @@ pub fn connect(tx: &Sender<Event>) -> Option<Daemon> {
 }
 
 impl Daemon {
-    pub fn submit(&mut self, cmd: &Command, cwd: &Path) -> eyre::Result<Job> {
+    pub fn submit(&mut self, cmd: &Command, cwd: &Path, prefs: &crate::settings::Prefs) -> eyre::Result<Job> {
         let req = ck_ipc::Request::Submit {
             program: cmd.program.to_string_lossy().into_owned(),
             args: cmd.args.clone(),
-            env: cmd.env.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect(),
+            env: cmd.env.clone(),
             cwd: cwd.to_string_lossy().into_owned(),
             preview: true,
             resident: true,
-            nice: 10,
-            keep_alive_secs: 600,
+            nice: prefs.nice,
+            keep_alive_secs: prefs.keep_alive.saturating_mul(60),
         };
         match self.0.call(&req)? {
             ck_ipc::Reply::Started { id, pid } => Ok(Job { pid, id: Some(id) }),

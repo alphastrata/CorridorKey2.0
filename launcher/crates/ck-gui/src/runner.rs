@@ -68,7 +68,7 @@ fn describe(status: std::process::ExitStatus) -> eyre::Result<i32> {
 pub fn spawn(cmd: &Command, cwd: &Path, tx: &Sender<Event>) -> std::io::Result<Job> {
     let mut c = std::process::Command::new(&cmd.program);
     c.args(&cmd.args)
-        .envs(cmd.env.iter().copied())
+        .envs(cmd.env.iter().map(|(k, v)| (k, v)))
         .current_dir(cwd)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

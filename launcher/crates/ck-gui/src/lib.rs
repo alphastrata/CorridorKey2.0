@@ -9,6 +9,7 @@ mod daemon;
 mod frames;
 mod log;
 mod plots;
+mod prefs;
 mod runner;
 mod settings;
 mod telemetry;

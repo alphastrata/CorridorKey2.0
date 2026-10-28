@@ -31,8 +31,28 @@ pub struct Settings {
     pub out_parent: Option<String>,
     pub model: String,
     pub refiner: String,
+}
+
+/// Machine-wide preferences, separate from any clip's settings.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct Prefs {
     pub gpus_off: Vec<u32>,
     pub placement: Placement,
+    /// Niceness added to jobs; the GUI stays at its own.
+    pub nice: i32,
+    /// GiB per GPU the automatic window may plan for; 0 uses all free memory.
+    pub vram_cap: f32,
+    /// Compute threads per job; 0 lets each job use every core.
+    pub threads: u32,
+    /// Minutes an idle resident worker keeps its models loaded.
+    pub keep_alive: u32,
+}
+
+impl Default for Prefs {
+    fn default() -> Self {
+        Self { gpus_off: vec![], placement: Placement::PerGpu, nice: 10, vram_cap: 0.0, threads: 0, keep_alive: 10 }
+    }
 }
 
 impl Default for Settings {
@@ -54,8 +74,6 @@ impl Default for Settings {
             out_parent: None,
             model: String::new(),
             refiner: String::new(),
-            gpus_off: vec![],
-            placement: Placement::PerGpu,
         }
     }
 }
@@ -102,6 +120,7 @@ pub struct Summary {
 #[serde(default)]
 pub struct Saved {
     pub settings: Settings,
+    pub prefs: Prefs,
     pub layout: Layout,
     pub selected: Option<usize>,
     pub last: Option<Summary>,
@@ -140,13 +159,13 @@ mod tests {
     fn round_trip() {
         let mut s = Saved::default();
         s.settings.window = Some((64, 32));
-        s.settings.gpus_off = vec![1];
+        s.prefs.gpus_off = vec![1];
         s.last = Some(Summary {
             clip: "shot".into(),
             phases: vec![("Keying".into(), 1.5)],
             ..Summary::default()
         });
         let back: Saved = toml::from_str(&toml::to_string_pretty(&s).unwrap()).unwrap();
-        assert_eq!((s.settings, s.last), (back.settings, back.last));
+        assert_eq!((s.settings, s.prefs, s.last), (back.settings, back.prefs, back.last));
     }
 }

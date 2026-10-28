@@ -16,8 +16,9 @@ use crate::clips::{self, Clip, Hint, Status};
 use crate::command::{self, Catalogue};
 use crate::frames::{self, Frames, Shown};
 use crate::log::{self, Kind};
+use crate::prefs;
 use crate::runner::{self, Event, Job as Running, Progress};
-use crate::settings::{Layout, Placement, Saved, Settings, Summary};
+use crate::settings::{Layout, Placement, Prefs, Saved, Settings, Summary};
 use crate::telemetry::{self, Probe, Snapshot, head, kv};
 use crate::{AppWindow, ClipRow, Job, LogLine, Plot, Queue, Stat, View};
 
@@ -53,6 +54,7 @@ struct State {
     ui: slint::Weak<AppWindow>,
     clips: Vec<Clip>,
     settings: Settings,
+    prefs: Prefs,
     runs: Vec<Run>,
     catalogue: Catalogue,
     live: Option<SystemTime>,
@@ -136,13 +138,6 @@ fn settings_to_ui(s: &Settings, j: &Job, cat: &Catalogue) {
         ))
         .unwrap_or_default(),
     );
-    j.set_gpu_names(strings(cat.gpus.iter().cloned()));
-    let on: Vec<bool> = (0..cat.gpus.len())
-        .map(|i| u32::try_from(i).is_ok_and(|i| !s.gpus_off.contains(&i)))
-        .collect();
-    j.set_gpu_on(ModelRc::new(VecModel::from(on)));
-    j.set_parallel(s.placement == Placement::PerGpu);
-
     j.set_codec(i32::from(s.nvenc));
     j.set_out_alpha(s.outputs[0]);
     j.set_out_fg(s.outputs[1]);
@@ -204,19 +199,6 @@ fn settings_from_ui(j: &Job, cat: &Catalogue) -> Settings {
         out_parent: (j.get_out_mode() == 1).then(|| j.get_out_parent().into()),
         model: Catalogue::name(&cat.models, j.get_model()),
         refiner: Catalogue::name(&cat.refiners, j.get_refiner()),
-        gpus_off: j
-            .get_gpu_on()
-            .iter()
-            .zip(0u32..)
-            .filter(|(on, _)| !on)
-            .map(|(_, i)| i)
-            .collect(),
-
-        placement: if j.get_parallel() {
-            Placement::PerGpu
-        } else {
-            Placement::Together
-        },
     }
 }
 
@@ -259,6 +241,7 @@ impl State {
         let Some(ui) = self.ui() else { return };
         Saved {
             settings: self.settings.clone(),
+            prefs: self.prefs.clone(),
             layout: Layout {
                 left_width: ui.get_left_width(),
                 right_width: ui.get_right_width(),
@@ -738,9 +721,9 @@ impl State {
 
     fn slots(&self) -> Vec<Vec<usize>> {
         let on: Vec<usize> = (0..self.catalogue.gpus.len())
-            .filter(|&i| u32::try_from(i).is_ok_and(|i| !self.settings.gpus_off.contains(&i)))
+            .filter(|&i| u32::try_from(i).is_ok_and(|i| !self.prefs.gpus_off.contains(&i)))
             .collect();
-        if self.settings.placement == Placement::PerGpu && on.len() > 1 {
+        if self.prefs.placement == Placement::PerGpu && on.len() > 1 {
             on.into_iter().map(|g| vec![g]).collect()
         } else {
             vec![on]
@@ -780,7 +763,7 @@ impl State {
         let out = self.clips[i].output_dir_for(settings.out_parent.as_deref().unwrap_or(""));
         self.clips[i].output_dir = Some(out.clone());
         let cwd = command::repo().unwrap_or_else(|| PathBuf::from("."));
-        let spawned = command::build(&self.clips[i], &settings, &out, (&gpus, &preview)).and_then(|cmd| {
+        let spawned = command::build(&self.clips[i], (&settings, &self.prefs), &out, (&gpus, &preview)).and_then(|cmd| {
             self.log(log::line(Kind::Head, format!("=== {} ===", self.clips[i].name())));
 
             self.log(log::line(
@@ -795,7 +778,8 @@ impl State {
                 self.daemon = crate::daemon::connect(&self.events.0);
             }
             #[cfg(unix)]
-            let submitted = self.daemon.as_mut().map(|d| d.submit(&cmd, &cwd));
+            let prefs = self.prefs.clone();
+            let submitted = self.daemon.as_mut().map(|d| d.submit(&cmd, &cwd, &prefs));
             #[cfg(not(unix))]
             let submitted: Option<eyre::Result<Running>> = None;
             match submitted {
@@ -1369,14 +1353,19 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
         }
     });
     let s = state.clone();
-    j.on_gpu_toggled(move |i, on| {
+    let p = ui.global::<crate::Prefs>();
+    p.on_gpu_toggled(move |i, on| {
         let mut st = s.borrow_mut();
-
         let Some(ui) = st.ui() else { return };
-        let j = ui.global::<Job>();
-        j.get_gpu_on().set_row_data(usize::try_from(i).unwrap_or_default(), on);
-        st.settings = settings_from_ui(&j, &st.catalogue);
-        st.own_settings();
+        ui.global::<crate::Prefs>().get_gpu_on().set_row_data(usize::try_from(i).unwrap_or_default(), on);
+        st.prefs = prefs::from_ui(&ui);
+        st.persist();
+    });
+    let s = state.clone();
+    p.on_changed(move || {
+        let mut st = s.borrow_mut();
+        let Some(ui) = st.ui() else { return };
+        st.prefs = prefs::from_ui(&ui);
         st.persist();
     });
     let w = ui.as_weak();
@@ -1443,12 +1432,14 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
     let settings = saved.settings.clone();
     let catalogue = Catalogue::scan(telemetry::devices());
     settings_to_ui(&settings, &ui.global::<Job>(), &catalogue);
+    prefs::to_ui(&saved.prefs, &catalogue.gpus, &ui);
     ui.global::<Job>().set_ck_built(command::ck_binary().is_some());
 
     let state = StateRef::new(RefCell::new(State {
         ui: ui.as_weak(),
         clips: vec![],
         settings,
+        prefs: saved.prefs.clone(),
         runs: vec![],
         catalogue,
         live: None,

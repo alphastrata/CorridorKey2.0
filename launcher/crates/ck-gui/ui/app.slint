@@ -61,12 +61,22 @@ export global Job {
     in-out property <int> model;
     in property <[string]> refiners;
     in-out property <int> refiner;
+    callback changed();
+    callback browse-out-parent();
+}
+
+/// Machine-wide preferences, edited in the Preferences sheet.
+export global Prefs {
     in property <[string]> gpu-names;
     in property <[bool]> gpu-on;
     in-out property <bool> parallel: true;
+    in-out property <int> nice: 10;
+    in-out property <float> vram-cap;
+    in-out property <int> threads;
+    in-out property <int> keep-alive: 10;
+    in-out property <bool> open;
     callback changed();
     callback gpu-toggled(int, bool);
-    callback browse-out-parent();
 }
 
 export global View {
@@ -405,7 +415,7 @@ component Viewer inherits Rectangle {
             }
             Btn {
                 text: "1:1";
-                tip: "Actual pixels (1)";
+                tip: "Actual pixels (Z)";
                 enabled: View.src-w > 0;
                 clicked => {
                     image.zoom = 1 / image.fit;
@@ -722,6 +732,145 @@ component Value inherits Text {
     vertical-alignment: center;
 }
 
+component PrefsSheet inherits Rectangle {
+    background: #000000aa;
+    TouchArea {
+        clicked => { Prefs.open = false; }
+    }
+    Rectangle {
+        width: min(460px, parent.width - 32px);
+        height: min(body.preferred-height, parent.height - 80px);
+        x: (parent.width - self.width) / 2;
+        y: 60px;
+        clip: true;
+        background: T.surface;
+        border-width: 1px;
+        border-color: T.line-strong;
+        border-radius: 4px;
+        TouchArea {}
+        body := VerticalLayout {
+            padding: 16px;
+            spacing: 10px;
+            HorizontalLayout {
+                PanelTitle {
+                    text: "PREFERENCES";
+                    vertical-alignment: center;
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+                Btn {
+                    text: "Done";
+                    clicked => { Prefs.open = false; }
+                }
+            }
+            Section {
+                title: "GPUs";
+                for name[i] in Prefs.gpu-names: CheckBox {
+                    min-width: 0;
+                    text: name;
+                    checked: Prefs.gpu-on[i];
+                    toggled => { Prefs.gpu-toggled(i, self.checked); }
+                }
+                CheckBox {
+                    min-width: 0;
+                    text: "One clip per GPU at a time";
+                    checked <=> Prefs.parallel;
+                    enabled: Prefs.gpu-names.length > 1;
+                    toggled => { Prefs.changed(); }
+                }
+                if Prefs.gpu-names.length == 0: Text {
+                    text: "No GPUs found through NVML; ck picks its own.";
+                    color: T.subtle;
+                    font-size: T.small;
+                    wrap: word-wrap;
+                }
+            }
+            Section {
+                title: "Performance";
+                Row {
+                    label: "Job priority";
+                    Slider {
+                        min-width: 0;
+                        minimum: 0;
+                        maximum: 19;
+                        value: Prefs.nice;
+                        changed(v) => { Prefs.nice = round(v); }
+                        released => { Prefs.changed(); }
+                    }
+                    Text {
+                        text: "nice " + Prefs.nice;
+                        width: 56px;
+                        color: T.text;
+                        font-size: T.body;
+                        vertical-alignment: center;
+                    }
+                }
+                Row {
+                    label: "VRAM budget";
+                    SpinBox {
+                        min-width: 0;
+                        minimum: 0;
+                        maximum: 192;
+                        value: round(Prefs.vram-cap);
+                        edited(v) => {
+                            Prefs.vram-cap = v;
+                            Prefs.changed();
+                        }
+                    }
+                    Text {
+                        text: Prefs.vram-cap > 0 ? "GiB per GPU" : "all free";
+                        width: 80px;
+                        color: T.muted;
+                        font-size: T.small;
+                        vertical-alignment: center;
+                    }
+                }
+                Row {
+                    label: "CPU threads";
+                    SpinBox {
+                        min-width: 0;
+                        minimum: 0;
+                        maximum: 512;
+                        value <=> Prefs.threads;
+                        edited => { Prefs.changed(); }
+                    }
+                    Text {
+                        text: Prefs.threads > 0 ? "per job" : "all cores";
+                        width: 80px;
+                        color: T.muted;
+                        font-size: T.small;
+                        vertical-alignment: center;
+                    }
+                }
+                Row {
+                    label: "Keep models";
+                    SpinBox {
+                        min-width: 0;
+                        minimum: 0;
+                        maximum: 1440;
+                        value <=> Prefs.keep-alive;
+                        edited => { Prefs.changed(); }
+                    }
+                    Text {
+                        text: "min idle";
+                        width: 80px;
+                        color: T.muted;
+                        font-size: T.small;
+                        vertical-alignment: center;
+                    }
+                }
+                Text {
+                    text: "Higher nice leaves more CPU for the desktop. Changes apply to jobs started afterwards; a new priority, thread count or GPU set loads a fresh resident worker.";
+                    color: T.subtle;
+                    font-size: T.small;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}
+
 component Inspector inherits Rectangle {
     in property <bool> locked;
     property <bool> exr: Job.format == 1;
@@ -1022,28 +1171,6 @@ component Inspector inherits Rectangle {
                     }
                 }
                 Section {
-                    title: "GPUs";
-                    for name[i] in Job.gpu-names: CheckBox {
-                        min-width: 0;
-                        text: name;
-                        checked: Job.gpu-on[i];
-                        toggled => { Job.gpu-toggled(i, self.checked); }
-                    }
-                    CheckBox {
-                        min-width: 0;
-                        text: "One clip per GPU at a time";
-                        checked <=> Job.parallel;
-                        enabled: Job.gpu-names.length > 1;
-                        toggled => { Job.changed(); }
-                    }
-                    if Job.gpu-names.length == 0: Text {
-                        text: "No GPUs found through NVML; ck picks its own.";
-                        color: T.subtle;
-                        font-size: T.small;
-                        wrap: word-wrap;
-                    }
-                }
-                Section {
                     title: "Speed";
                     Row {
                         label: "Model scale";
@@ -1222,8 +1349,16 @@ export component AppWindow inherits Window {
                 viewer.fit();
                 return accept;
             }
-            if !e.modifiers.control && e.text == "1" {
+            if !e.modifiers.control && (e.text == "z" || e.text == "Z") {
                 viewer.actual();
+                return accept;
+            }
+            if e.text == Key.Escape && Prefs.open {
+                Prefs.open = false;
+                return accept;
+            }
+            if e.modifiers.control && e.text == "," {
+                Prefs.open = !Prefs.open;
                 return accept;
             }
             if e.text == " " {
@@ -1280,7 +1415,6 @@ export component AppWindow inherits Window {
                     padding-left: 14px;
                     padding-right: 14px;
                     spacing: 10px;
-                    alignment: start;
                     Image {
                         source: @image-url("icons/glyph.svg");
                         width: 22px;
@@ -1307,6 +1441,16 @@ export component AppWindow inherits Window {
                             font-size: T.small;
                             font-weight: 700;
                         }
+                    }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                    }
+                    Btn {
+                        y: (parent.height - self.height) / 2;
+                        height: 28px;
+                        icon: @image-url("icons/settings.svg");
+                        tip: "Preferences (Ctrl+,)";
+                        clicked => { Prefs.open = true; }
                     }
                 }
                 Rectangle {
@@ -1470,6 +1614,7 @@ export component AppWindow inherits Window {
             }
         }
     }
+    if Prefs.open: PrefsSheet {}
     if Tips.text != "": Rectangle {
         x: max(4px, min(Tips.x, root.width - self.width - 4px));
         y: Tips.y;
