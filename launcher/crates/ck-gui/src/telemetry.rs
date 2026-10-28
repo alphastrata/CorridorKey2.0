@@ -27,6 +27,8 @@ pub fn kv(key: impl Into<SharedString>, value: impl Into<SharedString>) -> Stat 
         key: key.into(),
         value: value.into(),
         head: false,
+        gpu: -1,
+        tint: -1,
     }
 }
 
@@ -35,6 +37,8 @@ pub fn head(title: impl Into<SharedString>) -> Stat {
         key: title.into(),
         value: SharedString::new(),
         head: true,
+        gpu: -1,
+        tint: -1,
     }
 }
 
@@ -120,6 +124,7 @@ fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Stat>
             .sum();
         let (used, total) = mem.map_or((0.0, 0.0), |m| (gib(m.used), gib(m.total)));
         let job = if job > 0 { format!(" · job {:.1}", gib(job)) } else { String::new() };
+        let at = rows.len();
         rows.extend([
             head(format!("GPU{i} · {name}")),
             kv("util", format!("{}%", d.utilization_rates().map_or(0, |u| u.gpu))),
@@ -135,6 +140,8 @@ fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Stat>
                 .filter(|e| e.session_count > 0)
                 .map(|e| kv("NVENC", format!("{} sessions · {} fps", e.session_count, e.average_fps))),
         );
+        let gpu = i32::try_from(i).unwrap_or(-1);
+        rows[at..].iter_mut().for_each(|r| r.gpu = gpu);
     });
     (label, rows)
 }

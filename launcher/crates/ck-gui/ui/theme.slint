@@ -21,6 +21,8 @@ export global T {
     out property <color> danger-line: #5e3a37;
     out property <color> chroma: #28e07c;
     out property <color> chroma-line: #1d5a38;
+    /// One colour per concurrent job, shared by its stats, GPU rows and plots.
+    out property <[color]> jobs: [#fff203, #28e07c, #7fb4ff, #ff7ad9, #ffb347];
     out property <string> sans: "Inter";
     out property <string> mono: "Cascadia Mono";
     out property <length> body: 13px;

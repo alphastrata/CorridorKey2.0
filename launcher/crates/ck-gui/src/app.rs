@@ -19,7 +19,7 @@ use crate::log::{self, Kind};
 use crate::runner::{self, Event, Job as Running, Progress};
 use crate::settings::{Layout, Placement, Saved, Settings, Summary};
 use crate::telemetry::{self, Probe, Snapshot, head, kv};
-use crate::{AppWindow, ClipRow, Job, LogLine, Queue, Stat, View};
+use crate::{AppWindow, ClipRow, Job, LogLine, Plot, Queue, Stat, View};
 
 const LOG_LINES: usize = 5000;
 const CLIP_FILTER: [&str; 5] = clips::VIDEO;
@@ -1052,53 +1052,79 @@ impl State {
                 kv("frames", count.to_string()),
             ]),
         }
-        l.push(head("Job"));
-        let live = self
-            .runs
-            .first()
-            .map(|r| summary(&self.clips[r.index], r, Instant::now(), false));
-        match live.as_ref().or(self.finished.as_ref()) {
-            None => l.push(kv("clip", "none yet · start the queue")),
-            Some(j) => {
-                let p = &j.progress;
-                l.push(kv("clip", j.clip.clone()));
-                l.push(kv("status", j.status.clone()));
-                if p.frames > 0 {
-                    l.push(kv("frames", format!("{} · {}", p.frames, p.size)));
-                }
-                if !p.window.is_empty() {
-                    let at = if p.at.1 > 0 { format!("{}/{} · ", p.at.0, p.at.1) } else { String::new() };
-                    l.push(kv("window", format!("{at}{}", p.window)));
-                }
-                l.push(kv("progress", format!("{:.0}% · {}", p.value * 100.0, p.detail)));
-                l.push(kv("elapsed", clock(Duration::from_secs_f32(j.elapsed))));
-                l.extend(j.phases.iter().map(|(n, d)| kv(format!("  {}", n.to_lowercase()), format!("{d:.1} s"))));
-                if let Some(k) = j.keying.filter(|_| p.frames > 0) {
-                    let keyed = if p.keyed > 0 {
-                        p.keyed
-                    } else {
-                        p.frames.checked_mul(p.at.0).and_then(|n| n.checked_div(p.at.1)).unwrap_or_default()
-                    };
-                    l.push(kv("keyed", format!("{keyed} frames · {:.2} fps", keyed.f32() / k.max(1e-3))));
-                    if j.done {
-                        l.push(kv("overall", format!("{:.2} fps", p.frames.f32() / j.elapsed.max(1e-3))));
-                    }
-                }
-            }
+        let now = Instant::now();
+        let jobs: Vec<(i32, Summary, String)> = if self.runs.is_empty() {
+            self.finished.iter().map(|j| (-1, j.clone(), String::new())).collect()
+        } else {
+            self.runs
+                .iter()
+                .zip(0..)
+                .map(|(r, k)| {
+                    let gpus = r.gpus.iter().map(ToString::to_string).collect::<Vec<_>>().join(",");
+                    (k % JOB_TINTS, summary(&self.clips[r.index], r, now, false), gpus)
+                })
+                .collect()
+        };
+        if jobs.is_empty() {
+            l.extend([head("Job"), kv("clip", "none yet · start the queue")]);
         }
-        if self.runs.len() > 1 {
-            l.extend(self.runs.iter().map(|r| kv(format!("GPU {:?}", r.gpus), self.clips[r.index].name())));
-        }
-        if let Some(r) = self.runs.first() {
+        jobs.into_iter().for_each(|(tint, j, gpus)| {
+            let title = if gpus.is_empty() { format!("Job · {}", j.clip) } else { format!("Job · {} · GPU {gpus}", j.clip) };
+            l.push(Stat { tint, ..head(title) });
+            l.extend(job_rows(&j));
+        });
+        if let Some(r) = self.runs.first().filter(|_| self.runs.len() == 1) {
             l.push(kv("last", r.last.clone()));
         }
         if !self.runs.is_empty() && !self.snapshot.process.is_empty() {
             l.push(head("Process"));
             l.extend(self.snapshot.process.iter().cloned());
         }
-        l.extend(self.snapshot.gpus.iter().cloned());
+        l.extend(self.snapshot.gpus.iter().cloned().map(|s| Stat { tint: self.tint(s.gpu), ..s }));
         l
     }
+
+    /// The colour of the job running on `gpu`, or -1.
+    fn tint(&self, gpu: i32) -> i32 {
+        self.runs
+            .iter()
+            .zip(0..)
+            .find(|(r, _)| usize::try_from(gpu).is_ok_and(|g| r.gpus.is_empty() || r.gpus.contains(&g)))
+            .map_or(-1, |(_, k)| k % JOB_TINTS)
+    }
+
+    fn tinted(&self, plots: &[Plot]) -> Vec<Plot> {
+        plots.iter().cloned().map(|p| Plot { tint: self.tint(p.gpu), ..p }).collect()
+    }
+}
+
+const JOB_TINTS: i32 = 5;
+
+fn job_rows(j: &Summary) -> Vec<Stat> {
+    let p = &j.progress;
+    let mut l = vec![kv("status", j.status.clone())];
+    if p.frames > 0 {
+        l.push(kv("frames", format!("{} · {}", p.frames, p.size)));
+    }
+    if !p.window.is_empty() {
+        let at = if p.at.1 > 0 { format!("{}/{} · ", p.at.0, p.at.1) } else { String::new() };
+        l.push(kv("window", format!("{at}{}", p.window)));
+    }
+    l.push(kv("progress", format!("{:.0}% · {}", p.value * 100.0, p.detail)));
+    l.push(kv("elapsed", clock(Duration::from_secs_f32(j.elapsed))));
+    l.extend(j.phases.iter().map(|(n, d)| kv(format!("  {}", n.to_lowercase()), format!("{d:.1} s"))));
+    if let Some(k) = j.keying.filter(|_| p.frames > 0) {
+        let keyed = if p.keyed > 0 {
+            p.keyed
+        } else {
+            p.frames.checked_mul(p.at.0).and_then(|n| n.checked_div(p.at.1)).unwrap_or_default()
+        };
+        l.push(kv("keyed", format!("{keyed} frames · {:.2} fps", keyed.f32() / k.max(1e-3))));
+        if j.done {
+            l.push(kv("overall", format!("{:.2} fps", p.frames.f32() / j.elapsed.max(1e-3))));
+        }
+    }
+    l
 }
 
 fn later(task: impl std::future::Future<Output = ()> + 'static) {
@@ -1144,7 +1170,7 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
         if let Some(snap) = snap_rx.try_iter().last() {
             if let Some(ui) = st.ui() {
                 ui.set_gpu(snap.label.clone().into());
-                ui.set_plots(ModelRc::new(VecModel::from(snap.plots.clone())));
+                ui.set_plots(ModelRc::new(VecModel::from(st.tinted(&snap.plots))));
             }
             st.snapshot = snap;
         }
