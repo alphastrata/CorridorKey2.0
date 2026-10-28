@@ -19,12 +19,10 @@ pub struct Spec {
     pub args: Vec<String>,
     pub env: Vec<(String, String)>,
     pub cwd: String,
+    pub nice: i32,
 }
 
-/// Niceness added to every job, so the GUI and desktop stay responsive under full load.
-const NICE: i32 = 10;
-
-/// Spawns `spec` in its own process group at lower CPU priority (`SCHED_BATCH`, +`NICE`),
+/// Spawns `spec` in its own process group at lower CPU priority (`SCHED_BATCH`, plus its niceness),
 /// handing each socket down on its paired descriptor.
 pub fn spawn(spec: &Spec, extra: &[&str], fds: &[(&UnixStream, i32)]) -> std::io::Result<Child> {
     let mut cmd = Command::new(&spec.program);
@@ -36,13 +34,14 @@ pub fn spawn(spec: &Spec, extra: &[&str], fds: &[(&UnixStream, i32)]) -> std::io
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .process_group(0);
+    let nice = spec.nice;
     let pairs: Vec<(i32, i32)> = fds.iter().map(|(s, to)| (s.as_raw_fd(), *to)).collect();
     // SAFETY: only async-signal-safe calls between fork and exec; dup2 leaves each copy inheritable.
     unsafe {
         cmd.pre_exec(move || {
             let batch = libc::sched_param { sched_priority: 0 };
             libc::sched_setscheduler(0, libc::SCHED_BATCH, &raw const batch);
-            libc::nice(NICE);
+            libc::nice(nice);
             pairs.iter().try_for_each(|&(from, to)| {
                 let moved = if from == to { libc::fcntl(from, libc::F_SETFD, 0) } else { libc::dup2(from, to) };
                 if moved < 0 { Err(std::io::Error::last_os_error()) } else { Ok(()) }

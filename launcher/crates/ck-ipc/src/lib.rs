@@ -24,7 +24,7 @@ pub use proto::{Event, Exit, Frame, JobInfo, Reply, Request, Work};
 
 pub const BUS_BYTES: usize = 1 << 26;
 /// Bump when `proto` changes: the socket name carries it, so a stale daemon is never spoken to.
-pub const PROTOCOL: u32 = 5;
+pub const PROTOCOL: u32 = 6;
 /// The descriptor a job inherits its preview socket on.
 pub const PREVIEW_FD: i32 = 3;
 /// The descriptor a resident worker takes `Work` on.

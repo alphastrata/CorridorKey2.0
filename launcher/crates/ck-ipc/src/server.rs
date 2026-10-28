@@ -40,10 +40,11 @@ fn session(stream: UnixStream, hub: &Sender<Hub>) {
                 thread::spawn(move || publish(&events, &rx));
                 Reply::Ok
             }
-            Request::Submit { program, args, env, cwd, preview, resident } => {
+            Request::Submit { program, args, env, cwd, preview, resident, nice, keep_alive_secs } => {
                 let (tx, rx) = flume::bounded(1);
-                let spec = Spec { program: program.clone(), args, env, cwd };
-                drop(hub.send(Hub::Submit { spec, preview, resident, reply: tx }));
+                let spec = Spec { program: program.clone(), args, env, cwd, nice };
+                let keep_alive = Duration::from_secs(keep_alive_secs.into());
+                drop(hub.send(Hub::Submit { spec, preview, resident, keep_alive, reply: tx }));
                 match rx.recv() {
                     Ok(Ok((id, pid))) => Reply::Started { id, pid },
                     Ok(Err(e)) => Reply::Error(format!("could not start {program}: {e}")),

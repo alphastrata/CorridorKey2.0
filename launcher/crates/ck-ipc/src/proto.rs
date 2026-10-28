@@ -13,6 +13,10 @@ pub enum Request {
         preview: bool,
         /// Run in a resident `ck --serve` worker that keeps models loaded between jobs.
         resident: bool,
+        /// Niceness added to the job (clamped by the kernel at 19).
+        nice: i32,
+        /// How long an idle resident worker keeps its models before exiting.
+        keep_alive_secs: u32,
     },
     Stop { pid: u32 },
     List,

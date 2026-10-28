@@ -10,6 +10,8 @@ fn submit(c: &mut Client, script: &str, preview: bool) -> (String, u32) {
         cwd: ".".into(),
         preview,
         resident: false,
+        nice: 10,
+        keep_alive_secs: 600,
     };
     let Reply::Started { id, pid } = c.call(&req).unwrap() else { panic!("not started") };
     (id, pid)
@@ -23,6 +25,8 @@ fn resident(c: &mut Client, arg: &str) -> (String, u32) {
         cwd: ".".into(),
         preview: false,
         resident: true,
+        nice: 10,
+        keep_alive_secs: 600,
     };
     let Reply::Started { id, pid } = c.call(&req).unwrap() else { panic!("not started") };
     (id, pid)

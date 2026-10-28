@@ -44,6 +44,8 @@ impl Daemon {
             cwd: cwd.to_string_lossy().into_owned(),
             preview: true,
             resident: true,
+            nice: 10,
+            keep_alive_secs: 600,
         };
         match self.0.call(&req)? {
             ck_ipc::Reply::Started { id, pid } => Ok(Job { pid, id: Some(id) }),

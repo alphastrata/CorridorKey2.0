@@ -12,7 +12,6 @@ use crate::{CONTROL_FD, Event, Exit, Frame, JobInfo, PREVIEW_FD, Work, send};
 pub const DONE: &str = "\u{1e}ck:done ";
 const KEEP_LINES: usize = 4000;
 const KEEP_DONE: usize = 64;
-const IDLE: Duration = Duration::from_secs(600);
 const GRACE: Duration = Duration::from_secs(10);
 /// Flags whose values decide what a resident worker has loaded.
 const LOADS: [&str; 7] = ["--device", "--weights", "--vfms", "--refiner", "--ptx", "--upscale", "--model-scale"];
@@ -26,7 +25,7 @@ pub enum Hub {
     Leave(u64),
     List(Sender<Vec<JobInfo>>),
     Attach(String, Sender<Option<Snapshot>>),
-    Submit { spec: Spec, preview: bool, resident: bool, reply: Sender<Started> },
+    Submit { spec: Spec, preview: bool, resident: bool, keep_alive: Duration, reply: Sender<Started> },
     Stop(u32),
     Expire(u32, String),
     Line(u32, String),
@@ -64,6 +63,7 @@ struct Worker {
     /// The job running now, if any.
     busy: Option<u64>,
     idle: Instant,
+    keep_alive: Duration,
 }
 
 impl Worker {
@@ -100,7 +100,11 @@ fn key(spec: &Spec) -> Vec<(String, String)> {
         .filter(|w| LOADS.contains(&w[0].as_str()))
         .map(|w| (w[0].clone(), w[1].clone()))
         .collect();
-    k.extend([("program".into(), spec.program.clone()), ("cwd".into(), spec.cwd.clone())]);
+    k.extend([
+        ("program".into(), spec.program.clone()),
+        ("cwd".into(), spec.cwd.clone()),
+        ("nice".into(), spec.nice.to_string()),
+    ]);
     k.extend(spec.env.iter().cloned());
     k
 }
@@ -142,7 +146,7 @@ impl State {
         self.emit(&Event::Exit { id, pid, exit });
     }
 
-    fn worker(&mut self, spec: &Spec) -> std::io::Result<usize> {
+    fn worker(&mut self, spec: &Spec, keep_alive: Duration) -> std::io::Result<usize> {
         let key = key(spec);
         if let Some(k) = self.workers.iter().position(|w| w.key == key) {
             return Ok(k);
@@ -153,20 +157,20 @@ impl State {
             .filter(|w| w.busy.is_none() && w.overlaps(devices.as_deref()))
             .for_each(|w| process::kill(w.pid));
         let ((frames, theirs_f), (ctl, theirs_c)) = (UnixStream::pair()?, UnixStream::pair()?);
-        let serve = Spec { program: spec.program.clone(), args: vec![], env: spec.env.clone(), cwd: spec.cwd.clone() };
+        let serve = Spec { args: vec![], env: spec.env.clone(), cwd: spec.cwd.clone(), program: spec.program.clone(), nice: spec.nice };
         let child = process::spawn(&serve, &["--serve"], &[(&theirs_f, PREVIEW_FD), (&theirs_c, CONTROL_FD)])?;
         let pid = process::watch(child, Some(frames), &self.tx);
-        self.workers.push(Worker { key, pid, ctl, queue: VecDeque::new(), busy: None, idle: Instant::now() });
+        self.workers.push(Worker { key, pid, ctl, queue: VecDeque::new(), busy: None, idle: Instant::now(), keep_alive });
         Ok(self.workers.len() - 1)
     }
 
-    fn submit(&mut self, spec: Spec, preview: bool, resident: bool) -> Started {
+    fn submit(&mut self, spec: Spec, (preview, resident, keep_alive): (bool, bool, Duration)) -> Started {
         let mut args = spec.args.clone();
         if preview {
             args.extend(["--preview-fd".into(), PREVIEW_FD.to_string()]);
         }
         if resident {
-            let k = self.worker(&spec)?;
+            let k = self.worker(&spec, keep_alive)?;
             let pid = self.workers[k].pid;
             let id = self.record(pid, spec.args);
             let job = self.next;
@@ -233,7 +237,9 @@ impl State {
                 let found = self.jobs.iter().find(|r| r.info.id == id);
                 drop(tx.send(found.map(|r| (r.info(), r.lines.iter().cloned().collect()))));
             }
-            Hub::Submit { spec, preview, resident, reply } => drop(reply.send(self.submit(spec, preview, resident))),
+            Hub::Submit { spec, preview, resident, keep_alive, reply } => {
+                drop(reply.send(self.submit(spec, (preview, resident, keep_alive))));
+            }
             Hub::Stop(pid) => self.stop(pid),
             Hub::Expire(pid, id) => {
                 if self.running(pid).is_some_and(|r| r.info.id == id) {
@@ -249,7 +255,7 @@ impl State {
             Hub::Tick => self
                 .workers
                 .iter()
-                .filter(|w| w.busy.is_none() && w.idle.elapsed() > IDLE)
+                .filter(|w| w.busy.is_none() && w.idle.elapsed() > w.keep_alive)
                 .for_each(|w| process::kill(w.pid)),
         }
     }
