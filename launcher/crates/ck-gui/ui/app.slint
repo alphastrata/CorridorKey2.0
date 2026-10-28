@@ -138,19 +138,6 @@ component ImageView inherits Rectangle {
         width: parent.width - 48px;
         x: 24px;
     }
-    if root.src-w > 0: Rectangle {
-        x: parent.width - 62px;
-        y: parent.height - 28px;
-        width: 54px;
-        height: 20px;
-        border-radius: 2px;
-        background: #000000aa;
-        Text {
-            text: round(root.scale * 100) + "%";
-            color: T.muted;
-            font-size: T.small;
-        }
-    }
     TouchArea {
         mouse-cursor: self.pressed ? grabbing : default;
         pointer-event(e) => {
@@ -244,6 +231,27 @@ component ImageView inherits Rectangle {
                 if self.pressed && parent.w > 0 {
                     root.wipe = clamp((self.x + self.mouse-x - parent.x0) / parent.w, 0, 1);
                 }
+            }
+        }
+    }
+    if root.src-w > 0: Rectangle {
+        x: parent.width - 62px;
+        y: parent.height - 28px;
+        width: 54px;
+        height: 20px;
+        border-radius: 2px;
+        background: reset.has-hover ? T.surface-brand : #000000aa;
+        Text {
+            text: reset.has-hover && root.zoom != 1 ? "Fit" : round(root.scale * 100) + "%";
+            color: reset.has-hover ? T.brand : T.muted;
+            font-size: T.small;
+        }
+        reset := TouchArea {
+            mouse-cursor: pointer;
+            clicked => {
+                root.zoom = 1;
+                root.pan-x = 0;
+                root.pan-y = 0;
             }
         }
     }
@@ -1097,6 +1105,14 @@ export component AppWindow inherits Window {
             }
             if e.modifiers.control && (e.text == "l" || e.text == "L") {
                 root.log-visible = !root.log-visible;
+                return accept;
+            }
+            if !e.modifiers.control && (e.text == "f" || e.text == "F" || e.text == "0") {
+                viewer.fit();
+                return accept;
+            }
+            if !e.modifiers.control && e.text == "1" {
+                viewer.actual();
                 return accept;
             }
             if e.text == " " {
