@@ -229,3 +229,8 @@ impl Config {
         )
     }
 }
+
+const _: fn() = || {
+    fn send<T: Send>() {}
+    send::<(ck_gpu::Gpu, Models)>();
+};

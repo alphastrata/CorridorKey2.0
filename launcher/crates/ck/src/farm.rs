@@ -80,8 +80,39 @@ pub struct Assets {
     pub ptx: PathBuf,
 }
 
+/// GPUs and models kept loaded between runs by a long-lived `ck --serve` worker.
+#[derive(Default)]
+pub struct Resident(Mutex<ahash::AHashMap<usize, Loaded>>);
+
+struct Loaded {
+    gpu: Gpu,
+    m: Models,
+    /// GiB the models took when loaded, credited back to free memory on reuse.
+    held: f64,
+}
+
+impl Resident {
+    fn take(&self, device: usize) -> Option<Loaded> {
+        self.0.lock().ok()?.remove(&device)
+    }
+
+    fn put(&self, device: usize, l: Loaded) {
+        if let Ok(mut slots) = self.0.lock() {
+            slots.insert(device, l);
+        }
+    }
+}
+
+/// Per-run hooks for a resident worker: its model cache, and a flag that aborts the run.
+#[derive(Clone, Copy)]
+pub struct Session<'a> {
+    pub resident: Option<&'a Resident>,
+    pub abort: &'a AtomicBool,
+}
+
 struct Shared<'a> {
     assets: &'a Assets,
+    resident: Option<&'a Resident>,
     cfg: &'a Config,
     hints: &'a Hints,
     out_dir: &'a Path,
@@ -92,7 +123,7 @@ struct Shared<'a> {
     leading: Vec<AtomicBool>,
     alive: Vec<AtomicBool>,
     active: AtomicUsize,
-    abort: AtomicBool,
+    abort: &'a AtomicBool,
     loaded: AtomicBool,
     depth: Vec<usize>,
     sinks: flume::Sender<Result<()>>,
@@ -304,7 +335,7 @@ fn lead<'s, 'e>(
     let written = Arc::new(AtomicUsize::new(0));
     let sunk = written.clone();
     s.spawn(move || {
-        let r = sink(&rx, (writers, preview), (total, &sunk), &sh.abort);
+        let r = sink(&rx, (writers, preview), (total, &sunk), sh.abort);
         if r.is_err() {
             sh.abort.store(true, Ordering::Release);
         }
@@ -325,6 +356,21 @@ fn lead<'s, 'e>(
     Clip::open((gpu, m, &cfg), &src, total, sh.hints, meta)?.run(total, |job| submit((gpu, m, k), sh, job))
 }
 
+fn gib(gpu: &Gpu) -> Result<f64> {
+    Ok(gpu.ctx.mem_get_info()?.0.f64() / f64::from(1u32 << 30))
+}
+
+fn load(device: usize, lead: bool, sh: &Shared) -> Result<Loaded> {
+    let gpu = Gpu::open(device, &sh.assets.ptx)?;
+    let before = gib(&gpu)?;
+    let m = Models::load(&gpu, &sh.assets.weights, &sh.assets.vfms, sh.cfg.refine.as_deref())?;
+    if lead {
+        m.front(&gpu)?;
+    }
+    let held = (before - gib(&gpu)?).max(0.0);
+    Ok(Loaded { gpu, m, held })
+}
+
 #[instrument(name = "gpu", skip_all, fields(id = device))]
 fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 'e>) -> Result<()> {
     while k > 0 && !sh.loaded.load(Ordering::Acquire) && !sh.abort.load(Ordering::Acquire) {
@@ -334,19 +380,25 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
         return Ok(());
     }
 
-    let gpu = Gpu::open(device, &sh.assets.ptx)?;
-    let free = gpu.ctx.mem_get_info()?.0.f64() / f64::from(1u32 << 30);
-    let m = Models::load(&gpu, &sh.assets.weights, &sh.assets.vfms, sh.cfg.refine.as_deref())?;
+    let l = sh
+        .resident
+        .and_then(|r| r.take(device))
+        .map_or_else(|| load(device, k == 0, sh), Ok)?;
     if k == 0 {
-        m.front(&gpu)?;
+        l.m.front(&l.gpu)?;
     }
+    let free = gib(&l.gpu)? + l.held;
     sh.loaded.store(true, Ordering::Release);
-    info!("sm_{}, {free:.1} GiB free", gpu.sm);
+    info!("sm_{}, {free:.1} GiB free", l.gpu.sm);
     loop {
-        if matches!(tick((&gpu, &m, k), sh, s, free)?, Tick::Finish) {
-            return Ok(());
+        if matches!(tick((&l.gpu, &l.m, k), sh, s, free)?, Tick::Finish) {
+            break;
         }
     }
+    if let Some(r) = sh.resident {
+        r.put(device, l);
+    }
+    Ok(())
 }
 
 enum Tick {
@@ -402,6 +454,20 @@ pub fn run(
     cfg: &Config,
     hints: &Hints,
 ) -> Result<()> {
+    let abort = AtomicBool::new(false);
+    run_in(Session { resident: None, abort: &abort }, assets, devices, inputs, out_dir, cfg, hints)
+}
+
+/// `run`, reusing a worker's loaded models and honouring its abort flag.
+pub fn run_in(
+    session: Session<'_>,
+    assets: &Assets,
+    devices: &[usize],
+    inputs: &[PathBuf],
+    out_dir: &Path,
+    cfg: &Config,
+    hints: &Hints,
+) -> Result<()> {
     ensure!(!devices.is_empty(), "no CUDA devices");
 
     let mut ranked = devices
@@ -416,8 +482,10 @@ pub fn run(
     let devices: Vec<usize> = ranked.into_iter().map(|(_, d)| d).collect();
     let (sinks, results) = flume::unbounded();
 
+    session.abort.store(false, Ordering::Release);
     let sh = Shared {
         assets,
+        resident: session.resident,
         cfg,
         hints,
         out_dir,
@@ -428,7 +496,7 @@ pub fn run(
         leading: devices.iter().map(|_| AtomicBool::new(false)).collect(),
         alive: devices.iter().map(|_| AtomicBool::new(true)).collect(),
         active: AtomicUsize::new(0),
-        abort: AtomicBool::new(false),
+        abort: session.abort,
         loaded: AtomicBool::new(false),
         depth,
         sinks,

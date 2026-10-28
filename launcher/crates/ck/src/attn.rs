@@ -1,7 +1,7 @@
 use crate::convert::{Float, Idx};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::Result;
@@ -77,7 +77,7 @@ fn spans(rid: &[i32], n: usize) -> Vec<i32> {
 
 type Key = (usize, usize, usize, usize, bool);
 type MaskKey = (Layout, usize, usize, usize, usize);
-type Pair = Rc<(Tensor, Tensor)>;
+type Pair = Arc<(Tensor, Tensor)>;
 
 pub struct Mask {
     rid: Tensor,
@@ -112,7 +112,7 @@ fn sorted(rid: &[i32], n: usize) -> (Vec<i32>, Vec<u32>) {
 #[derive(Default)]
 pub struct Cache {
     tables: RefCell<HashMap<Key, Pair>>,
-    masks: RefCell<HashMap<MaskKey, Option<Rc<Mask>>>>,
+    masks: RefCell<HashMap<MaskKey, Option<Arc<Mask>>>>,
     ones: RefCell<Option<Tensor>>,
     zeros: RefCell<Option<Tensor>>,
 }
@@ -124,7 +124,7 @@ impl Cache {
         head: usize,
         (t, h, w): (usize, usize, usize),
         spatial: bool,
-    ) -> Result<Rc<(Tensor, Tensor)>> {
+    ) -> Result<Arc<(Tensor, Tensor)>> {
         let key = (head, t, h, w, spatial);
 
         if let Some(hit) = self.tables.borrow().get(&key) {
@@ -132,7 +132,7 @@ impl Cache {
         }
         let (cos, sin) = rope::tables(head, (t, h, w), spatial);
         let shape = [t * h * w, head / 2];
-        let pair = Rc::new((
+        let pair = Arc::new((
             gpu.upload_f32(&cos, &shape, Dtype::F32)?,
             gpu.upload_f32(&sin, &shape, Dtype::F32)?,
         ));
@@ -140,7 +140,7 @@ impl Cache {
         Ok(pair)
     }
 
-    fn mask(&self, gpu: &Gpu, l: Layout, shift: (usize, usize), real: (usize, usize)) -> Result<Option<Rc<Mask>>> {
+    fn mask(&self, gpu: &Gpu, l: Layout, shift: (usize, usize), real: (usize, usize)) -> Result<Option<Arc<Mask>>> {
         let key = (l, shift.0, shift.1, real.0, real.1);
         if let Some(hit) = self.masks.borrow().get(&key) {
             return Ok(hit.clone());
@@ -152,7 +152,7 @@ impl Cache {
 
                 let sp = spans(&rid, n);
                 let up = |v: &[u8], shape: &[usize]| gpu.upload(v, shape, Dtype::I32);
-                Ok(Rc::new(Mask {
+                Ok(Arc::new(Mask {
                     rid: up(bytemuck::cast_slice(&rid), &[rid.len() / n, n])?,
                     spans: up(bytemuck::cast_slice(&sp), &[sp.len()])?,
                     order: up(bytemuck::cast_slice(&order), &[order.len()])?,
