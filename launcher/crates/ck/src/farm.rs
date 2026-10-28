@@ -306,8 +306,19 @@ fn lead<'s, 'e>(
     let g = Geometry::scaled(src.h, src.w, sh.cfg.scale, sh.cfg.quantum);
 
     let mut cfg = sh.cfg.clone();
+    let free = free.min(gib(gpu)?.1 * cfg.vram_share / 100.0) - cfg.encoder_gib((src.w, src.h));
+    if !cfg.auto {
+        let need = vram::estimate(g, cfg.chunk.min(total), gpu.sm);
+        let fits = vram::window(g, total, free, gpu.sm).0;
+        ensure!(
+            need <= free || cfg.chunk <= fits,
+            "a {}-frame window needs about {need:.1} GiB at {}x{} but {free:.1} GiB is free; use a chunk of {fits} or less, or Auto",
+            cfg.chunk,
+            g.w,
+            g.h,
+        );
+    }
     if cfg.auto {
-        let free = free.min(gib(gpu)?.1 * cfg.vram_share / 100.0) - cfg.encoder_gib((src.w, src.h));
         let (chunk, stride, est) = vram::window(g, total, free, gpu.sm);
         info!("{free:.1} GiB free → window {chunk}, stride {stride} (estimated peak {est:.1} GiB)");
         if est > free {
