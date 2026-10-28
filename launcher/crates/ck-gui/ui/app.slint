@@ -989,6 +989,12 @@ component Inspector inherits Rectangle {
                             edited => { Job.changed(); }
                         }
                     }
+                    Text {
+                        text: "Sequences only: videos keep their own frame rate.";
+                        color: T.subtle;
+                        font-size: T.small;
+                        wrap: word-wrap;
+                    }
                 }
                 Section {
                     title: "Frame range";
