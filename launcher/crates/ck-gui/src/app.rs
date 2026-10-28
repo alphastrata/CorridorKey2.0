@@ -1411,6 +1411,21 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
     wire_job(&ui, &state);
     wire_window(&ui, &state);
     state.borrow_mut().restore(saved);
+    #[cfg(unix)]
+    {
+        // SAFETY: getpriority only reads this process's scheduling niceness.
+        let nice = unsafe { nix::libc::getpriority(nix::libc::PRIO_PROCESS, 0) };
+        if nice > 0 {
+            let st = state.borrow();
+            st.log(log::line(
+                Kind::Warn,
+                format!("ck-gui runs at nice {nice}: it competes with jobs for CPU. Launch it un-niced for a responsive UI."),
+            ));
+            if let Some(ui) = st.ui() {
+                ui.set_status(format!("Running at nice {nice}; the UI will lag under load. Launch without nice.").into());
+            }
+        }
+    }
     if !paths.is_empty() {
         state.borrow_mut().add(paths);
     }
