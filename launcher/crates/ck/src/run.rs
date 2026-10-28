@@ -87,6 +87,8 @@ pub struct Config {
     pub exr: Option<Exr>,
     pub vfm_batch: usize,
     pub preview: Option<PreviewTo>,
+    /// GiB the automatic window may plan for on each GPU; 0 uses all free memory.
+    pub vram_cap: f64,
 }
 
 /// Where live-view snapshots go: `<output>.ppm` files, or frames on a socket `ckd` handed down.

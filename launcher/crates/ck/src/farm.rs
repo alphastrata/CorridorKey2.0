@@ -307,7 +307,7 @@ fn lead<'s, 'e>(
 
     let mut cfg = sh.cfg.clone();
     if cfg.auto {
-        let free = free - cfg.encoder_gib((src.w, src.h));
+        let free = if cfg.vram_cap > 0.0 { free.min(cfg.vram_cap) } else { free } - cfg.encoder_gib((src.w, src.h));
         let (chunk, stride, est) = vram::window(g, total, free, gpu.sm);
         info!("{free:.1} GiB free → window {chunk}, stride {stride} (estimated peak {est:.1} GiB)");
         if est > free {
