@@ -66,6 +66,7 @@ struct State {
     awaiting: bool,
     detail: bool,
     snapshot: Snapshot,
+    input: Option<(u32, u32, f32, usize)>,
     probe: Probe,
     events: (Sender<Event>, Receiver<Event>),
 }
@@ -451,6 +452,7 @@ impl State {
                 v.set_count(i32::try_from(s.count).unwrap_or(i32::MAX));
                 v.set_index(i32::try_from(s.index).unwrap_or(i32::MAX));
                 v.set_fps(s.fps);
+                self.input = Some((s.source.0, s.source.1, s.fps, s.count));
             }
         }
     }
@@ -759,7 +761,16 @@ impl State {
     }
 
     fn stats(&self) -> Vec<Stat> {
-        let mut l = vec![head("Job")];
+        let mut l = vec![head("Input")];
+        match self.input {
+            None => l.push(kv("source", "none shown")),
+            Some((w, h, fps, count)) => l.extend([
+                kv("resolution", format!("{w} × {h}")),
+                kv("frame rate", format!("{fps:.3} fps").replace(".000 ", " ")),
+                kv("frames", count.to_string()),
+            ]),
+        }
+        l.push(head("Job"));
         let live = self.runs.first().map(|r| {
             (
                 self.clips[r.index].status.label().to_owned(),
@@ -1148,6 +1159,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
         awaiting: false,
         detail: false,
         snapshot: Snapshot::default(),
+        input: None,
         probe,
         events: flume::unbounded(),
     }));
