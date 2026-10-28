@@ -445,7 +445,7 @@ component Viewer inherits Rectangle {
                         if !s.head: Text {
                             text: s.value;
                             overflow: elide;
-                            horizontal-stretch: 1;
+                            min-width: min(self.preferred-width, 300px);
                             font-family: T.mono;
                             font-size: 11px;
                             color: T.text;
