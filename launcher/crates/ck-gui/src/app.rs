@@ -16,7 +16,7 @@ use crate::command::{self, Catalogue};
 use crate::frames::{self, Frames, Shown};
 use crate::log::{self, Kind};
 use crate::runner::{self, Event, Job as Running, Progress};
-use crate::settings::{Placement, Settings};
+use crate::settings::{Layout, Placement, Saved, Settings, Summary};
 use crate::telemetry::{self, Probe, Snapshot, head, kv};
 use crate::{AppWindow, ClipRow, Job, LogLine, Queue, Stat, View};
 
@@ -38,8 +38,6 @@ struct Run {
     error: Vec<String>,
 }
 
-type Finished = (String, Progress, Instant, Vec<(String, Instant)>, Instant);
-
 #[derive(PartialEq)]
 enum Mode {
     Idle,
@@ -58,7 +56,7 @@ struct State {
     launches: usize,
     mode: Mode,
     counts: [usize; 3],
-    finished: Option<Finished>,
+    finished: Option<Summary>,
 
     log: Rc<VecModel<LogLine>>,
     rows: Rc<VecModel<ClipRow>>,
@@ -70,6 +68,30 @@ struct State {
     input: Option<(u32, u32, f32, usize)>,
     probe: Probe,
     events: (Sender<Event>, Receiver<Event>),
+}
+
+fn summary(clip: &Clip, run: &Run, now: Instant, done: bool) -> Summary {
+    let mut phases: Vec<(String, f32)> = Vec::new();
+    run.phases
+        .iter()
+        .enumerate()
+        .filter(|(_, (name, _))| !name.is_empty())
+        .for_each(|(k, (name, t))| {
+            let d = (run.phases.get(k + 1).map_or(now, |n| n.1) - *t).as_secs_f32();
+            match phases.iter_mut().find(|(n, _)| n == name) {
+                Some((_, sum)) => *sum += d,
+                None => phases.push((name.clone(), d)),
+            }
+        });
+    Summary {
+        clip: clip.name(),
+        status: clip.status.label().into(),
+        progress: run.progress.clone(),
+        elapsed: (now - run.started).as_secs_f32(),
+        keying: run.phases.iter().find(|(n, _)| n == "Keying").map(|(_, k)| (now - *k).as_secs_f32()),
+        phases,
+        done,
+    }
 }
 
 fn row(c: &Clip) -> ClipRow {
@@ -222,6 +244,58 @@ impl State {
         }
     }
 
+    fn persist(&self) {
+        let Some(ui) = self.ui() else { return };
+        Saved {
+            settings: self.settings.clone(),
+            layout: Layout {
+                left_width: ui.get_left_width(),
+                right_width: ui.get_right_width(),
+                log: ui.get_log_visible(),
+                stats: ui.get_stats_visible(),
+                view_b: ui.global::<View>().get_view_b(),
+            },
+            selected: self.selected(),
+            last: self.finished.clone(),
+            queue: self.clips.clone(),
+        }
+        .save();
+    }
+
+    fn restore(&mut self, saved: Saved) {
+        let Some(ui) = self.ui() else { return };
+        let l = &saved.layout;
+        ui.set_left_width(l.left_width);
+        ui.set_right_width(l.right_width);
+        ui.set_log_visible(l.log);
+        ui.set_stats_visible(l.stats);
+        self.probe.detailed.store(l.stats, Ordering::Release);
+        let v = ui.global::<View>();
+        v.set_view_b(l.view_b);
+        v.set_compare(l.view_b >= 0);
+        self.finished = saved.last;
+        let clips: Vec<Clip> = saved
+            .queue
+            .into_iter()
+            .filter(|c| c.path.exists())
+            .map(|mut c| {
+                if c.status == Status::Running {
+                    (c.status, c.progress, c.detail) = (Status::Queued, 0.0, String::new());
+                }
+                c
+            })
+            .collect();
+        self.rows.extend(clips.iter().map(row));
+        self.clips.extend(clips);
+        if let Some(i) = saved.selected.filter(|&i| i < self.clips.len()) {
+            ui.global::<Queue>().set_selected(i32::try_from(i).unwrap_or_default());
+        }
+        self.show_selection();
+        if let Some(ui) = self.ui().filter(AppWindow::get_stats_visible) {
+            ui.set_stats(ModelRc::new(VecModel::from(self.stats())));
+        }
+    }
+
     fn refresh_row(&self, i: usize) {
         if let Some(c) = self.clips.get(i) {
             self.rows.set_row_data(i, row(c));
@@ -255,6 +329,7 @@ impl State {
             }
         }
         self.show_selection();
+        self.persist();
     }
 
     fn remove(&mut self) {
@@ -275,6 +350,7 @@ impl State {
             ui.global::<Queue>().set_selected(next);
         }
         self.show_selection();
+        self.persist();
     }
 
     fn output_dir(&self, c: &Clip) -> PathBuf {
@@ -476,7 +552,7 @@ impl State {
         self.settings = self
             .ui()
             .map_or_default(|ui| settings_from_ui(&ui.global::<Job>(), &self.catalogue));
-        self.settings.save();
+        self.persist();
         if self.slots().iter().all(Vec::is_empty) && !self.catalogue.gpus.is_empty() {
             if let Some(ui) = self.ui() {
                 ui.set_status("Every GPU is switched off. Enable one under GPUs.".into());
@@ -679,7 +755,7 @@ impl State {
         let Some(k) = self.runs.iter().position(|r| r.job.pid == pid) else {
             return;
         };
-        let run = self.runs.remove(k);
+        let mut run = self.runs.remove(k);
         self.watch();
         drop(std::fs::remove_dir_all(&run.preview));
         let i = run.index;
@@ -717,18 +793,11 @@ impl State {
         self.counts[k] += 1;
         let name = c.name();
         let failed = (c.status == Status::Failed).then(|| c.detail.clone());
-        let mut progress = run.progress;
         if c.status == Status::Done {
-            progress.keyed = progress.frames;
+            run.progress.keyed = run.progress.frames;
         }
-
-        self.finished = Some((
-            c.status.label().into(),
-            progress,
-            run.started,
-            run.phases,
-            Instant::now(),
-        ));
+        self.finished = Some(summary(c, &run, Instant::now(), true));
+        self.persist();
         self.refresh_row(i);
         if let (Some(ui), Some(why)) = (self.ui(), failed) {
             ui.set_status(format!("{name} failed: {why}").into());
@@ -784,28 +853,16 @@ impl State {
             ]),
         }
         l.push(head("Job"));
-        let live = self.runs.first().map(|r| {
-            (
-                self.clips[r.index].status.label().to_owned(),
-                r.progress.clone(),
-                r.started,
-                r.phases.clone(),
-                None,
-                r.index,
-            )
-        });
-        let done = self
-            .finished
-            .clone()
-            .map(|(s, p, t, ph, end)| (s, p, t, ph, Some(end), usize::MAX));
-        match live.or(done) {
+        let live = self
+            .runs
+            .first()
+            .map(|r| summary(&self.clips[r.index], r, Instant::now(), false));
+        match live.as_ref().or(self.finished.as_ref()) {
             None => l.push(kv("clip", "none yet · start the queue")),
-            Some((status, p, started, phases, end, i)) => {
-                let now = end.unwrap_or_else(Instant::now);
-                if let Some(c) = self.clips.get(i) {
-                    l.push(kv("clip", c.name()));
-                }
-                l.push(kv("status", status));
+            Some(j) => {
+                let p = &j.progress;
+                l.push(kv("clip", j.clip.clone()));
+                l.push(kv("status", j.status.clone()));
                 if p.frames > 0 {
                     l.push(kv("frames", format!("{} · {}", p.frames, p.size)));
                 }
@@ -814,35 +871,17 @@ impl State {
                     l.push(kv("window", format!("{at}{}", p.window)));
                 }
                 l.push(kv("progress", format!("{:.0}% · {}", p.value * 100.0, p.detail)));
-                l.push(kv("elapsed", clock(now - started)));
-                phases
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, (name, _))| !name.is_empty())
-                    .fold(Vec::new(), |mut spent: Vec<(String, Duration)>, (k, (name, t))| {
-                        let until = phases.get(k + 1).map_or(now, |n| n.1);
-                        match spent.iter_mut().find(|(n, _)| n == name) {
-                            Some((_, d)) => *d += until - *t,
-                            None => spent.push((name.clone(), until - *t)),
-                        }
-                        spent
-                    })
-                    .into_iter()
-                    .for_each(|(n, d)| l.push(kv(format!("  {}", n.to_lowercase()), format!("{:.1} s", d.as_secs_f32()))));
-                if let Some((_, k)) = phases.iter().find(|(n, _)| n == "Keying").filter(|_| p.frames > 0) {
+                l.push(kv("elapsed", clock(Duration::from_secs_f32(j.elapsed))));
+                l.extend(j.phases.iter().map(|(n, d)| kv(format!("  {}", n.to_lowercase()), format!("{d:.1} s"))));
+                if let Some(k) = j.keying.filter(|_| p.frames > 0) {
                     let keyed = if p.keyed > 0 {
                         p.keyed
                     } else {
-                        p.frames
-                            .checked_mul(p.at.0)
-                            .and_then(|n| n.checked_div(p.at.1))
-                            .unwrap_or_default()
+                        p.frames.checked_mul(p.at.0).and_then(|n| n.checked_div(p.at.1)).unwrap_or_default()
                     };
-                    let rate = keyed.f32() / (now - *k).as_secs_f32().max(1e-3);
-                    l.push(kv("keyed", format!("{keyed} frames · {rate:.2} fps")));
-                    if end.is_some() {
-                        let overall = p.frames.f32() / (now - started).as_secs_f32().max(1e-3);
-                        l.push(kv("overall", format!("{overall:.2} fps")));
+                    l.push(kv("keyed", format!("{keyed} frames · {:.2} fps", keyed.f32() / k.max(1e-3))));
+                    if j.done {
+                        l.push(kv("overall", format!("{:.2} fps", p.frames.f32() / j.elapsed.max(1e-3))));
                     }
                 }
             }
@@ -1082,7 +1121,7 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
         let mut st = s.borrow_mut();
         if let Some(ui) = st.ui() {
             st.settings = settings_from_ui(&ui.global::<Job>(), &st.catalogue);
-            st.settings.save();
+            st.persist();
         }
     });
     let s = state.clone();
@@ -1093,7 +1132,7 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
         let j = ui.global::<Job>();
         j.get_gpu_on().set_row_data(usize::try_from(i).unwrap_or_default(), on);
         st.settings = settings_from_ui(&j, &st.catalogue);
-        st.settings.save();
+        st.persist();
     });
     let w = ui.as_weak();
     j.on_browse_out_parent(move || {
@@ -1129,7 +1168,9 @@ fn wire_window(ui: &AppWindow, state: &StateRef) {
 
     let s = state.clone();
     ui.window().on_close_requested(move || {
-        s.borrow_mut().stop();
+        let mut st = s.borrow_mut();
+        st.persist();
+        st.stop();
         slint::CloseRequestResponse::HideWindow
     });
 }
@@ -1147,7 +1188,8 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
     let rows = Rc::new(VecModel::default());
     ui.set_log(ModelRc::from(log.clone()));
     ui.global::<Queue>().set_rows(ModelRc::from(rows.clone()));
-    let settings = Settings::load();
+    let saved = Saved::load();
+    let settings = saved.settings.clone();
     let catalogue = Catalogue::scan(telemetry::devices());
     settings_to_ui(&settings, &ui.global::<Job>(), &catalogue);
     ui.global::<Job>().set_ck_built(command::ck_binary().is_some());
@@ -1183,6 +1225,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
     wire_view(&ui, &state);
     wire_job(&ui, &state);
     wire_window(&ui, &state);
+    state.borrow_mut().restore(saved);
     if !paths.is_empty() {
         state.borrow_mut().add(paths);
     }

@@ -111,7 +111,8 @@ pub fn stop(job: &Job) {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Progress {
     pub value: f32,
     pub detail: String,

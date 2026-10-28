@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+use serde::{Deserialize, Serialize};
+
 pub const VIDEO: [&str; 5] = ["mp4", "mov", "avi", "mkv", "webm"];
 pub const FRAMES: [&str; 8] = ["png", "jpg", "jpeg", "exr", "tif", "tiff", "webp", "dpx"];
 pub const OUTPUTS: [(&str, &str); 4] = [
@@ -10,14 +12,14 @@ pub const OUTPUTS: [(&str, &str); 4] = [
     ("cutout", "cutout"),
 ];
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Hint {
     None,
     FirstFrame,
     Video,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Status {
     Queued,
     Running,
@@ -39,7 +41,7 @@ impl Status {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Clip {
     pub path: PathBuf,
     pub source: PathBuf,

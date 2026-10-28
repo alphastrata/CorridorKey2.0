@@ -63,6 +63,7 @@ export global View {
     in property <image> frame-b;
     in property <bool> b-ready;
     in-out property <int> view-b: -1;
+    in-out property <bool> compare;
     in property <int> src-w;
     in property <int> src-h;
     in property <int> count;
@@ -319,9 +320,13 @@ component Viewer inherits Rectangle {
     in property <bool> stats-visible;
     in property <[Stat]> stats;
     property <[string]> names: ["Input", "Alpha", "Foreground", "Checker", "Cutout"];
-    property <bool> ab;
+    property <bool> ab <=> View.compare;
     changed ab => {
-        View.view-b = !root.ab ? -1 : View.view != 0 ? 0 : View.has[3] ? 3 : View.has[1] ? 1 : View.has[2] ? 2 : 4;
+        if !root.ab {
+            View.view-b = -1;
+        } else if View.view-b < 0 {
+            View.view-b = View.view != 0 ? 0 : View.has[3] ? 3 : View.has[1] ? 1 : View.has[2] ? 2 : 4;
+        }
         View.show(View.view, View.index);
     }
     callback focus-me();
@@ -406,8 +411,8 @@ component Viewer inherits Rectangle {
             if root.stats-visible: Rectangle {
                 x: 12px;
                 y: 12px;
-                width: min(table.preferred-width, parent.width - 24px);
-                height: min(table.preferred-height, parent.height - 24px);
+                width: min(table.preferred-width, 440px, parent.width - 24px);
+                height: min(table.preferred-height, parent.height * 0.8);
                 clip: true;
                 background: #080a0ce0;
                 border-width: 1px;
@@ -431,6 +436,8 @@ component Viewer inherits Rectangle {
                         }
                         if !s.head: Text {
                             text: s.value;
+                            overflow: elide;
+                            horizontal-stretch: 1;
                             font-family: T.mono;
                             font-size: 11px;
                             color: T.text;
