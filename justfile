@@ -48,4 +48,5 @@ gui *args:
         sock=$(find "$run" -maxdepth 1 -type s -name 'wayland-[0-9]*' -printf '%f\n' 2>/dev/null | sort | head -1)
         [[ -n "$sock" ]] && export WAYLAND_DISPLAY="$sock" XDG_RUNTIME_DIR="$run"
     fi
+    cargo build -q --release --manifest-path {{justfile_directory()}}/launcher/Cargo.toml -p ck-ipc --bin ckd
     cargo run -q --release --manifest-path {{justfile_directory()}}/launcher/Cargo.toml -p ck-gui -- ${clips[@]+"${clips[@]}"}

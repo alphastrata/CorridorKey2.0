@@ -43,6 +43,12 @@ pub fn ck_binary() -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
+#[cfg(unix)]
+#[must_use]
+pub fn ckd_binary() -> Option<PathBuf> {
+    ck_binary().map(|p| p.with_file_name(exe("ckd"))).filter(|p| p.is_file())
+}
+
 /// Weights under `weights/` and the GPUs NVML reports, in PCI order (`CUDA_DEVICE_ORDER=PCI_BUS_ID`).
 #[derive(Default)]
 pub struct Catalogue {

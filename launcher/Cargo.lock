@@ -959,6 +959,7 @@ name = "ck-gui"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "ck-ipc",
  "color-eyre",
  "dirs",
  "eyre",

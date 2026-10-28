@@ -68,6 +68,8 @@ struct State {
     input: Option<(u32, u32, f32, usize)>,
     probe: Probe,
     events: (Sender<Event>, Receiver<Event>),
+    #[cfg(unix)]
+    daemon: Option<crate::daemon::Daemon>,
 }
 
 fn summary(clip: &Clip, run: &Run, now: Instant, done: bool) -> Summary {
@@ -649,8 +651,23 @@ impl State {
                     .collect::<Vec<_>>()
                     .join(" "),
             ));
-            runner::spawn(&cmd, &cwd, &self.events.0)
-                .wrap_err_with(|| format!("could not start {}", cmd.program.display()))
+            #[cfg(unix)]
+            if self.daemon.is_none() {
+                self.daemon = crate::daemon::connect(&self.events.0);
+            }
+            #[cfg(unix)]
+            let submitted = self.daemon.as_mut().map(|d| d.submit(&cmd, &cwd));
+            #[cfg(not(unix))]
+            let submitted: Option<eyre::Result<Running>> = None;
+            match submitted {
+                Some(Ok(job)) => Ok(job),
+                Some(Err(e)) => {
+                    self.daemon = None;
+                    Err(e).wrap_err("ckd could not start the job")
+                }
+                None => runner::spawn(&cmd, &cwd, &self.events.0)
+                    .wrap_err_with(|| format!("could not start {}", cmd.program.display())),
+            }
         });
 
         let c = &mut self.clips[i];
@@ -1232,6 +1249,8 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
         input: None,
         probe,
         events: flume::unbounded(),
+        #[cfg(unix)]
+        daemon: None,
     }));
 
     let timers = wire_timers(&state, shown_rx, snap_rx);

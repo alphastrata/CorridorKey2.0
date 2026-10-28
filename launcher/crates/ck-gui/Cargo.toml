@@ -29,6 +29,7 @@ missing_panics_doc        = "allow"
 slint-build = "1.18.1"
 
 [target."cfg(unix)".dependencies]
+ck-ipc = { version = "0.1.0", path = "../ck-ipc" }
 nix = { version = "0.31.3", features = ["signal", "process"] }
 
 [[bench]]
