@@ -146,25 +146,26 @@ export component PanelTitle inherits Text {
 export component Section inherits VerticalLayout {
     in property <string> title;
     in-out property <bool> expanded: true;
-    spacing: 8px;
-    padding-bottom: 6px;
     Rectangle {
         height: 1px;
         background: T.line;
     }
     Rectangle {
+        height: 32px;
         HorizontalLayout {
             spacing: 6px;
             Text {
                 text: root.expanded ? "▾" : "▸";
                 color: T.subtle;
                 font-size: T.body;
+                vertical-alignment: center;
             }
             Text {
                 text: root.title;
                 font-size: T.body;
                 font-weight: 700;
                 color: head.has-hover ? #ffffff : T.text;
+                vertical-alignment: center;
                 horizontal-stretch: 1;
             }
         }
@@ -178,6 +179,7 @@ export component Section inherits VerticalLayout {
         height: root.expanded ? body.preferred-height : 0;
         body := VerticalLayout {
             spacing: 8px;
+            padding-bottom: 12px;
             @children
         }
     }

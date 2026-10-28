@@ -596,38 +596,43 @@ component Inspector inherits Rectangle {
                 Section {
                     title: "Outputs";
                     GridLayout {
-                        spacing: 8px;
-                        Row {
-                            CheckBox {
-                                min-width: 0;
-                                text: "Alpha matte";
-                                checked <=> Job.out-alpha;
-                                enabled: !root.locked;
-                                toggled => { Job.changed(); }
-                            }
-                            CheckBox {
-                                min-width: 0;
-                                text: "Foreground";
-                                checked <=> Job.out-fg;
-                                enabled: !root.locked;
-                                toggled => { Job.changed(); }
-                            }
+                        spacing-horizontal: 12px;
+                        spacing-vertical: 8px;
+                        CheckBox {
+                            row: 0;
+                            col: 0;
+                            min-width: 0;
+                            text: "Alpha matte";
+                            checked <=> Job.out-alpha;
+                            enabled: !root.locked;
+                            toggled => { Job.changed(); }
                         }
-                        Row {
-                            CheckBox {
-                                min-width: 0;
-                                text: "Cutout (RGBA)";
-                                checked <=> Job.out-cutout;
-                                enabled: !root.locked;
-                                toggled => { Job.changed(); }
-                            }
-                            CheckBox {
-                                min-width: 0;
-                                text: "Checker preview";
-                                checked <=> Job.out-checker;
-                                enabled: !root.locked;
-                                toggled => { Job.changed(); }
-                            }
+                        CheckBox {
+                            row: 0;
+                            col: 1;
+                            min-width: 0;
+                            text: "Foreground";
+                            checked <=> Job.out-fg;
+                            enabled: !root.locked;
+                            toggled => { Job.changed(); }
+                        }
+                        CheckBox {
+                            row: 1;
+                            col: 0;
+                            min-width: 0;
+                            text: "Cutout (RGBA)";
+                            checked <=> Job.out-cutout;
+                            enabled: !root.locked;
+                            toggled => { Job.changed(); }
+                        }
+                        CheckBox {
+                            row: 1;
+                            col: 1;
+                            min-width: 0;
+                            text: "Checker preview";
+                            checked <=> Job.out-checker;
+                            enabled: !root.locked;
+                            toggled => { Job.changed(); }
                         }
                     }
                     Row {
