@@ -9,6 +9,8 @@ pub enum Request {
         args: Vec<String>,
         env: Vec<(String, String)>,
         cwd: String,
+        /// Hand the job a preview socket on fd `PREVIEW_FD` and relay its frames as `Event::Frame`.
+        preview: bool,
     },
     Stop { pid: u32 },
     List,
@@ -43,9 +45,20 @@ pub struct JobInfo {
     pub exit: Option<Exit>,
 }
 
+/// A downscaled 8-bit RGB snapshot of one output.
+#[derive(Archive, Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Frame {
+    pub output: String,
+    pub w: u32,
+    pub h: u32,
+    pub rgb: Vec<u8>,
+}
+
 #[derive(Archive, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Event {
     /// `seq` numbers the job's lines from zero; `ms` counts from its start.
     Line { id: String, pid: u32, seq: u64, ms: u64, text: String },
     Exit { id: String, pid: u32, exit: Exit },
+    /// Lossy: dropped when a client's ring is full.
+    Frame { id: String, pid: u32, frame: Frame },
 }

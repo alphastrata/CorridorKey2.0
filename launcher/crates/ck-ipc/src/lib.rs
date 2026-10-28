@@ -18,11 +18,13 @@ use rkyv::util::AlignedVec;
 
 pub use client::Client;
 pub use hub::Snapshot;
-pub use proto::{Event, Exit, JobInfo, Reply, Request};
+pub use proto::{Event, Exit, Frame, JobInfo, Reply, Request};
 
 pub const BUS_BYTES: usize = 1 << 26;
 /// Bump when `proto` changes: the socket name carries it, so a stale daemon is never spoken to.
-pub const PROTOCOL: u32 = 2;
+pub const PROTOCOL: u32 = 3;
+/// The descriptor a job inherits its preview socket on.
+pub const PREVIEW_FD: i32 = 3;
 const SPIN: u32 = 2000;
 
 #[derive(Debug, thiserror::Error)]
@@ -71,7 +73,7 @@ where
     Ok(rkyv::from_bytes::<T, rancor::Error>(&aligned)?)
 }
 
-fn send<T>(w: &mut impl Write, v: &T) -> Result<()>
+pub fn send<T>(w: &mut impl Write, v: &T) -> Result<()>
 where
     T: for<'a> rkyv::Serialize<HighSerializer<AlignedVec, ArenaHandle<'a>, rancor::Error>>,
 {
@@ -82,7 +84,7 @@ where
     Ok(w.flush()?)
 }
 
-fn recv<T>(r: &mut impl Read) -> Result<T>
+pub fn recv<T>(r: &mut impl Read) -> Result<T>
 where
     T: rkyv::Archive,
     T::Archived: for<'a> CheckBytes<HighValidator<'a, rancor::Error>> + rkyv::Deserialize<T, HighDeserializer<rancor::Error>>,

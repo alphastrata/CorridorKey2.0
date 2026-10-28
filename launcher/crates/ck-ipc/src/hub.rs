@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use flume::{Receiver, Sender};
 
-use crate::{Event, Exit, JobInfo};
+use crate::{Event, Exit, Frame, JobInfo};
 
 const KEEP_LINES: usize = 4000;
 const KEEP_DONE: usize = 64;
@@ -17,6 +17,7 @@ pub enum Hub {
     Started { id: String, pid: u32, args: Vec<String> },
     Line(u32, String),
     Exit(u32, Exit),
+    Frame(u32, Frame),
     List(Sender<Vec<JobInfo>>),
     Attach(String, Sender<Option<Snapshot>>),
 }
@@ -66,6 +67,10 @@ pub fn run(rx: &Receiver<Hub>) {
                     r.lines.pop_front();
                 }
                 Event::Line { id: r.info.id.clone(), pid, seq, ms, text }
+            }
+            Hub::Frame(pid, frame) => {
+                let Some(r) = jobs.iter().find(|r| r.info.pid == pid) else { return };
+                Event::Frame { id: r.info.id.clone(), pid, frame }
             }
             Hub::Exit(pid, exit) => {
                 let Some(r) = jobs.iter_mut().find(|r| r.info.pid == pid && r.info.exit.is_none()) else { return };

@@ -1,4 +1,5 @@
 use std::io::Read;
+use std::os::fd::AsRawFd;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::process::{Command, Stdio};
@@ -12,7 +13,7 @@ use nix::unistd::Pid;
 use tachyon::{Bus, TachyonError};
 
 use crate::hub::{self, Hub};
-use crate::{Error, Event, Exit, Reply, Request, Result, encode, recv, send, socket};
+use crate::{Error, Event, Exit, Frame, PREVIEW_FD, Reply, Request, Result, encode, recv, send, socket};
 
 /// Runs the daemon until the listener fails; refuses to start beside a live one.
 pub fn serve() -> Result<()> {
@@ -43,7 +44,7 @@ fn session(stream: UnixStream, hub: &Sender<Hub>) {
                 thread::spawn(move || publish(&events, &rx));
                 Reply::Ok
             }
-            Request::Submit { program, args, env, cwd } => match spawn(&program, &args, &env, &cwd, hub) {
+            Request::Submit { program, args, env, cwd, preview } => match spawn(&program, &args, &env, (&cwd, preview), hub) {
                 Ok((id, pid)) => Reply::Started { id, pid },
                 Err(e) => Reply::Error(format!("could not start {program}: {e}")),
             },
@@ -82,13 +83,16 @@ fn publish(path: &str, rx: &Receiver<Event>) {
             Err(_) => return,
         }
     };
-    rx.iter().flat_map(|e| encode(&e)).try_for_each(|bytes| loop {
-        match bus.send(&bytes, 1) {
-            Err(TachyonError::BufferFull) => thread::sleep(Duration::from_micros(200)),
-            r => return r,
-        }
-    })
-    .ok();
+    rx.iter()
+        .filter_map(|e| Some((matches!(e, Event::Frame { .. }), encode(&e).ok()?)))
+        .try_for_each(|(lossy, bytes)| loop {
+            match bus.send(&bytes, 1) {
+                Err(TachyonError::BufferFull) if lossy => return Ok(()),
+                Err(TachyonError::BufferFull) => thread::sleep(Duration::from_micros(200)),
+                r => return r,
+            }
+        })
+        .ok();
 }
 
 fn lines(mut from: impl Read + Send + 'static, pid: u32, hub: Sender<Hub>) -> thread::JoinHandle<()> {
@@ -115,19 +119,40 @@ fn spawn(
     program: &str,
     args: &[String],
     env: &[(String, String)],
-    cwd: &str,
+    (cwd, preview): (&str, bool),
     hub: &Sender<Hub>,
 ) -> std::io::Result<(String, u32)> {
-    let mut child = Command::new(program)
-        .args(args)
+    let mut cmd = Command::new(program);
+    cmd.args(args)
         .envs(env.iter().map(|(k, v)| (k, v)))
         .current_dir(cwd)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .process_group(0)
-        .spawn()?;
+        .process_group(0);
+    let pair = preview.then(UnixStream::pair).transpose()?;
+    if let Some((_, theirs)) = &pair {
+        let fd = theirs.as_raw_fd();
+        cmd.args(["--preview-fd", &PREVIEW_FD.to_string()]);
+        // SAFETY: only async-signal-safe calls between fork and exec; dup2 leaves the copy inheritable.
+        unsafe {
+            cmd.pre_exec(move || {
+                let moved = if fd == PREVIEW_FD { libc::fcntl(fd, libc::F_SETFD, 0) } else { libc::dup2(fd, PREVIEW_FD) };
+                if moved < 0 { Err(std::io::Error::last_os_error()) } else { Ok(()) }
+            });
+        }
+    }
+    let mut child = cmd.spawn()?;
     let pid = child.id();
+    if let Some((mut ours, theirs)) = pair {
+        drop(theirs);
+        let hub = hub.clone();
+        thread::spawn(move || {
+            while let Ok(f) = recv::<Frame>(&mut ours) {
+                drop(hub.send(Hub::Frame(pid, f)));
+            }
+        });
+    }
     let id = uuid::Uuid::new_v4().to_string();
     drop(hub.send(Hub::Started { id: id.clone(), pid, args: args.to_vec() }));
     let readers: Vec<_> = [

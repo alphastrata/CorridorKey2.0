@@ -19,9 +19,10 @@ pub fn connect(tx: &Sender<Event>) -> Option<Daemon> {
     let tx = tx.clone();
     thread::spawn(move || {
         rx.iter()
-            .map(|e| match e {
-                ck_ipc::Event::Line { pid, text, seq, .. } => Event::Line(pid, text, Some(seq)),
-                ck_ipc::Event::Exit { pid, exit, .. } => Event::Exit(pid, status(exit)),
+            .filter_map(|e| match e {
+                ck_ipc::Event::Line { pid, text, seq, .. } => Some(Event::Line(pid, text, Some(seq))),
+                ck_ipc::Event::Exit { pid, exit, .. } => Some(Event::Exit(pid, status(exit))),
+                ck_ipc::Event::Frame { .. } => None,
             })
             .try_for_each(|e| tx.send(e))
             .ok();
@@ -36,6 +37,7 @@ impl Daemon {
             args: cmd.args.clone(),
             env: cmd.env.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect(),
             cwd: cwd.to_string_lossy().into_owned(),
+            preview: false,
         };
         match self.0.call(&req)? {
             ck_ipc::Reply::Started { id, pid } => Ok(Job { pid, id: Some(id) }),
