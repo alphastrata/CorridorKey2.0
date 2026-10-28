@@ -196,6 +196,11 @@ fn decode_file(path: &Path, linear: bool, size: (u32, u32)) -> eyre::Result<Pixe
     Ok(SharedPixelBuffer::clone_from_slice(rgb.as_raw(), size.0, size.1))
 }
 
+/// A clip's source size and frame count.
+pub fn dims(path: &Path) -> Option<(u32, u32, usize)> {
+    Source::open(path).ok().map(|s| (s.size.0, s.size.1, s.count))
+}
+
 impl Source {
     fn open(path: &Path) -> eyre::Result<Self> {
         if path.is_dir() {

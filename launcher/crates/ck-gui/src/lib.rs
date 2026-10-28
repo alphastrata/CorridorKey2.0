@@ -2,6 +2,7 @@ slint::include_modules!();
 
 mod app;
 mod clips;
+mod fit;
 mod command;
 pub mod convert;
 #[cfg(unix)]

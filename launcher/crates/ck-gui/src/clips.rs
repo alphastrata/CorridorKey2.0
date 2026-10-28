@@ -61,6 +61,9 @@ pub struct Clip {
     /// The `ckd` job id while it runs, so a restarted GUI can reattach.
     #[serde(default)]
     pub job: Option<String>,
+    /// Source width, height and frame count, probed on first need.
+    #[serde(default)]
+    pub dims: Option<(u32, u32, usize)>,
 }
 
 fn ext(p: &Path) -> String {
@@ -153,6 +156,7 @@ impl Clip {
             output_dir: None,
             settings: None,
             job: None,
+            dims: None,
         }
     }
 

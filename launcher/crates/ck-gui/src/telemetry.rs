@@ -146,17 +146,26 @@ fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Stat>
     (label, rows)
 }
 
+/// A GPU's label, compute capability as `major * 10 + minor`, and total memory in GiB.
+#[derive(Clone, Debug)]
+pub struct Device {
+    pub name: String,
+    pub sm: u32,
+    pub total: f64,
+}
+
 #[must_use]
-pub fn devices() -> Vec<String> {
+pub fn devices() -> Vec<Device> {
     let Ok(nvml) = Nvml::init() else { return vec![] };
     (0..nvml.device_count().unwrap_or(0))
         .map(|i| {
-            format!(
-                "GPU{i} · {}",
-                nvml.device_by_index(i)
-                    .and_then(|d| d.name())
-                    .map_or_else(|_| "?".into(), |n| short(&n))
-            )
+            let d = nvml.device_by_index(i).ok();
+            let cc = d.as_ref().and_then(|d| d.cuda_compute_capability().ok());
+            Device {
+                name: format!("GPU{i} · {}", d.as_ref().and_then(|d| d.name().ok()).map_or_else(|| "?".into(), |n| short(&n))),
+                sm: cc.map_or(0, |c| u32::try_from(c.major * 10 + c.minor).unwrap_or(0)),
+                total: d.and_then(|d| d.memory_info().ok()).map_or(0.0, |m| m.total.f64() / f64::from(1u32 << 30)),
+            }
         })
         .collect()
 }

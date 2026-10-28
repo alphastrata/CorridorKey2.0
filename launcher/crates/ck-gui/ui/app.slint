@@ -64,6 +64,8 @@ export global Job {
     in-out property <bool> own-gpus;
     in property <[bool]> gpu-pick;
     in-out property <bool> own-share;
+    /// Why the selected clip cannot fit its GPUs as set; empty when it can.
+    in property <string> problem;
     in-out property <float> priority: 50;
     in-out property <float> vram: 90;
     in-out property <float> cpu: 75;
@@ -762,6 +764,38 @@ component Percent inherits Row {
     }
 }
 
+component Problem inherits Rectangle {
+    in property <string> text;
+    property <bool> lit;
+    changed text => {
+        self.lit = true;
+        flash.running = true;
+    }
+    flash := Timer {
+        interval: 600ms;
+        running: false;
+        triggered => {
+            root.lit = false;
+            self.running = false;
+        }
+    }
+    height: self.text == "" ? 0 : body.preferred-height + 12px;
+    visible: self.text != "";
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: T.danger-line;
+    background: root.lit ? #ff4d4d40 : #ff4d4d14;
+    animate background { duration: 300ms; }
+    body := Text {
+        x: 8px;
+        width: parent.width - 16px;
+        text: "⚠ " + root.text;
+        color: T.danger;
+        font-size: T.small;
+        wrap: word-wrap;
+    }
+}
+
 component Shares inherits VerticalLayout {
     in property <bool> enabled: true;
     in-out property <float> priority;
@@ -1197,6 +1231,9 @@ component Inspector inherits Rectangle {
                                 Job.changed();
                             }
                         }
+                    }
+                    Problem {
+                        text: Job.problem;
                     }
                 }
                 Section {

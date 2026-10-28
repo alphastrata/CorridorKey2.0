@@ -55,6 +55,7 @@ pub struct Catalogue {
     pub models: Vec<PathBuf>,
     pub refiners: Vec<PathBuf>,
     pub gpus: Vec<String>,
+    pub devices: Vec<crate::telemetry::Device>,
 }
 
 fn file_name(p: &Path) -> String {
@@ -63,7 +64,8 @@ fn file_name(p: &Path) -> String {
 
 impl Catalogue {
     #[must_use]
-    pub fn scan(gpus: Vec<String>) -> Self {
+    pub fn scan(devices: Vec<crate::telemetry::Device>) -> Self {
+        let gpus = devices.iter().map(|d| d.name.clone()).collect();
         let mut all: Vec<PathBuf> = repo()
             .and_then(|r| std::fs::read_dir(r.join("weights")).ok())
             .into_iter()
@@ -74,7 +76,7 @@ impl Catalogue {
             .collect();
         all.sort();
         let (refiners, models) = all.into_iter().partition(|p| file_name(p).contains("refiner"));
-        Self { models, refiners, gpus }
+        Self { models, refiners, gpus, devices }
     }
 
     #[must_use]

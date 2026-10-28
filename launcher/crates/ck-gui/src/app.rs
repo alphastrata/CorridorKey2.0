@@ -14,6 +14,7 @@ use slint::{ComponentHandle, Image, Model, ModelRc, SharedString, Timer, TimerMo
 
 use crate::clips::{self, Clip, Hint, Status};
 use crate::command::{self, Catalogue};
+use crate::fit;
 use crate::frames::{self, Frames, Shown};
 use crate::log::{self, Kind};
 use crate::prefs;
@@ -357,6 +358,33 @@ impl State {
         self.update_bar(i);
     }
 
+    fn dims(&mut self, i: usize) -> Option<(u32, u32, usize)> {
+        let c = &mut self.clips[i];
+        if c.dims.is_none() {
+            c.dims = frames::dims(&c.source);
+        }
+        c.dims
+    }
+
+    /// Why clip `i` fits none of the GPU sets it could run on, or `None` when one will take it.
+    fn blocker(&mut self, i: usize) -> Option<String> {
+        let dims = self.dims(i)?;
+        let s = self.clips[i].settings.clone().unwrap_or_else(|| self.settings.clone());
+        let share = s.share.unwrap_or(self.prefs.share);
+        let sets = s.gpus.clone().map_or_else(|| self.slots(), |g| vec![g]);
+        let problems: Vec<Option<String>> =
+            sets.iter().map(|g| fit::any(&s, share, &self.catalogue.devices, g, dims)).collect();
+        if problems.iter().any(Option::is_none) { None } else { problems.into_iter().flatten().next() }
+    }
+
+    /// Shows in the inspector whether the selected clip can run as set.
+    fn refresh_fit(&mut self) {
+        let problem = self.selected().and_then(|i| self.blocker(i)).unwrap_or_default();
+        if let Some(ui) = self.ui() {
+            ui.global::<Job>().set_problem(problem.into());
+        }
+    }
+
     /// Inspector edits belong to the selected clip, unless it is already running.
     fn own_settings(&mut self) {
         if let Some(c) = self.selected().map(|i| &mut self.clips[i]).filter(|c| c.status != Status::Running) {
@@ -465,6 +493,7 @@ impl State {
                 self.settings = own;
             }
         }
+        self.refresh_fit();
         let c = &self.clips[i];
         q.set_clip_name(c.name().into());
         q.set_clip_where(
@@ -711,6 +740,23 @@ impl State {
         if let Some(i) = self.selected() {
             self.clips[i].settings = Some(self.settings.clone());
         }
+        let (picked, refused): (Vec<usize>, Vec<(usize, String)>) =
+            picked.into_iter().fold((vec![], vec![]), |(mut ok, mut no), i| {
+                match self.blocker(i) {
+                    Some(why) => no.push((i, why)),
+                    None => ok.push(i),
+                }
+                (ok, no)
+            });
+        refused.iter().for_each(|(i, why)| {
+            self.log(log::line(Kind::Error, format!("{} cannot run: {why}", self.clips[*i].name())));
+        });
+        if let (Some((i, why)), Some(ui)) = (refused.first(), self.ui()) {
+            ui.set_status(format!("Not started: {} — {why}", self.clips[*i].name()).into());
+        }
+        if picked.is_empty() {
+            return;
+        }
         picked.iter().for_each(|&i| {
             let own = self.clips[i].settings.clone().unwrap_or_else(|| self.settings.clone());
             self.mark(i, Status::Queued, Some(&own));
@@ -750,9 +796,13 @@ impl State {
         };
         let slots = self.slots();
         self.clips.iter().enumerate().filter(|(_, c)| c.status == Status::Queued).find_map(|(i, c)| {
-            match c.settings.as_ref().and_then(|s| s.gpus.clone()) {
-                Some(own) => idle(&own).then_some((i, own)),
-                None => slots.iter().find(|s| idle(s)).map(|s| (i, s.clone())),
+            let s = c.settings.as_ref().unwrap_or(&self.settings);
+            let fits = |g: &[usize]| {
+                c.dims.is_none_or(|d| fit::any(s, s.share.unwrap_or(self.prefs.share), &self.catalogue.devices, g, d).is_none())
+            };
+            match s.gpus.clone() {
+                Some(own) => (idle(&own) && fits(&own)).then_some((i, own)),
+                None => slots.iter().find(|g| idle(g) && fits(g)).map(|g| (i, g.clone())),
             }
         })
     }
@@ -1370,6 +1420,7 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
             st.settings = settings_from_ui(&ui.global::<Job>(), &st.catalogue);
             st.own_settings();
             st.persist();
+            st.refresh_fit();
         }
     });
     let s = state.clone();
@@ -1386,6 +1437,7 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
         st.settings = settings_from_ui(&j, &st.catalogue);
         st.own_settings();
         st.persist();
+        st.refresh_fit();
     });
     let s = state.clone();
     let p = ui.global::<crate::Prefs>();
@@ -1395,6 +1447,7 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
         ui.global::<crate::Prefs>().get_gpu_on().set_row_data(usize::try_from(i).unwrap_or_default(), on);
         st.prefs = prefs::from_ui(&ui);
         st.persist();
+        st.refresh_fit();
     });
     let s = state.clone();
     p.on_changed(move || {
@@ -1402,6 +1455,7 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
         let Some(ui) = st.ui() else { return };
         st.prefs = prefs::from_ui(&ui);
         st.persist();
+        st.refresh_fit();
     });
     let w = ui.as_weak();
     j.on_browse_out_parent(move || {
