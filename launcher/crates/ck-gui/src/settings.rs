@@ -168,14 +168,22 @@ impl Saved {
             .unwrap_or_default()
     }
 
-    pub fn save(&self) {
-        let (Some(f), Ok(text)) = (file(), toml::to_string_pretty(self)) else {
-            return;
-        };
+    /// Writes the state, returning the text written.
+    pub fn save(&self) -> Option<String> {
+        let (f, text) = (file()?, toml::to_string_pretty(self).ok()?);
         if let Some(dir) = f.parent() {
             drop(std::fs::create_dir_all(dir));
         }
-        drop(std::fs::write(f, text));
+        std::fs::write(f, &text).ok()?;
+        Some(text)
+    }
+
+    /// The state on disk with its text, when the file reads and parses.
+    #[must_use]
+    pub fn read() -> Option<(String, Self)> {
+        let text = std::fs::read_to_string(file()?).ok()?;
+        let saved = toml::from_str(&text).ok()?;
+        Some((text, saved))
     }
 }
 

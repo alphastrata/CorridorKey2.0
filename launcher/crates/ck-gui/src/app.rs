@@ -82,6 +82,8 @@ struct State {
     events: (Sender<Event>, Receiver<Event>),
     #[cfg(unix)]
     daemon: Option<crate::daemon::Daemon>,
+    /// The state file's text as last written or adopted, so outside edits stand out.
+    disk: RefCell<String>,
 }
 
 fn summary(clip: &Clip, run: &Run, now: Instant, done: bool) -> Summary {
@@ -268,7 +270,50 @@ impl State {
             last: self.finished.clone(),
             queue: self.clips.clone(),
         }
-        .save();
+        .save()
+        .into_iter()
+        .for_each(|t| drop(self.disk.replace(t)));
+    }
+
+    /// Adopts an outside edit of the state file; running clips keep their own state.
+    fn adopt(&mut self) {
+        let Some((text, saved)) = Saved::read().filter(|(t, _)| *t != *self.disk.borrow()) else { return };
+        self.disk.replace(text);
+        let Some(ui) = self.ui() else { return };
+        self.prefs = saved.prefs;
+        prefs::to_ui(&self.prefs, &self.catalogue.gpus, &ui);
+        self.settings = saved.settings;
+        let l = &saved.layout;
+        ui.set_left_width(l.left_width);
+        ui.set_right_width(l.right_width);
+        ui.set_log_visible(l.log);
+        ui.set_stats_visible(l.stats);
+        let keep = |c: &Clip| c.status == Status::Running || saved.queue.iter().any(|o| o.source == c.source);
+        let gone: Vec<usize> = (0..self.clips.len()).rev().filter(|&i| !keep(&self.clips[i])).collect();
+        gone.into_iter().for_each(|i| {
+            self.clips.remove(i);
+            self.rows.remove(i);
+            self.runs.iter_mut().filter(|r| r.index > i).for_each(|r| r.index -= 1);
+        });
+        saved.queue.into_iter().filter(|c| c.path.exists()).for_each(|c| {
+            match self.clips.iter().position(|o| o.source == c.source) {
+                Some(i) if self.clips[i].status == Status::Running => {}
+                Some(i) => {
+                    let o = &mut self.clips[i];
+                    (o.settings, o.hint, o.hint_path) = (c.settings, c.hint, c.hint_path);
+                }
+                None => {
+                    self.rows.push(row(&c));
+                    self.clips.push(c);
+                }
+            }
+        });
+        if let Some(i) = saved.selected.filter(|&i| i < self.clips.len()) {
+            ui.global::<Queue>().set_selected(i32::try_from(i).unwrap_or_default());
+        }
+        (0..self.clips.len()).for_each(|i| self.refresh_row(i));
+        settings_to_ui(&self.settings, &ui.global::<Job>(), &self.catalogue);
+        self.show_selection();
     }
 
     fn restore(&mut self, saved: Saved) {
@@ -1234,6 +1279,7 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
     let refresh = Timer::default();
     refresh.start(TimerMode::Repeated, Duration::from_millis(250), move || {
         let Ok(mut st) = s.try_borrow_mut() else { return };
+        st.adopt();
         st.live();
         if let Some(ui) = st.ui().filter(AppWindow::get_stats_visible) {
             ui.set_stats(ModelRc::new(VecModel::from(st.stats())));
@@ -1553,6 +1599,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
         events: flume::unbounded(),
         #[cfg(unix)]
         daemon: None,
+        disk: RefCell::new(Saved::read().map_or_else(String::new, |(t, _)| t)),
     }));
 
     let timers = wire_timers(&state, shown_rx, snap_rx);
