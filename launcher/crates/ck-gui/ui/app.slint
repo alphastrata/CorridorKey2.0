@@ -1,5 +1,5 @@
 import { ComboBox, CheckBox, Slider, LineEdit, SpinBox, ListView, ScrollView, Palette } from "std-widgets.slint";
-import { T, Btn, Toggle, Tab, Pill, PanelTitle, Section, Row, Bar } from "theme.slint";
+import { T, Tips, Btn, Toggle, Tab, Pill, PanelTitle, Section, Row, Bar } from "theme.slint";
 
 export struct ClipRow {
     name: string,
@@ -1443,6 +1443,21 @@ export component AppWindow inherits Window {
                     }
                 }
             }
+        }
+    }
+    if Tips.text != "": Rectangle {
+        x: max(4px, min(Tips.x, root.width - self.width - 4px));
+        y: Tips.y;
+        width: tip-text.preferred-width + 16px;
+        height: 22px;
+        background: #000000ee;
+        border-width: 1px;
+        border-color: T.line-strong;
+        border-radius: 2px;
+        tip-text := Text {
+            text: Tips.text;
+            font-size: T.small;
+            color: T.text;
         }
     }
 }

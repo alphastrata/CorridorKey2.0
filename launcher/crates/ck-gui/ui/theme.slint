@@ -27,24 +27,31 @@ export global T {
     out property <length> small: 11px;
 }
 
-component Tip inherits PopupWindow {
-    in property <string> text;
-    close-policy: no-auto-close;
-    Rectangle {
-        background: #000000ee;
-        border-width: 1px;
-        border-color: T.line-strong;
-        border-radius: 2px;
-        HorizontalLayout {
-            padding-left: 8px;
-            padding-right: 8px;
-            padding-top: 4px;
-            padding-bottom: 4px;
-            Text {
-                text: root.text;
-                font-size: T.small;
-                color: T.text;
-            }
+/// The one tooltip, drawn by the window above everything else so it never steals hover.
+export global Tips {
+    in-out property <string> text;
+    in-out property <length> x;
+    in-out property <length> y;
+}
+
+component Hover {
+    in property <string> tip;
+    in property <bool> up;
+    in property <bool> armed;
+    in property <Point> at;
+    in property <length> below;
+    Timer {
+        interval: 500ms;
+        running: root.armed && root.tip != "" && Tips.text != root.tip;
+        triggered => {
+            Tips.text = root.tip;
+            Tips.x = root.at.x;
+            Tips.y = root.up ? root.at.y - 26px : root.at.y + root.below + 4px;
+        }
+    }
+    changed armed => {
+        if !root.armed && Tips.text == root.tip {
+            Tips.text = "";
         }
     }
 }
@@ -102,20 +109,17 @@ export component Btn inherits Rectangle {
         ink: !root.enabled ? (root.primary ? T.subtle : T.disabled)
             : root.primary ? T.canvas : root.danger ? T.danger : T.text;
     }
-    pop := Tip {
-        text: root.tip;
-        y: root.tip-up ? -28px : root.height + 4px;
+    Hover {
+        tip: root.tip;
+        up: root.tip-up;
+        armed: touch.has-hover;
+        at: root.absolute-position;
+        below: root.height;
     }
     touch := TouchArea {
         mouse-cursor: root.enabled ? pointer : default;
-        changed has-hover => {
-            if self.has-hover && root.tip != "" {
-                pop.show();
-            } else {
-                pop.close();
-            }
-        }
         clicked => {
+            Tips.text = "";
             if root.enabled {
                 root.clicked();
             }
@@ -141,20 +145,17 @@ export component Toggle inherits Rectangle {
         text: root.text;
         ink: root.checked ? T.brand : T.text;
     }
-    pop := Tip {
-        text: root.tip;
-        y: root.tip-up ? -28px : root.height + 4px;
+    Hover {
+        tip: root.tip;
+        up: root.tip-up;
+        armed: touch.has-hover;
+        at: root.absolute-position;
+        below: root.height;
     }
     touch := TouchArea {
         mouse-cursor: pointer;
-        changed has-hover => {
-            if self.has-hover && root.tip != "" {
-                pop.show();
-            } else {
-                pop.close();
-            }
-        }
         clicked => {
+            Tips.text = "";
             root.checked = !root.checked;
             root.toggled(root.checked);
         }
