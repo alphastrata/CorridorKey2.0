@@ -6,6 +6,7 @@ use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant, SystemTime};
 
+use ahash::AHashMap;
 use eyre::Context as _;
 use flume::{Receiver, Sender};
 use slint::winit_030::{EventResult, WinitWindowAccessor, winit};
@@ -70,6 +71,8 @@ struct State {
     snapshot: Snapshot,
     input: Option<(u32, u32, f32, usize)>,
     last_dir: Option<PathBuf>,
+    /// Live-view frames from `ckd`, keyed by the `.ppm` path they stand in for.
+    latest: AHashMap<PathBuf, (SystemTime, frames::Pixels)>,
     probe: Probe,
     events: (Sender<Event>, Receiver<Event>),
     #[cfg(unix)]
@@ -531,7 +534,7 @@ impl State {
     fn ready(&self) -> Vec<bool> {
         self.views
             .iter()
-            .map(|p| p.as_ref().is_some_and(|p| !is_ppm(p) || p.is_file()))
+            .map(|p| p.as_ref().is_some_and(|p| !is_ppm(p) || self.latest.contains_key(p) || p.is_file()))
             .collect()
     }
 
@@ -562,12 +565,15 @@ impl State {
         let Some(path) = self.views.get(view).cloned().flatten().filter(|p| is_ppm(p)) else {
             return;
         };
-        let stamp = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+        let held = self.latest.get(&path).cloned();
+        let stamp = held
+            .as_ref()
+            .map(|(t, _)| *t)
+            .or_else(|| std::fs::metadata(&path).and_then(|m| m.modified()).ok());
         if stamp.is_none() || stamp == self.live {
             return;
         }
-
-        if let Ok(px) = frames::ppm(&path) {
+        if let Ok(px) = held.map_or_else(|| frames::ppm(&path), |(_, px)| Ok(px)) {
             self.live = stamp;
             v.set_b_ready(false);
             v.set_src_h(px.height().cast_signed());
@@ -855,6 +861,7 @@ impl State {
         let mut run = self.runs.remove(k);
         self.watch();
         drop(std::fs::remove_dir_all(&run.preview));
+        self.latest.retain(|k, _| !k.starts_with(&run.preview));
         let i = run.index;
         let c = &mut self.clips[i];
         let stopping = run.stopping || self.mode == Mode::Stopping;
@@ -1042,6 +1049,11 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
                     }
                 }
                 Event::Exit(pid, code) => st.exited(pid, &code, Instant::now()),
+                Event::Frame(pid, name, px) => {
+                    if let Some(key) = st.runs.iter().find(|r| r.job.pid == pid).map(|r| r.preview.join(format!("{name}.ppm"))) {
+                        st.latest.insert(key, (SystemTime::now(), px));
+                    }
+                }
             }
         }
 
@@ -1346,6 +1358,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
         snapshot: Snapshot::default(),
         input: None,
         last_dir: None,
+        latest: AHashMap::new(),
         probe,
         events: flume::unbounded(),
         #[cfg(unix)]

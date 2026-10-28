@@ -19,6 +19,8 @@ pub enum Event {
     /// Output line; `Some(seq)` when it came from `ckd`.
     Line(u32, String, Option<u64>),
     Exit(u32, eyre::Result<i32>),
+    /// A live-view snapshot of one output, from `ckd`.
+    Frame(u32, String, crate::frames::Pixels),
 }
 
 pub struct Job {
