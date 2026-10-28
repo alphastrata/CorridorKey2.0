@@ -38,12 +38,14 @@ pub struct JobInfo {
     pub args: Vec<String>,
     /// Milliseconds since start, or the run's length once it has exited.
     pub elapsed_ms: u64,
+    /// Lines emitted so far; the next `Line` event carries this `seq`.
+    pub lines: u64,
     pub exit: Option<Exit>,
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Event {
-    /// `ms` counts from the job's start.
-    Line { id: String, pid: u32, ms: u64, text: String },
+    /// `seq` numbers the job's lines from zero; `ms` counts from its start.
+    Line { id: String, pid: u32, seq: u64, ms: u64, text: String },
     Exit { id: String, pid: u32, exit: Exit },
 }

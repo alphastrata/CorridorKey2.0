@@ -54,17 +54,18 @@ pub fn run(rx: &Receiver<Hub>) {
                 return drop(tx.send(found.map(|r| (r.info(), r.lines.iter().cloned().collect()))));
             }
             Hub::Started { id, pid, args } => {
-                let info = JobInfo { id, pid, args, elapsed_ms: 0, exit: None };
+                let info = JobInfo { id, pid, args, elapsed_ms: 0, lines: 0, exit: None };
                 return jobs.push(Record { info, started: Instant::now(), lines: VecDeque::new() });
             }
             Hub::Line(pid, text) => {
                 let Some(r) = jobs.iter_mut().find(|r| r.info.pid == pid && r.info.exit.is_none()) else { return };
-                let ms = r.ms();
+                let (ms, seq) = (r.ms(), r.info.lines);
+                r.info.lines += 1;
                 r.lines.push_back((ms, text.clone()));
                 if r.lines.len() > KEEP_LINES {
                     r.lines.pop_front();
                 }
-                Event::Line { id: r.info.id.clone(), pid, ms, text }
+                Event::Line { id: r.info.id.clone(), pid, seq, ms, text }
             }
             Hub::Exit(pid, exit) => {
                 let Some(r) = jobs.iter_mut().find(|r| r.info.pid == pid && r.info.exit.is_none()) else { return };

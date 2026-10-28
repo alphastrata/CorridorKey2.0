@@ -17,6 +17,7 @@ use rkyv::ser::allocator::ArenaHandle;
 use rkyv::util::AlignedVec;
 
 pub use client::Client;
+pub use hub::Snapshot;
 pub use proto::{Event, Exit, JobInfo, Reply, Request};
 
 pub const BUS_BYTES: usize = 1 << 26;
