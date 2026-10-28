@@ -55,7 +55,7 @@ or `.venv\Scripts\activate` on Windows); otherwise prefix them with `uv run`.
 The download script fetches:
 
 - the CorridorKey 2.0 weights from
-  [Hugging Face](https://huggingface.co/nikopueringer/CorridorKey2.0) into
+  [Hugging Face](https://huggingface.co/alphastrata/CorridorKey2.0), with bf16 and fp16 quants, into
   `weights/`
 - the three frozen foundation models CorridorKey builds on, from their original
   publishers, into `vfms/`: C-RADIOv4-SO400M (NVIDIA), MoGe-2 ViT-B

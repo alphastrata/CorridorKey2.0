@@ -27,8 +27,13 @@ from pathlib import Path
 
 from huggingface_hub import hf_hub_download, snapshot_download
 
-CORRIDORKEY_REPO = "nikopueringer/CorridorKey2.0"
-CORRIDORKEY_FILES = ("corridorkey_v2.safetensors", "foundation_stats.safetensors")
+CORRIDORKEY_REPO = "alphastrata/CorridorKey2.0"
+CORRIDORKEY_FILES = (
+    "corridorkey_v2.safetensors",
+    "corridorkey_v2.bf16.safetensors",
+    "corridorkey_v2.fp16.safetensors",
+    "foundation_stats.safetensors",
+)
 
 CRADIO_REPO = "nvidia/C-RADIOv4-SO400M"
 CRADIO_REVISION = "c0457f5dc26ca145f954cd4fc5bb6114e5705ad8"
