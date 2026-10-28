@@ -2,6 +2,7 @@
 //! events stream back over a tachyon shared-memory ring per client.
 
 pub mod client;
+mod hub;
 pub mod proto;
 pub mod server;
 
@@ -16,11 +17,11 @@ use rkyv::ser::allocator::ArenaHandle;
 use rkyv::util::AlignedVec;
 
 pub use client::Client;
-pub use proto::{Event, JobInfo, Reply, Request};
+pub use proto::{Event, Exit, JobInfo, Reply, Request};
 
 pub const BUS_BYTES: usize = 1 << 26;
 /// Bump when `proto` changes: the socket name carries it, so a stale daemon is never spoken to.
-pub const PROTOCOL: u32 = 1;
+pub const PROTOCOL: u32 = 2;
 const SPIN: u32 = 2000;
 
 #[derive(Debug, thiserror::Error)]

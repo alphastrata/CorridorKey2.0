@@ -11,15 +11,8 @@ use nix::sys::signal::{Signal, killpg};
 use nix::unistd::Pid;
 use tachyon::{Bus, TachyonError};
 
-use crate::{Error, Event, JobInfo, Reply, Request, Result, encode, recv, send, socket};
-
-enum Hub {
-    Join(u64, Sender<Event>),
-    Leave(u64),
-    Started(JobInfo),
-    Event(Event),
-    List(Sender<Vec<JobInfo>>),
-}
+use crate::hub::{self, Hub};
+use crate::{Error, Event, Exit, Reply, Request, Result, encode, recv, send, socket};
 
 /// Runs the daemon until the listener fails; refuses to start beside a live one.
 pub fn serve() -> Result<()> {
@@ -30,28 +23,12 @@ pub fn serve() -> Result<()> {
     drop(std::fs::remove_file(&path));
     let listener = UnixListener::bind(&path)?;
     let (tx, rx) = flume::unbounded();
-    thread::spawn(move || hub(&rx));
+    thread::spawn(move || hub::run(&rx));
     listener.incoming().flatten().for_each(|s| {
         let tx = tx.clone();
         thread::spawn(move || session(s, &tx));
     });
     Ok(())
-}
-
-fn hub(rx: &Receiver<Hub>) {
-    let (mut sessions, mut jobs): (Vec<(u64, Sender<Event>)>, Vec<JobInfo>) = (vec![], vec![]);
-    rx.iter().for_each(|m| match m {
-        Hub::Join(id, tx) => sessions.push((id, tx)),
-        Hub::Leave(id) => sessions.retain(|(s, _)| *s != id),
-        Hub::Started(j) => jobs.push(j),
-        Hub::List(tx) => drop(tx.send(jobs.clone())),
-        Hub::Event(e) => {
-            if let Event::Exit { pid, .. } = &e {
-                jobs.retain(|j| j.pid != *pid);
-            }
-            sessions.retain(|(_, s)| s.send(e.clone()).is_ok());
-        }
-    });
 }
 
 fn session(stream: UnixStream, hub: &Sender<Hub>) {
@@ -67,7 +44,7 @@ fn session(stream: UnixStream, hub: &Sender<Hub>) {
                 Reply::Ok
             }
             Request::Submit { program, args, env, cwd } => match spawn(&program, &args, &env, &cwd, hub) {
-                Ok(pid) => Reply::Started { pid },
+                Ok((id, pid)) => Reply::Started { id, pid },
                 Err(e) => Reply::Error(format!("could not start {program}: {e}")),
             },
             Request::Stop { pid } => {
@@ -78,6 +55,14 @@ fn session(stream: UnixStream, hub: &Sender<Hub>) {
                 let (tx, rx) = flume::bounded(1);
                 drop(hub.send(Hub::List(tx)));
                 Reply::Jobs(rx.recv().unwrap_or_default())
+            }
+            Request::Attach { id } => {
+                let (tx, rx) = flume::bounded(1);
+                drop(hub.send(Hub::Attach(id.clone(), tx)));
+                rx.recv()
+                    .ok()
+                    .flatten()
+                    .map_or_else(|| Reply::Error(format!("no job {id}")), |(info, lines)| Reply::Job { info, lines })
             }
         };
         if send(&mut w, &reply).is_err() {
@@ -113,7 +98,7 @@ fn lines(mut from: impl Read + Send + 'static, pid: u32, hub: Sender<Hub>) -> th
             let text = String::from_utf8_lossy(line).into_owned();
             line.clear();
             if !text.trim().is_empty() {
-                drop(hub.send(Hub::Event(Event::Line { pid, text })));
+                drop(hub.send(Hub::Line(pid, text)));
             }
         };
         while let Ok(n @ 1..) = from.by_ref().read(&mut buf) {
@@ -126,7 +111,13 @@ fn lines(mut from: impl Read + Send + 'static, pid: u32, hub: Sender<Hub>) -> th
     })
 }
 
-fn spawn(program: &str, args: &[String], env: &[(String, String)], cwd: &str, hub: &Sender<Hub>) -> std::io::Result<u32> {
+fn spawn(
+    program: &str,
+    args: &[String],
+    env: &[(String, String)],
+    cwd: &str,
+    hub: &Sender<Hub>,
+) -> std::io::Result<(String, u32)> {
     let mut child = Command::new(program)
         .args(args)
         .envs(env.iter().map(|(k, v)| (k, v)))
@@ -137,7 +128,8 @@ fn spawn(program: &str, args: &[String], env: &[(String, String)], cwd: &str, hu
         .process_group(0)
         .spawn()?;
     let pid = child.id();
-    drop(hub.send(Hub::Started(JobInfo { pid, args: args.to_vec() })));
+    let id = uuid::Uuid::new_v4().to_string();
+    drop(hub.send(Hub::Started { id: id.clone(), pid, args: args.to_vec() }));
     let readers: Vec<_> = [
         child.stdout.take().map(|o| lines(o, pid, hub.clone())),
         child.stderr.take().map(|e| lines(e, pid, hub.clone())),
@@ -152,9 +144,9 @@ fn spawn(program: &str, args: &[String], env: &[(String, String)], cwd: &str, hu
         let signal = status.and_then(|s| s.signal()).map(|s| {
             Signal::try_from(s).map_or_else(|_| format!("signal {s}"), |s| s.to_string())
         });
-        drop(hub.send(Hub::Event(Event::Exit { pid, code: status.and_then(|s| s.code()), signal })));
+        drop(hub.send(Hub::Exit(pid, Exit { code: status.and_then(|s| s.code()), signal })));
     });
-    Ok(pid)
+    Ok((id, pid))
 }
 
 /// SIGTERM to the job's process group, then SIGKILL after three seconds.

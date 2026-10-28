@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use ck_ipc::{Client, Event, Reply, Request};
+use ck_ipc::{Client, Event, Exit, Reply, Request};
 
 #[test]
 fn submit_streams_lines_and_exit() {
@@ -14,7 +14,7 @@ fn submit_streams_lines_and_exit() {
             Client::connect(None).ok()
         })
         .expect("daemon up");
-    let Reply::Started { pid } = c
+    let Reply::Started { id, pid } = c
         .call(&Request::Submit {
             program: "sh".into(),
             args: vec!["-c".into(), "echo hi; exit 3".into()],
@@ -26,8 +26,13 @@ fn submit_streams_lines_and_exit() {
         panic!("not started")
     };
     let got: Vec<Event> = events.iter().take(2).collect();
-    assert_eq!(got[0], Event::Line { pid, text: "hi".into() });
-    assert_eq!(got[1], Event::Exit { pid, code: Some(3), signal: None });
-    assert_eq!(c.call(&Request::List).unwrap(), Reply::Jobs(vec![]));
+    assert!(matches!(&got[0], Event::Line { id: i, pid: p, text, .. } if *i == id && *p == pid && text == "hi"));
+    let exit = Exit { code: Some(3), signal: None };
+    assert_eq!(got[1], Event::Exit { id: id.clone(), pid, exit: exit.clone() });
+    let Reply::Job { info, lines } = c.call(&Request::Attach { id: id.clone() }).unwrap() else {
+        panic!("no record")
+    };
+    assert_eq!((info.exit, lines.len()), (Some(exit), 1));
+    assert!(c.call(&Request::Attach { id: "nope".into() }).is_err());
     drop(std::fs::remove_dir_all(dir));
 }
