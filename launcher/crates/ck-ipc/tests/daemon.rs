@@ -50,6 +50,14 @@ fn daemon_round_trip() {
     assert_eq!((info.exit, lines.len()), (Some(exit), 1));
     assert!(c.call(&Request::Attach { id: "nope".into() }).is_err());
 
+    let (_, pid) = submit(&mut c, "ps -o ni= -p $$", false);
+    let nice = events.iter().find_map(|e| match e {
+        Event::Line { pid: p, text, .. } if p == pid => text.trim().parse::<i32>().ok(),
+        _ => None,
+    });
+    assert!(nice.is_some_and(|n| n >= 10), "jobs run niced, got {nice:?}");
+    let _ = events.iter().find(|e| matches!(e, Event::Exit { pid: p, .. } if *p == pid));
+
     let frame = Frame { output: "alpha".into(), w: 2, h: 1, rgb: vec![1, 2, 3, 4, 5, 6] };
     let mut framed = Vec::new();
     ck_ipc::send(&mut framed, &frame).unwrap();
