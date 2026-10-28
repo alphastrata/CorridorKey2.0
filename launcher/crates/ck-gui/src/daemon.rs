@@ -36,7 +36,7 @@ pub fn connect(tx: &Sender<Event>) -> Option<Daemon> {
 }
 
 impl Daemon {
-    pub fn submit(&mut self, cmd: &Command, cwd: &Path, prefs: &crate::settings::Prefs) -> eyre::Result<Job> {
+    pub fn submit(&mut self, cmd: &Command, cwd: &Path, (nice, keep_alive_secs): (i32, u32)) -> eyre::Result<Job> {
         let req = ck_ipc::Request::Submit {
             program: cmd.program.to_string_lossy().into_owned(),
             args: cmd.args.clone(),
@@ -44,8 +44,8 @@ impl Daemon {
             cwd: cwd.to_string_lossy().into_owned(),
             preview: true,
             resident: true,
-            nice: prefs.nice,
-            keep_alive_secs: prefs.keep_alive.saturating_mul(60),
+            nice,
+            keep_alive_secs,
         };
         match self.0.call(&req)? {
             ck_ipc::Reply::Started { id, pid } => Ok(Job { pid, id: Some(id) }),

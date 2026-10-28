@@ -2,7 +2,7 @@ use crate::convert::Metric;
 use std::path::{Path, PathBuf};
 
 use crate::clips::{Clip, Hint, OUTPUTS};
-use crate::settings::{Prefs, Settings};
+use crate::settings::{Settings, Share};
 
 pub struct Command {
     pub program: PathBuf,
@@ -208,17 +208,17 @@ fn placement(s: &Settings, gpus: &[usize], preview: &Path) -> Vec<String> {
     a
 }
 
-pub fn build(clip: &Clip, (s, p): (&Settings, &Prefs), out: &Path, (gpus, preview): (&[usize], &Path)) -> eyre::Result<Command> {
+pub fn build(clip: &Clip, (s, share): (&Settings, Share), out: &Path, (gpus, preview): (&[usize], &Path)) -> eyre::Result<Command> {
     let program =
         ck_binary().ok_or_else(|| eyre::eyre!("ck is not built: cargo build --release -p ck in launcher/"))?;
     let mut args = placement(s, gpus, preview);
     args.extend(ck(clip, s, out));
-    if p.vram_cap > 0.0 {
-        args.extend(["--vram-cap".into(), p.vram_cap.to_string()]);
+    if share.vram < 100 {
+        args.extend(["--vram-share".into(), share.vram.to_string()]);
     }
     let mut env = vec![("CUDA_DEVICE_ORDER".into(), "PCI_BUS_ID".into())];
-    if p.threads > 0 {
-        env.push(("RAYON_NUM_THREADS".into(), p.threads.to_string()));
+    if let Some(n) = share.threads() {
+        env.push(("RAYON_NUM_THREADS".into(), n.to_string()));
     }
     Ok(Command { program, args, env })
 }

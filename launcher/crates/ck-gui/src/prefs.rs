@@ -1,7 +1,16 @@
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
 
-use crate::settings::{Placement, Prefs};
+use crate::settings::{Placement, Prefs, Share};
 use crate::{AppWindow, Prefs as Ui};
+
+pub fn share_to_ui<R>(s: Share, set: impl FnOnce(f32, f32, f32) -> R) -> R {
+    set(f32::from(s.priority), f32::from(s.vram), f32::from(s.cpu))
+}
+
+pub fn share((priority, vram, cpu): (f32, f32, f32)) -> Share {
+    let pct = |v: f32| (1u8..=100).find(|&p| f32::from(p) >= v.round()).unwrap_or(100);
+    Share { priority: pct(priority), vram: pct(vram), cpu: pct(cpu) }
+}
 
 pub fn to_ui(p: &Prefs, gpus: &[String], ui: &AppWindow) {
     let u = ui.global::<Ui>();
@@ -11,9 +20,7 @@ pub fn to_ui(p: &Prefs, gpus: &[String], ui: &AppWindow) {
         .collect();
     u.set_gpu_on(ModelRc::new(VecModel::from(on)));
     u.set_parallel(p.placement == Placement::PerGpu);
-    u.set_nice(p.nice);
-    u.set_vram_cap(p.vram_cap);
-    u.set_threads(i32::try_from(p.threads).unwrap_or_default());
+    share_to_ui(p.share, |a, b, c| (u.set_priority(a), u.set_vram(b), u.set_cpu(c)));
     u.set_keep_alive(i32::try_from(p.keep_alive).unwrap_or(10));
 }
 
@@ -22,9 +29,7 @@ pub fn from_ui(ui: &AppWindow) -> Prefs {
     Prefs {
         gpus_off: u.get_gpu_on().iter().zip(0u32..).filter(|(on, _)| !on).map(|(_, i)| i).collect(),
         placement: if u.get_parallel() { Placement::PerGpu } else { Placement::Together },
-        nice: u.get_nice().clamp(0, 19),
-        vram_cap: u.get_vram_cap().max(0.0),
-        threads: u.get_threads().max(0).cast_unsigned(),
+        share: share((u.get_priority(), u.get_vram(), u.get_cpu())),
         keep_alive: u.get_keep_alive().max(0).cast_unsigned(),
     }
 }

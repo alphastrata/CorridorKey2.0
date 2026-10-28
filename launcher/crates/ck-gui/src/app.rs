@@ -163,6 +163,10 @@ fn settings_to_ui(s: &Settings, j: &Job, cat: &Catalogue) {
     j.set_refine(s.refine);
     j.set_out_mode(i32::from(s.out_parent.is_some()));
     j.set_out_parent(s.out_parent.clone().unwrap_or_default().into());
+    j.set_own_share(s.share.is_some());
+    if let Some(sh) = s.share {
+        crate::prefs::share_to_ui(sh, |p, v, c| (j.set_priority(p), j.set_vram(v), j.set_cpu(c)));
+    }
 }
 
 fn settings_from_ui(j: &Job, cat: &Catalogue) -> Settings {
@@ -199,6 +203,7 @@ fn settings_from_ui(j: &Job, cat: &Catalogue) -> Settings {
         out_parent: (j.get_out_mode() == 1).then(|| j.get_out_parent().into()),
         model: Catalogue::name(&cat.models, j.get_model()),
         refiner: Catalogue::name(&cat.refiners, j.get_refiner()),
+        share: j.get_own_share().then(|| crate::prefs::share((j.get_priority(), j.get_vram(), j.get_cpu()))),
     }
 }
 
@@ -760,10 +765,11 @@ impl State {
             .join(format!("corridorkey-{}", std::process::id()))
             .join(self.launches.to_string());
         let settings = self.clips[i].settings.clone().unwrap_or_else(|| self.settings.clone());
+        let share = settings.share.unwrap_or(self.prefs.share);
         let out = self.clips[i].output_dir_for(settings.out_parent.as_deref().unwrap_or(""));
         self.clips[i].output_dir = Some(out.clone());
         let cwd = command::repo().unwrap_or_else(|| PathBuf::from("."));
-        let spawned = command::build(&self.clips[i], (&settings, &self.prefs), &out, (&gpus, &preview)).and_then(|cmd| {
+        let spawned = command::build(&self.clips[i], (&settings, share), &out, (&gpus, &preview)).and_then(|cmd| {
             self.log(log::line(Kind::Head, format!("=== {} ===", self.clips[i].name())));
 
             self.log(log::line(
@@ -778,8 +784,9 @@ impl State {
                 self.daemon = crate::daemon::connect(&self.events.0);
             }
             #[cfg(unix)]
-            let prefs = self.prefs.clone();
-            let submitted = self.daemon.as_mut().map(|d| d.submit(&cmd, &cwd, &prefs));
+            let life = (share.nice(), self.prefs.keep_alive.saturating_mul(60));
+            #[cfg(unix)]
+            let submitted = self.daemon.as_mut().map(|d| d.submit(&cmd, &cwd, life));
             #[cfg(not(unix))]
             let submitted: Option<eyre::Result<Running>> = None;
             match submitted {

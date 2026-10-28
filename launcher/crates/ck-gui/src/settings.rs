@@ -31,6 +31,35 @@ pub struct Settings {
     pub out_parent: Option<String>,
     pub model: String,
     pub refiner: String,
+    /// This job's own resource shares; `None` follows the Preferences defaults.
+    pub share: Option<Share>,
+}
+
+/// Percentages of the machine a job may take.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(default)]
+pub struct Share {
+    pub priority: u8,
+    pub vram: u8,
+    pub cpu: u8,
+}
+
+impl Default for Share {
+    fn default() -> Self {
+        Self { priority: 50, vram: 90, cpu: 75 }
+    }
+}
+
+impl Share {
+    pub fn nice(self) -> i32 {
+        (19 * (100 - i32::from(self.priority.min(100))) + 50) / 100
+    }
+
+    /// Compute threads, or `None` for every core.
+    pub fn threads(self) -> Option<usize> {
+        let cores = std::thread::available_parallelism().map_or(1, usize::from);
+        (self.cpu < 100).then(|| (cores * usize::from(self.cpu)).div_ceil(100).max(1))
+    }
 }
 
 /// Machine-wide preferences, separate from any clip's settings.
@@ -39,19 +68,14 @@ pub struct Settings {
 pub struct Prefs {
     pub gpus_off: Vec<u32>,
     pub placement: Placement,
-    /// Niceness added to jobs; the GUI stays at its own.
-    pub nice: i32,
-    /// GiB per GPU the automatic window may plan for; 0 uses all free memory.
-    pub vram_cap: f32,
-    /// Compute threads per job; 0 lets each job use every core.
-    pub threads: u32,
+    pub share: Share,
     /// Minutes an idle resident worker keeps its models loaded.
     pub keep_alive: u32,
 }
 
 impl Default for Prefs {
     fn default() -> Self {
-        Self { gpus_off: vec![], placement: Placement::PerGpu, nice: 10, vram_cap: 0.0, threads: 0, keep_alive: 10 }
+        Self { gpus_off: vec![], placement: Placement::PerGpu, share: Share::default(), keep_alive: 10 }
     }
 }
 
@@ -74,6 +98,7 @@ impl Default for Settings {
             out_parent: None,
             model: String::new(),
             refiner: String::new(),
+            share: None,
         }
     }
 }
@@ -153,7 +178,15 @@ impl Saved {
 
 #[cfg(test)]
 mod tests {
-    use super::{Saved, Summary};
+    use super::{Saved, Share, Summary};
+
+    #[test]
+    fn share_maps_to_nice_and_threads() {
+        let at = |priority, cpu| Share { priority, vram: 90, cpu };
+        assert_eq!([at(100, 100), at(50, 100), at(1, 100)].map(Share::nice), [0, 10, 19]);
+        assert_eq!(at(50, 100).threads(), None);
+        assert!(at(50, 1).threads().is_some_and(|n| n >= 1));
+    }
 
     #[test]
     fn round_trip() {

@@ -61,6 +61,10 @@ export global Job {
     in-out property <int> model;
     in property <[string]> refiners;
     in-out property <int> refiner;
+    in-out property <bool> own-share;
+    in-out property <float> priority: 50;
+    in-out property <float> vram: 90;
+    in-out property <float> cpu: 75;
     callback changed();
     callback browse-out-parent();
 }
@@ -70,9 +74,9 @@ export global Prefs {
     in property <[string]> gpu-names;
     in property <[bool]> gpu-on;
     in-out property <bool> parallel: true;
-    in-out property <int> nice: 10;
-    in-out property <float> vram-cap;
-    in-out property <int> threads;
+    in-out property <float> priority: 50;
+    in-out property <float> vram: 90;
+    in-out property <float> cpu: 75;
     in-out property <int> keep-alive: 10;
     in-out property <bool> open;
     callback changed();
@@ -732,6 +736,55 @@ component Value inherits Text {
     vertical-alignment: center;
 }
 
+component Percent inherits Row {
+    in-out property <float> value;
+    callback edited();
+    Slider {
+        min-width: 0;
+        minimum: 1;
+        maximum: 100;
+        step: 1;
+        enabled: root.enabled;
+        value <=> root.value;
+        released => { root.edited(); }
+    }
+    Text {
+        text: round(root.value) + "%";
+        width: 40px;
+        color: root.enabled ? T.text : T.disabled;
+        font-size: T.body;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+    }
+}
+
+component Shares inherits VerticalLayout {
+    in property <bool> enabled: true;
+    in-out property <float> priority;
+    in-out property <float> vram;
+    in-out property <float> cpu;
+    callback edited();
+    spacing: 10px;
+    Percent {
+        label: "CPU priority";
+        enabled: root.enabled;
+        value <=> root.priority;
+        edited => { root.edited(); }
+    }
+    Percent {
+        label: "VRAM";
+        enabled: root.enabled;
+        value <=> root.vram;
+        edited => { root.edited(); }
+    }
+    Percent {
+        label: "CPU cores";
+        enabled: root.enabled;
+        value <=> root.cpu;
+        edited => { root.edited(); }
+    }
+}
+
 component PrefsSheet inherits Rectangle {
     background: #000000aa;
     TouchArea {
@@ -788,60 +841,11 @@ component PrefsSheet inherits Rectangle {
             }
             Section {
                 title: "Performance";
-                Row {
-                    label: "Job priority";
-                    Slider {
-                        min-width: 0;
-                        minimum: 0;
-                        maximum: 19;
-                        value: Prefs.nice;
-                        changed(v) => { Prefs.nice = round(v); }
-                        released => { Prefs.changed(); }
-                    }
-                    Text {
-                        text: "nice " + Prefs.nice;
-                        width: 56px;
-                        color: T.text;
-                        font-size: T.body;
-                        vertical-alignment: center;
-                    }
-                }
-                Row {
-                    label: "VRAM budget";
-                    SpinBox {
-                        min-width: 0;
-                        minimum: 0;
-                        maximum: 192;
-                        value: round(Prefs.vram-cap);
-                        edited(v) => {
-                            Prefs.vram-cap = v;
-                            Prefs.changed();
-                        }
-                    }
-                    Text {
-                        text: Prefs.vram-cap > 0 ? "GiB per GPU" : "all free";
-                        width: 80px;
-                        color: T.muted;
-                        font-size: T.small;
-                        vertical-alignment: center;
-                    }
-                }
-                Row {
-                    label: "CPU threads";
-                    SpinBox {
-                        min-width: 0;
-                        minimum: 0;
-                        maximum: 512;
-                        value <=> Prefs.threads;
-                        edited => { Prefs.changed(); }
-                    }
-                    Text {
-                        text: Prefs.threads > 0 ? "per job" : "all cores";
-                        width: 80px;
-                        color: T.muted;
-                        font-size: T.small;
-                        vertical-alignment: center;
-                    }
+                Shares {
+                    priority <=> Prefs.priority;
+                    vram <=> Prefs.vram;
+                    cpu <=> Prefs.cpu;
+                    edited => { Prefs.changed(); }
                 }
                 Row {
                     label: "Keep models";
@@ -861,7 +865,7 @@ component PrefsSheet inherits Rectangle {
                     }
                 }
                 Text {
-                    text: "Higher nice leaves more CPU for the desktop. Changes apply to jobs started afterwards; a new priority, thread count or GPU set loads a fresh resident worker.";
+                    text: "Defaults for every job, as shares of each GPU's memory and of the CPU; a clip may override them in the Inspector. Changes apply to jobs started afterwards; a new priority, core share or GPU set loads a fresh resident worker.";
                     color: T.subtle;
                     font-size: T.small;
                     wrap: word-wrap;
@@ -1088,6 +1092,32 @@ component Inspector inherits Rectangle {
                         Value {
                             value: Job.carry-quality;
                         }
+                    }
+                }
+                Section {
+                    title: "Resources";
+                    CheckBox {
+                        min-width: 0;
+                        text: "Override the Preferences defaults";
+                        checked <=> Job.own-share;
+                        toggled => {
+                            Job.priority = Prefs.priority;
+                            Job.vram = Prefs.vram;
+                            Job.cpu = Prefs.cpu;
+                            Job.changed();
+                        }
+                    }
+                    if Job.own-share: Shares {
+                        priority <=> Job.priority;
+                        vram <=> Job.vram;
+                        cpu <=> Job.cpu;
+                        edited => { Job.changed(); }
+                    }
+                    if !Job.own-share: Shares {
+                        enabled: false;
+                        priority: Prefs.priority;
+                        vram: Prefs.vram;
+                        cpu: Prefs.cpu;
                     }
                 }
                 Section {
