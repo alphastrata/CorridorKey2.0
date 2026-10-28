@@ -92,6 +92,14 @@ export component Btn inherits Rectangle {
     in property <string> tip;
     in property <bool> tip-up;
     callback clicked();
+    accessible-role: button;
+    accessible-label: root.text != "" ? root.text : root.tip;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
     min-height: 28px;
     min-width: max(28px, face.preferred-width + 4px);
     border-radius: 2px;
@@ -136,6 +144,14 @@ export component Toggle inherits Rectangle {
     in property <string> tip;
     in property <bool> tip-up;
     callback toggled(bool);
+    accessible-role: checkbox;
+    accessible-label: root.text != "" ? root.text : root.tip;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => {
+        root.checked = !root.checked;
+        root.toggled(root.checked);
+    }
     min-height: 26px;
     min-width: max(28px, face.preferred-width + 4px);
     border-radius: 2px;
@@ -170,6 +186,15 @@ export component Tab inherits Rectangle {
     in property <bool> enabled: true;
     in property <string> key;
     callback clicked();
+    accessible-role: tab;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-item-selected: root.checked;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
     min-width: label.preferred-width + 24px;
     height: 26px;
     label := Text {

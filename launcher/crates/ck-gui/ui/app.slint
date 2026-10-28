@@ -335,7 +335,16 @@ component Scrubber inherits Rectangle {
 component IconButton inherits Rectangle {
     in property <image> icon;
     in property <bool> enabled: true;
+    in property <string> label;
     callback clicked();
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
     width: 26px;
     height: 26px;
     border-radius: 2px;
@@ -570,16 +579,19 @@ component Viewer inherits Rectangle {
             spacing: 6px;
             IconButton {
                 icon: @image-url("icons/step-back.svg");
+                label: "Previous frame";
                 enabled: View.count > 0;
                 clicked => { View.show(View.view, max(View.index - 1, 0)); }
             }
             IconButton {
                 icon: View.playing ? @image-url("icons/pause.svg") : @image-url("icons/play.svg");
+                label: View.playing ? "Pause" : "Play";
                 enabled: View.count > 1;
                 clicked => { View.playing = !View.playing; }
             }
             IconButton {
                 icon: @image-url("icons/step-forward.svg");
+                label: "Next frame";
                 enabled: View.count > 0;
                 clicked => { View.show(View.view, min(View.index + 1, View.count - 1)); }
             }
@@ -651,6 +663,12 @@ component QueuePanel inherits Rectangle {
                 }
                 ListView {
                     for row[i] in Queue.rows: Rectangle {
+                        accessible-role: list-item;
+                        accessible-label: row.name;
+                        accessible-value: row.status;
+                        accessible-item-selectable: true;
+                        accessible-item-selected: Queue.selected == i;
+                        accessible-action-default => { Queue.select(i); }
                         height: 34px;
                         background: Queue.selected == i ? T.surface-brand : touch.has-hover ? #161614
                             : mod(i, 2) == 1 ? #121211 : transparent;
@@ -752,7 +770,8 @@ component Percent inherits Row {
         step: 1;
         enabled: root.enabled;
         value <=> root.value;
-        released => { root.edited(); }
+        accessible-label: root.label;
+        changed => { root.edited(); }
     }
     Text {
         text: round(root.value) + "%";
@@ -1088,7 +1107,7 @@ component Inspector inherits Rectangle {
                             maximum: 1;
                             value <=> Job.despill;
                             enabled: (Job.out-cutout || Job.out-checker);
-                            released => { Job.changed(); }
+                            changed => { Job.changed(); }
                         }
                         Value {
                             value: Job.despill;
@@ -1104,7 +1123,7 @@ component Inspector inherits Rectangle {
                             minimum: 0;
                             maximum: 1;
                             value <=> Job.hint-quality;
-                            released => { Job.changed(); }
+                            changed => { Job.changed(); }
                         }
                         Value {
                             value: Job.hint-quality;
@@ -1125,7 +1144,7 @@ component Inspector inherits Rectangle {
                             maximum: 1;
                             value <=> Job.carry-quality;
                             enabled: Job.carry;
-                            released => { Job.changed(); }
+                            changed => { Job.changed(); }
                         }
                         Value {
                             value: Job.carry-quality;
@@ -1182,7 +1201,7 @@ component Inspector inherits Rectangle {
                     }
                     Row {
                         label: "Memory";
-                        ComboBox {
+                        memory := ComboBox {
                             min-width: 0;
                             model: ["Auto · fit to free memory", "Manual"];
                             current-index <=> Job.vram-mode;
@@ -1209,7 +1228,7 @@ component Inspector inherits Rectangle {
                     Row {
                         label: "Chunk / stride";
                         enabled: root.manual;
-                        SpinBox {
+                        chunk := SpinBox {
                             min-width: 0;
                             minimum: 1;
                             maximum: 400;
@@ -1220,7 +1239,7 @@ component Inspector inherits Rectangle {
                                 Job.changed();
                             }
                         }
-                        SpinBox {
+                        stride := SpinBox {
                             min-width: 0;
                             minimum: 1;
                             maximum: 400;
@@ -1419,6 +1438,8 @@ export component AppWindow inherits Window {
     callback stop(bool);
     property <string> picked: Queue.selected >= 0 && Queue.selected < Queue.rows.length ? Queue.rows[Queue.selected].status : "";
     callback stats-toggled(bool);
+    /// The log or stats panel was shown or hidden.
+    callback layout-changed();
     init => {
         Palette.color-scheme = ColorScheme.dark;
         keys.focus();
@@ -1440,6 +1461,7 @@ export component AppWindow inherits Window {
             }
             if e.modifiers.control && (e.text == "l" || e.text == "L") {
                 root.log-visible = !root.log-visible;
+                root.layout-changed();
                 return accept;
             }
             if !e.modifiers.control && (e.text == "f" || e.text == "F" || e.text == "0") {
@@ -1673,6 +1695,7 @@ export component AppWindow inherits Window {
                         tip: "Log (Ctrl+L)";
                         tip-up: true;
                         checked <=> root.log-visible;
+                        toggled => { root.layout-changed(); }
                     }
                     Btn {
                         icon: @image-url("icons/stop.svg");

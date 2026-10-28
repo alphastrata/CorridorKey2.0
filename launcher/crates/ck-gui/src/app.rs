@@ -1319,7 +1319,10 @@ fn wire_actions(ui: &AppWindow, state: &StateRef) {
         if let Some(ui) = st.ui() {
             ui.set_stats(ModelRc::new(VecModel::from(st.stats())));
         }
+        st.persist();
     });
+    let s = state.clone();
+    ui.on_layout_changed(move || s.borrow().persist());
 }
 
 fn wire_queue(ui: &AppWindow, state: &StateRef) {
@@ -1331,6 +1334,7 @@ fn wire_queue(ui: &AppWindow, state: &StateRef) {
             ui.global::<Queue>().set_selected(i);
         }
         st.show_selection();
+        st.persist();
     });
 
     let s = state.clone();
