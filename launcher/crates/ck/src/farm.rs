@@ -307,7 +307,7 @@ fn lead<'s, 'e>(
 
     let mut cfg = sh.cfg.clone();
     if cfg.auto {
-        let free = if cfg.vram_cap > 0.0 { free.min(cfg.vram_cap) } else { free } - cfg.encoder_gib((src.w, src.h));
+        let free = free.min(gib(gpu)?.1 * cfg.vram_share / 100.0) - cfg.encoder_gib((src.w, src.h));
         let (chunk, stride, est) = vram::window(g, total, free, gpu.sm);
         info!("{free:.1} GiB free → window {chunk}, stride {stride} (estimated peak {est:.1} GiB)");
         if est > free {
@@ -356,18 +356,21 @@ fn lead<'s, 'e>(
     Clip::open((gpu, m, &cfg), &src, total, sh.hints, meta)?.run(total, |job| submit((gpu, m, k), sh, job))
 }
 
-fn gib(gpu: &Gpu) -> Result<f64> {
-    Ok(gpu.ctx.mem_get_info()?.0.f64() / f64::from(1u32 << 30))
+/// Free and total GiB.
+fn gib(gpu: &Gpu) -> Result<(f64, f64)> {
+    let (free, total) = gpu.ctx.mem_get_info()?;
+    let g = |b: usize| b.f64() / f64::from(1u32 << 30);
+    Ok((g(free), g(total)))
 }
 
 fn load(device: usize, lead: bool, sh: &Shared) -> Result<Loaded> {
     let gpu = Gpu::open(device, &sh.assets.ptx)?;
-    let before = gib(&gpu)?;
+    let before = gib(&gpu)?.0;
     let m = Models::load(&gpu, &sh.assets.weights, &sh.assets.vfms, sh.cfg.refine.as_deref())?;
     if lead {
         m.front(&gpu)?;
     }
-    let held = (before - gib(&gpu)?).max(0.0);
+    let held = (before - gib(&gpu)?.0).max(0.0);
     Ok(Loaded { gpu, m, held })
 }
 
@@ -387,7 +390,7 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
     if k == 0 {
         l.m.front(&l.gpu)?;
     }
-    let free = gib(&l.gpu)? + l.held;
+    let free = gib(&l.gpu)?.0 + l.held;
     sh.loaded.store(true, Ordering::Release);
     info!("sm_{}, {free:.1} GiB free", l.gpu.sm);
     loop {

@@ -92,9 +92,9 @@ struct Args {
     #[argh(description = "send live-view snapshots over this inherited socket instead (set by ckd)")]
     #[argh(option)]
     preview_fd: Option<i32>,
-    #[argh(description = "plan the automatic window for at most this many GiB per GPU (0: all free memory)")]
-    #[argh(option, default = "0.0")]
-    vram_cap: f64,
+    #[argh(description = "plan the automatic window for at most this percentage of each GPU's memory")]
+    #[argh(option, default = "100.0")]
+    vram_share: f64,
     #[argh(description = "do not carry each window's alpha into the next as a hint")]
     #[argh(switch)]
     no_carry: bool,
@@ -325,7 +325,7 @@ fn job(a: Args, session: Session<'_>) -> Result<()> {
 
         vfm_batch: a.vfm_batch,
         preview: a.preview_fd.map(PreviewTo::Fd).or(a.preview.map(PreviewTo::Dir)),
-        vram_cap: a.vram_cap,
+        vram_share: a.vram_share,
     };
     let hints = Hints {
         first: a.hint,
