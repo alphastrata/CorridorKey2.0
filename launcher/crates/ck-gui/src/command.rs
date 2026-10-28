@@ -79,10 +79,10 @@ impl Catalogue {
             .replace("edge_refiner_", "");
         let (name, dtype) = stem.split_once('.').unwrap_or((&stem, "fp32"));
         let size = p.metadata().map_or(0.0, |m| m.len().f64() / f64::from(1u32 << 30));
-        if size < 0.1 {
-            name.to_owned()
-        } else {
-            format!("{name} · {dtype} · {size:.1} GB")
+        match (size < 0.1, name) {
+            (true, _) => name.to_owned(),
+            (false, "v2") => format!("{dtype} · {size:.1} GB"),
+            _ => format!("{dtype} · {name} · {size:.1} GB"),
         }
     }
 
