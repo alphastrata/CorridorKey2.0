@@ -1,7 +1,7 @@
 use crate::convert::Float;
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant, SystemTime};
@@ -68,6 +68,7 @@ struct State {
     detail: bool,
     snapshot: Snapshot,
     input: Option<(u32, u32, f32, usize)>,
+    last_dir: Option<PathBuf>,
     probe: Probe,
     events: (Sender<Event>, Receiver<Event>),
     #[cfg(unix)]
@@ -258,6 +259,7 @@ impl State {
                 log: ui.get_log_visible(),
                 stats: ui.get_stats_visible(),
                 view_b: ui.global::<View>().get_view_b(),
+                last_dir: self.last_dir.clone(),
             },
             selected: self.selected(),
             last: self.finished.clone(),
@@ -269,6 +271,7 @@ impl State {
     fn restore(&mut self, saved: Saved) {
         let Some(ui) = self.ui() else { return };
         let l = &saved.layout;
+        self.last_dir.clone_from(&l.last_dir);
         ui.set_left_width(l.left_width);
         ui.set_right_width(l.right_width);
         ui.set_log_visible(l.log);
@@ -990,8 +993,13 @@ fn later(task: impl std::future::Future<Output = ()> + 'static) {
     drop(slint::spawn_local(task));
 }
 
-fn dialog_dir() -> Option<PathBuf> {
-    dirs::home_dir()
+fn dialog_dir(s: &StateRef) -> PathBuf {
+    s.borrow()
+        .last_dir
+        .clone()
+        .filter(|d| d.is_dir())
+        .or_else(dirs::home_dir)
+        .unwrap_or_default()
 }
 
 #[must_use]
@@ -1090,13 +1098,13 @@ fn wire_queue(ui: &AppWindow, state: &StateRef) {
         let picked = rfd::AsyncFileDialog::new()
             .set_title("Add clips")
             .add_filter("Clips", &CLIP_FILTER)
-            .set_directory(dialog_dir().unwrap_or_default())
+            .set_directory(dialog_dir(&s))
             .pick_files();
         later(async move {
             if let Some(files) = picked.await {
-
-                s.borrow_mut()
-                    .add(&files.iter().map(|f| f.path().to_owned()).collect::<Vec<_>>());
+                let mut st = s.borrow_mut();
+                st.last_dir = files.first().and_then(|f| f.path().parent()).map(Path::to_owned);
+                st.add(&files.iter().map(|f| f.path().to_owned()).collect::<Vec<_>>());
             }
         });
     });
@@ -1105,12 +1113,14 @@ fn wire_queue(ui: &AppWindow, state: &StateRef) {
         let s = s.clone();
         let picked = rfd::AsyncFileDialog::new()
             .set_title("Add a frame folder or a folder of clips")
-            .set_directory(dialog_dir().unwrap_or_default())
+            .set_directory(dialog_dir(&s))
             .pick_folder();
 
         later(async move {
             if let Some(dir) = picked.await {
-                s.borrow_mut().add(&[dir.path().to_owned()]);
+                let mut st = s.borrow_mut();
+                st.last_dir = dir.path().parent().map(Path::to_owned);
+                st.add(&[dir.path().to_owned()]);
             }
         });
     });
@@ -1311,6 +1321,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
         detail: false,
         snapshot: Snapshot::default(),
         input: None,
+        last_dir: None,
         probe,
         events: flume::unbounded(),
         #[cfg(unix)]

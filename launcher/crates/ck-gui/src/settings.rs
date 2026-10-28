@@ -68,6 +68,8 @@ pub struct Layout {
     pub log: bool,
     pub stats: bool,
     pub view_b: i32,
+    /// Where the add dialogs last picked from.
+    pub last_dir: Option<PathBuf>,
 }
 
 impl Default for Layout {
@@ -78,6 +80,7 @@ impl Default for Layout {
             log: true,
             stats: false,
             view_b: -1,
+            last_dir: None,
         }
     }
 }
