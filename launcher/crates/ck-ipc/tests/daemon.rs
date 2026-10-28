@@ -58,7 +58,7 @@ fn daemon_round_trip() {
     assert!(nice.is_some_and(|n| n >= 10), "jobs run niced, got {nice:?}");
     let _ = events.iter().find(|e| matches!(e, Event::Exit { pid: p, .. } if *p == pid));
 
-    let frame = Frame { output: "alpha".into(), w: 2, h: 1, rgb: vec![1, 2, 3, 4, 5, 6] };
+    let frame = Frame { output: "alpha".into(), index: 7, w: 2, h: 1, rgb: vec![1, 2, 3, 4, 5, 6] };
     let mut framed = Vec::new();
     ck_ipc::send(&mut framed, &frame).unwrap();
     let file = dir.join("frame.bin");

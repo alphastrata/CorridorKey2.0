@@ -59,12 +59,13 @@ impl Preview {
         })
     }
 
-    pub fn offer<'a>(&mut self, images: impl IntoIterator<Item = (Output, &'a [u8])>) -> Result<()> {
+    /// Snapshots frame `index`'s outputs, at most every `EVERY`.
+    pub fn offer<'a>(&mut self, index: usize, images: impl IntoIterator<Item = (Output, &'a [u8])>) -> Result<()> {
         if self.last.is_some_and(|t| t.elapsed() < EVERY) {
             return Ok(());
         }
         self.last = Some(Instant::now());
-        images.into_iter().try_for_each(|(o, img)| self.write(o, img))
+        images.into_iter().try_for_each(|(o, img)| self.write(index, o, img))
     }
 
     #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
@@ -93,7 +94,7 @@ impl Preview {
     }
 
     #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
-    fn write(&mut self, o: Output, img: &[u8]) -> Result<()> {
+    fn write(&mut self, index: usize, o: Output, img: &[u8]) -> Result<()> {
         let (w, h) = self.size;
         let step = w.div_ceil(WIDTH).max(1);
         let (pw, ph) = (w / step, h / step);
@@ -117,6 +118,7 @@ impl Preview {
             Sink::Socket(s) => {
                 let frame = ck_ipc::Frame {
                     output: o.name().into(),
+                    index: u32::try_from(index)?,
                     w: u32::try_from(pw)?,
                     h: u32::try_from(ph)?,
                     rgb,

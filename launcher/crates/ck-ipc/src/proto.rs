@@ -60,6 +60,8 @@ pub enum Work {
 #[derive(Archive, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Frame {
     pub output: String,
+    /// The source frame this snapshot shows.
+    pub index: u32,
     pub w: u32,
     pub h: u32,
     pub rgb: Vec<u8>,

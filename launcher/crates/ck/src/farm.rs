@@ -251,7 +251,7 @@ fn sink(
 
         while let Some(images) = pending.remove(&next) {
             if let Some(p) = preview.as_mut() {
-                p.offer(writers.iter().map(|(o, _)| *o).zip(images.iter().map(Vec::as_slice)))?;
+                p.offer(next, writers.iter().map(|(o, _)| *o).zip(images.iter().map(Vec::as_slice)))?;
             }
             writers.iter().zip(images).try_for_each(|((_, w), img)| w.write(img))?;
             next += 1;
