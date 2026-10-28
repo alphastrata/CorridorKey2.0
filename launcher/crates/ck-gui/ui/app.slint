@@ -9,6 +9,12 @@ export struct ClipRow {
     detail: string,
 }
 
+export struct Stat {
+    key: string,
+    value: string,
+    head: bool,
+}
+
 export global Job {
     in-out property <bool> ck-built: true;
     in-out property <int> codec;
@@ -236,7 +242,7 @@ component IconButton inherits Rectangle {
 
 component Viewer inherits Rectangle {
     in property <bool> stats-visible;
-    in property <string> stats;
+    in property <[Stat]> stats;
     callback focus-me();
     background: T.canvas;
     VerticalLayout {
@@ -305,19 +311,36 @@ component Viewer inherits Rectangle {
             if root.stats-visible: Rectangle {
                 x: 12px;
                 y: 12px;
-                width: min(stats-text.preferred-width + 20px, parent.width - 24px);
-                height: stats-text.preferred-height + 16px;
-                background: #080a0ccd;
+                width: min(table.preferred-width, parent.width - 24px);
+                height: min(table.preferred-height, parent.height - 24px);
+                clip: true;
+                background: #080a0ce0;
                 border-width: 1px;
                 border-color: #ffffff28;
                 border-radius: 6px;
-                stats-text := Text {
-                    x: 10px;
-                    y: 8px;
-                    text: root.stats;
-                    font-family: T.mono;
-                    font-size: 11px;
-                    color: #d8f5d0;
+                table := VerticalLayout {
+                    padding: 12px;
+                    padding-top: 6px;
+                    spacing: 3px;
+                    for s in root.stats: HorizontalLayout {
+                        padding-top: s.head ? 8px : 0;
+                        spacing: 16px;
+                        Text {
+                            text: s.head ? s.key.to-uppercase() : s.key;
+                            width: s.head ? self.preferred-width : 92px;
+                            font-family: T.mono;
+                            font-size: 11px;
+                            font-weight: s.head ? 700 : 400;
+                            letter-spacing: s.head ? 1.2px : 0;
+                            color: s.head ? T.brand : T.subtle;
+                        }
+                        if !s.head: Text {
+                            text: s.value;
+                            font-family: T.mono;
+                            font-size: 11px;
+                            color: T.text;
+                        }
+                    }
                 }
             }
             if View.busy && View.src-w > 0: Rectangle {
@@ -967,7 +990,7 @@ export component AppWindow inherits Window {
     in-out property <bool> stats-visible;
     in-out property <length> left-width: 340px;
     in-out property <length> right-width: 380px;
-    in property <string> stats;
+    in property <[Stat]> stats;
     callback run();
     callback stop();
     callback stats-toggled(bool);

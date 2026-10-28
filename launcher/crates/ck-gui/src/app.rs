@@ -16,8 +16,8 @@ use crate::command::{self, Catalogue};
 use crate::frames::{self, Frames, Shown};
 use crate::runner::{self, Event, Job as Running, Progress};
 use crate::settings::{Placement, Settings};
-use crate::telemetry::{self, Probe, Snapshot};
-use crate::{AppWindow, ClipRow, Job, Queue, View};
+use crate::telemetry::{self, Probe, Snapshot, head, kv};
+use crate::{AppWindow, ClipRow, Job, Queue, Stat, View};
 
 const LOG_LINES: usize = 5000;
 const CLIP_FILTER: [&str; 5] = clips::VIDEO;
@@ -758,8 +758,8 @@ impl State {
         }
     }
 
-    fn stats(&self) -> String {
-        let mut l = vec!["Stats for nerds".to_owned(), String::new()];
+    fn stats(&self) -> Vec<Stat> {
+        let mut l = vec![head("Job")];
         let live = self.runs.first().map(|r| {
             (
                 self.clips[r.index].status.label().to_owned(),
@@ -768,7 +768,6 @@ impl State {
                 r.phases.clone(),
                 None,
                 r.index,
-
             )
         });
         let done = self
@@ -776,32 +775,23 @@ impl State {
             .clone()
             .map(|(s, p, t, ph, end)| (s, p, t, ph, Some(end), usize::MAX));
         match live.or(done) {
-            None => l.push("clip       none yet · start the queue".into()),
+            None => l.push(kv("clip", "none yet · start the queue")),
             Some((status, p, started, phases, end, i)) => {
-
                 let now = end.unwrap_or_else(Instant::now);
-                let name = self.clips.get(i).map_or(String::new(), Clip::name);
-                let frames = if p.frames > 0 {
-                    format!(" · {} frames {}", p.frames, p.size)
-                } else {
-                    String::new()
-                };
-                l.push(format!(
-                    "clip       {name}{}{status}{frames}",
-                    if name.is_empty() { "" } else { " · " }
-
-                ));
-                if !p.window.is_empty() {
-                    let at = if p.at.1 > 0 {
-                        format!("window {}/{} · ", p.at.0, p.at.1)
-                    } else {
-                        String::new()
-                    };
-                    l.push(format!("window     {at}{}", p.window));
+                if let Some(c) = self.clips.get(i) {
+                    l.push(kv("clip", c.name()));
                 }
-
-                l.push(format!("progress   {:.0}% · {}", p.value * 100.0, p.detail));
-                let spent = phases
+                l.push(kv("status", status));
+                if p.frames > 0 {
+                    l.push(kv("frames", format!("{} · {}", p.frames, p.size)));
+                }
+                if !p.window.is_empty() {
+                    let at = if p.at.1 > 0 { format!("{}/{} · ", p.at.0, p.at.1) } else { String::new() };
+                    l.push(kv("window", format!("{at}{}", p.window)));
+                }
+                l.push(kv("progress", format!("{:.0}% · {}", p.value * 100.0, p.detail)));
+                l.push(kv("elapsed", clock(now - started)));
+                phases
                     .iter()
                     .enumerate()
                     .filter(|(_, (name, _))| !name.is_empty())
@@ -809,18 +799,12 @@ impl State {
                         let until = phases.get(k + 1).map_or(now, |n| n.1);
                         match spent.iter_mut().find(|(n, _)| n == name) {
                             Some((_, d)) => *d += until - *t,
-
                             None => spent.push((name.clone(), until - *t)),
                         }
                         spent
-                    });
-                let spent = spent
-                    .iter()
-                    .map(|(n, d)| format!("{} {:.1}s", n.to_lowercase(), d.as_secs_f32()))
-                    .collect::<Vec<_>>()
-                    .join(" · ");
-                l.push(format!("elapsed    {} · {spent}", clock(now - started)));
-
+                    })
+                    .into_iter()
+                    .for_each(|(n, d)| l.push(kv(format!("  {}", n.to_lowercase()), format!("{:.1} s", d.as_secs_f32()))));
                 if let Some((_, k)) = phases.iter().find(|(n, _)| n == "Keying").filter(|_| p.frames > 0) {
                     let keyed = if p.keyed > 0 {
                         p.keyed
@@ -830,45 +814,27 @@ impl State {
                             .and_then(|n| n.checked_div(p.at.1))
                             .unwrap_or_default()
                     };
-
                     let rate = keyed.f32() / (now - *k).as_secs_f32().max(1e-3);
-                    let overall = end.map_or(String::new(), |_| {
-                        format!(
-                            " · {:.2} fps overall",
-                            p.frames.f32() / (now - started).as_secs_f32().max(1e-3)
-                        )
-                    });
-                    l.push(format!("throughput {keyed} frames keyed · {rate:.2} fps{overall}"));
-                }
-                l.push(format!(
-
-                    "process    {}",
-                    if self.runs.is_empty() {
-                        "idle"
-                    } else {
-                        self.snapshot.process.as_str()
+                    l.push(kv("keyed", format!("{keyed} frames · {rate:.2} fps")));
+                    if end.is_some() {
+                        let overall = p.frames.f32() / (now - started).as_secs_f32().max(1e-3);
+                        l.push(kv("overall", format!("{overall:.2} fps")));
                     }
-                ));
+                }
             }
         }
-
-        l.extend(self.snapshot.gpus.iter().cloned());
         if self.runs.len() > 1 {
-            l.push(format!(
-                "running    {} clips · {}",
-                self.runs.len(),
-                self.runs
-                    .iter()
-                    .map(|r| format!("{} on GPU {:?}", self.clips[r.index].name(), r.gpus))
-                    .collect::<Vec<_>>()
-                    .join(" · ")
-            ));
-
+            l.extend(self.runs.iter().map(|r| kv(format!("GPU {:?}", r.gpus), self.clips[r.index].name())));
         }
         if let Some(r) = self.runs.first() {
-            l.push(format!("last       {}", r.last));
+            l.push(kv("last", r.last.clone()));
         }
-        l.join("\n")
+        if !self.runs.is_empty() && !self.snapshot.process.is_empty() {
+            l.push(head("Process"));
+            l.extend(self.snapshot.process.iter().cloned());
+        }
+        l.extend(self.snapshot.gpus.iter().cloned());
+        l
     }
 }
 
@@ -912,7 +878,7 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
         let Ok(mut st) = s.try_borrow_mut() else { return };
         st.live();
         if let Some(ui) = st.ui().filter(AppWindow::get_stats_visible) {
-            ui.set_stats(st.stats().into());
+            ui.set_stats(ModelRc::new(VecModel::from(st.stats())));
         }
     });
 
@@ -947,7 +913,7 @@ fn wire_actions(ui: &AppWindow, state: &StateRef) {
         let st = s.borrow();
         st.probe.detailed.store(on, Ordering::Release);
         if let Some(ui) = st.ui() {
-            ui.set_stats(st.stats().into());
+            ui.set_stats(ModelRc::new(VecModel::from(st.stats())));
         }
     });
 }

@@ -1,3 +1,4 @@
+use crate::Stat;
 use crate::convert::Metric;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -9,13 +10,30 @@ use flume::Sender;
 use nvml_wrapper::Nvml;
 use nvml_wrapper::enum_wrappers::device::{Clock, TemperatureSensor};
 use nvml_wrapper::enums::device::UsedGpuMemory;
+use slint::SharedString;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 
 #[derive(Clone, Default)]
 pub struct Snapshot {
     pub label: String,
-    pub gpus: Vec<String>,
-    pub process: String,
+    pub gpus: Vec<Stat>,
+    pub process: Vec<Stat>,
+}
+
+pub fn kv(key: impl Into<SharedString>, value: impl Into<SharedString>) -> Stat {
+    Stat {
+        key: key.into(),
+        value: value.into(),
+        head: false,
+    }
+}
+
+pub fn head(title: impl Into<SharedString>) -> Stat {
+    Stat {
+        key: title.into(),
+        value: SharedString::new(),
+        head: true,
+    }
 }
 
 #[derive(Clone)]
@@ -50,7 +68,7 @@ fn tree(sys: &System, root: u32) -> AHashSet<u32> {
     all
 }
 
-fn process(sys: &System, pids: &AHashSet<u32>, root: u32) -> String {
+fn process(sys: &System, pids: &AHashSet<u32>, root: u32) -> Vec<Stat> {
     let (mut rss, mut cpu, mut threads) = (0u64, 0f32, 0usize);
     let mut kids: AHashMap<String, usize> = AHashMap::new();
     pids.iter()
@@ -62,24 +80,25 @@ fn process(sys: &System, pids: &AHashSet<u32>, root: u32) -> String {
             if pid != root {
                 *kids.entry(p.name().to_string_lossy().into_owned()).or_default() += 1;
             }
-
         });
     let kids = kids
         .iter()
-        .map(|(n, c)| if *c > 1 { format!("{n}×{c}") } else { n.clone() })
+        .map(|(n, c)| if *c > 1 { format!("{n} ×{c}") } else { n.clone() })
         .collect::<Vec<_>>()
         .join(", ");
-    format!(
-        "pid {root} · RSS {:.1} GB · CPU {cpu:.0}% · {threads} threads · children {}",
-        rss.f64() / f64::from(1u32 << 30),
-        if kids.is_empty() { "none" } else { &kids }
-    )
+    vec![
+        kv("pid", root.to_string()),
+        kv("RSS", format!("{:.1} GB", rss.f64() / f64::from(1u32 << 30))),
+        kv("CPU", format!("{cpu:.0}%")),
+        kv("threads", threads.to_string()),
+        kv("children", if kids.is_empty() { "none".into() } else { kids }),
+    ]
 }
 
-fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<String>) {
+fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Stat>) {
     let count = nvml.device_count().unwrap_or(0);
     let mut label = String::new();
-    let mut lines: Vec<String> = Vec::with_capacity(usize::try_from(count).unwrap_or_default());
+    let mut rows = Vec::new();
     (0..count).filter_map(|i| Some((i, nvml.device_by_index(i).ok()?))).for_each(|(i, d)| {
         let name = short(&d.name().unwrap_or_default());
         let mem = d.memory_info().ok();
@@ -87,7 +106,6 @@ fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Strin
         if i == 0 {
             label = mem.as_ref().map_or_else(|| name.clone(), |m| format!("{name} · {:.1} of {:.0} GB free", gib(m.free), gib(m.total)));
         }
-
         if !detailed {
             return;
         }
@@ -98,21 +116,25 @@ fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Strin
             .filter(|p| mine.contains(&p.pid))
             .map(|p| if let UsedGpuMemory::Used(b) = p.used_gpu_memory { b } else { 0 })
             .sum();
-
-        let util = d.utilization_rates().map_or(0, |u| u.gpu);
-        let watts = d.power_usage().unwrap_or(0) / 1000;
-        let cap = d.enforced_power_limit().unwrap_or(0) / 1000;
-        let temp = d.temperature(TemperatureSensor::Gpu).unwrap_or(0);
-        let (sm, sm_max) = (d.clock_info(Clock::SM).unwrap_or(0), d.max_clock_info(Clock::SM).unwrap_or(0));
-        let (gen_, width) = (d.current_pcie_link_gen().unwrap_or(0), d.current_pcie_link_width().unwrap_or(0));
-        let enc = d.encoder_stats().ok().filter(|e| e.session_count > 0).map_or(String::new(), |e| format!(" · NVENC {}×{} fps", e.session_count, e.average_fps));
         let (used, total) = mem.map_or((0.0, 0.0), |m| (gib(m.used), gib(m.total)));
-        let job = if job > 0 { format!(" (job {:.1})", gib(job)) } else { String::new() };
-        lines.push(format!(
-            "GPU{i} {name}\n  util {util}% · mem {used:.1}/{total:.1} GB{job} · {watts}/{cap} W · {temp}°C · SM {sm}/{sm_max} MHz · PCIe {gen_}×{width}{enc}"
-        ));
+        let job = if job > 0 { format!(" · job {:.1}", gib(job)) } else { String::new() };
+        rows.extend([
+            head(format!("GPU{i} · {name}")),
+            kv("util", format!("{}%", d.utilization_rates().map_or(0, |u| u.gpu))),
+            kv("memory", format!("{used:.1} / {total:.1} GB{job}")),
+            kv("power", format!("{} / {} W", d.power_usage().unwrap_or(0) / 1000, d.enforced_power_limit().unwrap_or(0) / 1000)),
+            kv("temp", format!("{} °C", d.temperature(TemperatureSensor::Gpu).unwrap_or(0))),
+            kv("SM clock", format!("{} / {} MHz", d.clock_info(Clock::SM).unwrap_or(0), d.max_clock_info(Clock::SM).unwrap_or(0))),
+            kv("PCIe", format!("gen {} ×{}", d.current_pcie_link_gen().unwrap_or(0), d.current_pcie_link_width().unwrap_or(0))),
+        ]);
+        rows.extend(
+            d.encoder_stats()
+                .ok()
+                .filter(|e| e.session_count > 0)
+                .map(|e| kv("NVENC", format!("{} sessions · {} fps", e.session_count, e.average_fps))),
+        );
     });
-    (label, lines)
+    (label, rows)
 }
 
 #[must_use]
@@ -160,14 +182,7 @@ pub fn start(tx: Sender<Snapshot>) -> Probe {
                 let (label, gpus) = nvml
                     .as_ref()
                     .map_or_else(|| ("no NVML".into(), vec![]), |n| gpus(n, &mine, detailed));
-                let process = if root == 0 {
-                    "idle".into()
-                } else if detailed {
-
-                    process(&sys, &mine, root)
-                } else {
-                    String::new()
-                };
+                let process = if detailed && root != 0 { process(&sys, &mine, root) } else { vec![] };
                 if tx.send(Snapshot { label, gpus, process }).is_err() {
                     return;
                 }
