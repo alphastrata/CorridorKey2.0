@@ -5,6 +5,7 @@ pub mod client;
 mod hub;
 mod process;
 pub mod proto;
+pub mod remote;
 pub mod server;
 pub mod worker;
 

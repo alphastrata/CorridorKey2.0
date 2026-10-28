@@ -37,14 +37,15 @@ fn dial(daemon: Option<&Path>) -> Result<UnixStream> {
     }
 }
 
-fn listen(path: String) -> Receiver<Event> {
+/// Listens on a tachyon bus at `path`, forwarding each message `read` accepts.
+pub(crate) fn listen<T: Send + 'static>(path: String, read: fn(&[u8]) -> Option<T>) -> Receiver<T> {
     let (tx, rx) = flume::unbounded();
     thread::spawn(move || {
         let Ok(bus) = Bus::listen(&path, BUS_BYTES) else { return };
         drop(std::fs::remove_file(&path));
         while let Ok(msg) = bus.acquire_rx(SPIN) {
-            let event = decode::<Event>(msg.data());
-            if msg.commit().is_err() || event.is_ok_and(|e| tx.send(e).is_err()) {
+            let item = read(msg.data());
+            if msg.commit().is_err() || item.is_some_and(|e| tx.send(e).is_err()) {
                 return;
             }
         }
@@ -61,7 +62,7 @@ impl Client {
             .join(format!("ev-{}-{}.sock", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)))
             .to_string_lossy()
             .into_owned();
-        let rx = listen(events.clone());
+        let rx = listen(events.clone(), |b| decode::<Event>(b).ok());
         c.call(&Request::Hello { events })?;
         Ok((c, rx))
     }

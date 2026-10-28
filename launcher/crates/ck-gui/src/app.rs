@@ -1507,6 +1507,8 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
     wire_view(&ui, &state);
     wire_job(&ui, &state);
     wire_window(&ui, &state);
+    #[cfg(unix)]
+    crate::remote::serve(&ui);
     state.borrow_mut().restore(saved);
     #[cfg(unix)]
     {

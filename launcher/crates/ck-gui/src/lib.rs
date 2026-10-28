@@ -10,6 +10,8 @@ mod frames;
 mod log;
 mod plots;
 mod prefs;
+#[cfg(unix)]
+mod remote;
 mod runner;
 mod settings;
 mod telemetry;

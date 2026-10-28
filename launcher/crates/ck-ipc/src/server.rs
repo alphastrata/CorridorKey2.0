@@ -76,16 +76,22 @@ fn session(stream: UnixStream, hub: &Sender<Hub>) {
     drop(hub.send(Hub::Leave(id)));
 }
 
+/// Connects to a bus the other side is binding, waiting up to three seconds.
+#[must_use]
+pub fn dial_bus(path: &str) -> Option<Bus> {
+    let start = Instant::now();
+    loop {
+        match Bus::connect(path) {
+            Ok(b) => return Some(b),
+            Err(_) if start.elapsed() < Duration::from_secs(3) => thread::sleep(Duration::from_millis(10)),
+            Err(_) => return None,
+        }
+    }
+}
+
 /// Producer side of a client's event ring; retries while the client binds and while the ring is full.
 fn publish(path: &str, rx: &Receiver<Event>) {
-    let start = Instant::now();
-    let bus = loop {
-        match Bus::connect(path) {
-            Ok(b) => break b,
-            Err(_) if start.elapsed() < Duration::from_secs(3) => thread::sleep(Duration::from_millis(10)),
-            Err(_) => return,
-        }
-    };
+    let Some(bus) = dial_bus(path) else { return };
     rx.iter()
         .filter_map(|e| Some((matches!(e, Event::Frame { .. }), encode(&e).ok()?)))
         .try_for_each(|(lossy, bytes)| loop {
