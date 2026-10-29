@@ -167,6 +167,7 @@ fn settings_to_ui(s: &Settings, j: &Job, cat: &Catalogue) {
     j.set_out_mode(i32::from(s.out_parent.is_some()));
     j.set_out_parent(s.out_parent.clone().unwrap_or_default().into());
     j.set_own_gpus(s.gpus.is_some());
+
     j.set_gpu_pick(ModelRc::new(VecModel::from(
         (0..cat.gpus.len()).map(|i| s.gpus.as_ref().is_some_and(|g| g.contains(&i))).collect::<Vec<_>>(),
     )));
@@ -1273,7 +1274,6 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
         }
         if let Some(snap) = snap_rx.try_iter().last() {
             if let Some(ui) = st.ui() {
-                ui.set_gpu(snap.label.clone().into());
                 ui.set_plots(ModelRc::new(VecModel::from(st.tinted(&snap.plots))));
             }
             st.snapshot = snap;
@@ -1478,11 +1478,13 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
             st.refresh_fit();
         }
     });
+
     let s = state.clone();
     j.on_gpu_picked(move |i, on| {
         let mut st = s.borrow_mut();
         let Some(ui) = st.ui() else { return };
         let j = ui.global::<Job>();
+
         if i < 0 {
             let enabled = ui.global::<crate::Prefs>().get_gpu_on();
             j.set_gpu_pick(ModelRc::new(VecModel::from(enabled.iter().collect::<Vec<_>>())));

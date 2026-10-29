@@ -1424,7 +1424,6 @@ export component AppWindow inherits Window {
     default-font-size: T.body;
     in property <string> status: "Ready · drop clips to begin.";
     in property <float> progress;
-    in property <string> gpu;
     in property <bool> running;
     in property <[LogLine]> log;
     in property <int> log-count;
@@ -1690,12 +1689,6 @@ export component AppWindow inherits Window {
                         overflow: elide;
                         vertical-alignment: center;
                         horizontal-stretch: 1;
-                    }
-                    Text {
-                        text: root.gpu;
-                        color: T.subtle;
-                        font-size: T.body;
-                        vertical-alignment: center;
                     }
                     Toggle {
                         icon: @image-url("icons/activity.svg");

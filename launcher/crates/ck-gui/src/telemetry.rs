@@ -9,14 +9,13 @@ use std::time::Duration;
 use ahash::{AHashMap, AHashSet};
 use flume::Sender;
 use nvml_wrapper::Nvml;
-use nvml_wrapper::enum_wrappers::device::{Clock, TemperatureSensor};
+use nvml_wrapper::enum_wrappers::device::TemperatureSensor;
 use nvml_wrapper::enums::device::UsedGpuMemory;
 use slint::SharedString;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 
 #[derive(Clone, Default)]
 pub struct Snapshot {
-    pub label: String,
     pub gpus: Vec<Stat>,
     pub process: Vec<Stat>,
     pub plots: Vec<Plot>,
@@ -87,6 +86,7 @@ fn process(sys: &System, pids: &AHashSet<u32>, root: u32) -> Vec<Stat> {
                 *kids.entry(p.name().to_string_lossy().into_owned()).or_default() += 1;
             }
         });
+
     let kids = kids
         .iter()
         .map(|(n, c)| if *c > 1 { format!("{n} ×{c}") } else { n.clone() })
@@ -101,49 +101,39 @@ fn process(sys: &System, pids: &AHashSet<u32>, root: u32) -> Vec<Stat> {
     ]
 }
 
-fn gpus(nvml: &Nvml, mine: &AHashSet<u32>, detailed: bool) -> (String, Vec<Stat>) {
-    let count = nvml.device_count().unwrap_or(0);
-    let mut label = String::new();
-    let mut rows = Vec::new();
-    (0..count).filter_map(|i| Some((i, nvml.device_by_index(i).ok()?))).for_each(|(i, d)| {
-        let name = short(&d.name().unwrap_or_default());
-        let mem = d.memory_info().ok();
-        let gib = |b: u64| b.f64() / f64::from(1u32 << 30);
-        if i == 0 {
-            label = mem.as_ref().map_or_else(|| name.clone(), |m| format!("{name} · {:.1} of {:.0} GB free", gib(m.free), gib(m.total)));
-        }
-        if !detailed {
-            return;
-        }
-        let job: u64 = d
-            .running_compute_processes()
-            .unwrap_or_default()
-            .iter()
-            .filter(|p| mine.contains(&p.pid))
-            .map(|p| if let UsedGpuMemory::Used(b) = p.used_gpu_memory { b } else { 0 })
-            .sum();
-        let (used, total) = mem.map_or((0.0, 0.0), |m| (gib(m.used), gib(m.total)));
-        let job = if job > 0 { format!(" · job {:.1}", gib(job)) } else { String::new() };
-        let at = rows.len();
-        rows.extend([
-            head(format!("GPU{i} · {name}")),
-            kv("util", format!("{}%", d.utilization_rates().map_or(0, |u| u.gpu))),
-            kv("memory", format!("{used:.1} / {total:.1} GB{job}")),
-            kv("power", format!("{} / {} W", d.power_usage().unwrap_or(0) / 1000, d.enforced_power_limit().unwrap_or(0) / 1000)),
-            kv("temp", format!("{} °C", d.temperature(TemperatureSensor::Gpu).unwrap_or(0))),
-            kv("SM clock", format!("{} / {} MHz", d.clock_info(Clock::SM).unwrap_or(0), d.max_clock_info(Clock::SM).unwrap_or(0))),
-            kv("PCIe", format!("gen {} ×{}", d.current_pcie_link_gen().unwrap_or(0), d.current_pcie_link_width().unwrap_or(0))),
-        ]);
-        rows.extend(
-            d.encoder_stats()
-                .ok()
-                .filter(|e| e.session_count > 0)
-                .map(|e| kv("NVENC", format!("{} sessions · {} fps", e.session_count, e.average_fps))),
-        );
-        let gpu = i32::try_from(i).unwrap_or(-1);
-        rows[at..].iter_mut().for_each(|r| r.gpu = gpu);
-    });
-    (label, rows)
+fn gpus(nvml: &Nvml, mine: &AHashSet<u32>) -> Vec<Stat> {
+    let gib = |b: u64| b.f64() / f64::from(1u32 << 30);
+
+    (0..nvml.device_count().unwrap_or(0))
+        .filter_map(|i| Some((i, nvml.device_by_index(i).ok()?)))
+        .flat_map(|(i, d)| {
+            let name = short(&d.name().unwrap_or_default());
+            let job: u64 = d
+                .running_compute_processes()
+                .unwrap_or_default()
+                .iter()
+                .filter(|p| mine.contains(&p.pid))
+                .map(|p| if let UsedGpuMemory::Used(b) = p.used_gpu_memory { b } else { 0 })
+                .sum();
+            let gpu = i32::try_from(i).unwrap_or(-1);
+
+            let mut rows = vec![head(format!("GPU{i} · {name}"))];
+            rows.extend((job > 0).then(|| kv("job VRAM", format!("{:.1} GB", gib(job)))));
+            rows.extend([
+                kv("temp", format!("{} °C", d.temperature(TemperatureSensor::Gpu).unwrap_or(0))),
+                kv("PCIe", format!("gen {} ×{}", d.current_pcie_link_gen().unwrap_or(0), d.current_pcie_link_width().unwrap_or(0))),
+            ]);
+
+            rows.extend(
+                d.encoder_stats()
+                    .ok()
+                    .filter(|e| e.session_count > 0)
+                    .map(|e| kv("NVENC", format!("{} sessions · {} fps", e.session_count, e.average_fps))),
+            );
+            rows.iter_mut().for_each(|r| r.gpu = gpu);
+            rows
+        })
+        .collect()
 }
 
 /// A GPU's label, compute capability as `major * 10 + minor`, and total memory in GiB.
@@ -183,9 +173,11 @@ pub fn start(tx: Sender<Snapshot>) -> Probe {
             let nvml = Nvml::init().ok();
             let mut sys = System::new();
             let (mut history, mut tick, mut last) = (History::default(), 0u64, Snapshot::default());
+
             loop {
                 let detailed = p.detailed.load(Ordering::Acquire);
                 let root = p.pid.load(Ordering::Acquire);
+
                 if !detailed || tick.is_multiple_of(1000 / TICK_MS) {
                     let mine = if detailed && root != 0 {
                         sys.refresh_processes_specifics(
@@ -197,11 +189,10 @@ pub fn start(tx: Sender<Snapshot>) -> Probe {
                     } else {
                         AHashSet::new()
                     };
-                    (last.label, last.gpus) = nvml
-                        .as_ref()
-                        .map_or_else(|| ("no NVML".into(), vec![]), |n| gpus(n, &mine, detailed));
+                    last.gpus = if detailed { nvml.as_ref().map_or_default(|n| gpus(n, &mine)) } else { vec![] };
                     last.process = if detailed && root != 0 { process(&sys, &mine, root) } else { vec![] };
                 }
+
                 last.plots = if detailed { history.sample(nvml.as_ref(), &mut sys) } else { vec![] };
                 if tx.send(last.clone()).is_err() {
                     return;
