@@ -392,6 +392,7 @@ impl Worker {
             }
             match req {
                 Req::Release => self.release(),
+
                 Req::Show {
                     path,
                     index,
@@ -407,6 +408,7 @@ impl Worker {
                     });
                     let next = result.as_ref().ok().map(|s| s.index);
                     shown(result);
+
                     if let Some(i) = next {
                         pending = self.prefetch(&path, i, linear, rx).or_else(|| {
                             b.as_ref().and_then(|(p, lin)| self.prefetch(p, i, *lin, rx))

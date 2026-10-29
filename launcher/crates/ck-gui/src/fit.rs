@@ -14,6 +14,7 @@ pub fn problem(s: &Settings, share: Share, gpu: &Device, (w, h, frames): (u32, u
     let budget = gpu.total * f64::from(share.vram) / 100.0 - nvenc;
     let total = u32::try_from(frames).unwrap_or(u32::MAX).max(1);
     let at = format!("{}, {budget:.1} GiB at {}% VRAM", gpu.name, share.vram);
+
     if let Some((chunk, _)) = s.window {
         let need = estimate(size, chunk.min(total), gpu.sm);
         let fits = window(size, total, budget, gpu.sm).0;

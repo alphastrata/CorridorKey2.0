@@ -22,6 +22,7 @@ pub fn connect(tx: &Sender<Event>) -> Option<Daemon> {
             .map(|e| match e {
                 ck_ipc::Event::Line { pid, text, seq, .. } => Event::Line(pid, text, Some(seq)),
                 ck_ipc::Event::Exit { pid, exit, .. } => Event::Exit(pid, status(exit)),
+
                 ck_ipc::Event::Frame { pid, frame, .. } => Event::Frame(
                     pid,
                     frame.output,
@@ -47,6 +48,7 @@ impl Daemon {
             nice,
             keep_alive_secs,
         };
+
         match self.0.call(&req)? {
             ck_ipc::Reply::Started { id, pid } => Ok(Job { pid, id: Some(id) }),
             r => Err(eyre::eyre!("ckd replied {r:?}")),

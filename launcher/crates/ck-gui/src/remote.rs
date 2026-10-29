@@ -19,6 +19,7 @@ pub fn serve(ui: &AppWindow) {
         return;
     }
     drop(std::fs::remove_file(&path));
+
     let Ok(listener) = UnixListener::bind(&path) else { return };
     let ui = ui.as_weak();
     thread::spawn(move || {
@@ -38,6 +39,7 @@ fn session(stream: UnixStream, ui: &slint::Weak<AppWindow>) {
                 bus = ck_ipc::server::dial_bus(&shots);
                 if bus.is_some() { Answer::Ok } else { Answer::Error("could not reach the snapshot bus".into()) }
             }
+
             Act::Snap => match (on_ui(ui, snap), &bus) {
                 (Some(Ok((px, w, h, scale))), Some(b)) => match b.send(&px, 1) {
                     Ok(()) => Answer::Shot { w, h, scale },
@@ -47,6 +49,7 @@ fn session(stream: UnixStream, ui: &slint::Weak<AppWindow>) {
                 (_, None) => Answer::Error("say Hello first".into()),
                 (None, _) => Answer::Error("the window has closed".into()),
             },
+
             a => on_ui(ui, move |u| answer(u, a)).unwrap_or_else(|| Answer::Error("the window has closed".into())),
         };
         if send(&mut tx, &answer).is_err() {
@@ -72,10 +75,12 @@ fn answer(u: &AppWindow, a: Act) -> Answer {
             },
         )
     };
+
     match a {
         Act::Log(n) => Answer::Text(log(u, n)),
         Act::Status => Answer::Text(u.get_status().into()),
         Act::Find(q) => Answer::Found(find(u, &q).iter().map(element).collect()),
+
         Act::Press { query, n } => with(&query, n, &|e| {
             let (p, s) = (e.absolute_position(), e.size());
             input(u, &Act::Click { x: p.x + s.width / 2.0, y: p.y + s.height / 2.0 });
@@ -104,6 +109,7 @@ fn find(u: &AppWindow, q: &str) -> Vec<ElementHandle> {
 
 fn element(e: &ElementHandle) -> Element {
     let (p, s) = (e.absolute_position(), e.size());
+
     Element {
         id: e.id().unwrap_or_default().into(),
         kind: e.type_name().unwrap_or_default().into(),
@@ -147,6 +153,7 @@ fn key(name: &str) -> SharedString {
         "down" => Key::DownArrow.into(),
         "left" => Key::LeftArrow.into(),
         "right" => Key::RightArrow.into(),
+
         "home" => Key::Home.into(),
         "end" => Key::End.into(),
         "ctrl" => Key::Control.into(),
@@ -161,6 +168,7 @@ fn input(u: &AppWindow, a: &Act) {
     let at = |x: f32, y: f32| LogicalPosition::new(x, y);
     match a {
         Act::Hover { x, y } => w.dispatch_event(WindowEvent::PointerMoved { position: at(*x, *y) }),
+
         Act::Click { x, y } => [
             WindowEvent::PointerMoved { position: at(*x, *y) },
             WindowEvent::PointerPressed { position: at(*x, *y), button: PointerEventButton::Left },

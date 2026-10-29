@@ -99,6 +99,7 @@ fn summary(clip: &Clip, run: &Run, now: Instant, done: bool) -> Summary {
                 None => phases.push((name.clone(), d)),
             }
         });
+
     Summary {
         clip: clip.name(),
         status: clip.status.label().into(),
@@ -300,6 +301,7 @@ impl State {
             self.rows.remove(i);
             self.runs.iter_mut().filter(|r| r.index > i).for_each(|r| r.index -= 1);
         });
+
         saved.queue.into_iter().filter(|c| c.path.exists()).for_each(|c| {
             match self.clips.iter().position(|o| o.source == c.source) {
                 Some(i) if self.clips[i].status == Status::Running => {}
@@ -313,6 +315,7 @@ impl State {
                 }
             }
         });
+
         if let Some(i) = saved.selected.filter(|&i| i < self.clips.len()) {
             ui.global::<Queue>().set_selected(i32::try_from(i).unwrap_or_default());
         }
@@ -335,6 +338,7 @@ impl State {
         v.set_view_b(l.view_b);
         v.set_compare(l.view_b >= 0);
         self.finished = saved.last;
+
         let clips: Vec<Clip> = saved
             .queue
             .into_iter()
@@ -348,6 +352,7 @@ impl State {
             .collect();
         self.rows.extend(clips.iter().map(row));
         self.clips.extend(clips);
+
         #[cfg(unix)]
         (0..self.clips.len())
             .filter(|&i| self.clips[i].status == Status::Running)
@@ -375,10 +380,12 @@ impl State {
             (c.status, c.progress, c.detail, c.job) = (Status::Stopped, 0.0, "Lost: ckd no longer has this job".into(), None);
             return self.refresh_row(i);
         };
+
         let arg = |k: &str| info.args.iter().skip_while(|a| *a != k).nth(1).cloned();
         let started = Instant::now()
             .checked_sub(Duration::from_millis(info.elapsed_ms))
             .unwrap_or_else(Instant::now);
+
         self.runs.push(Run {
             index: i,
             gpus: arg("--device").map_or_default(|d| d.split(',').filter_map(|g| g.parse().ok()).collect()),
@@ -392,15 +399,18 @@ impl State {
             seen: info.lines,
             stopping: false,
         });
+
         self.log(log::line(Kind::Head, format!("=== {} (reattached) ===", self.clips[i].name())));
         lines
             .into_iter()
             .map(|(ms, t)| (started + Duration::from_millis(ms), t))
             .for_each(|(at, t)| self.line(info.pid, &t, at));
+
         if let Some(e) = info.exit {
             let end = started + Duration::from_millis(info.elapsed_ms);
             return self.exited(info.pid, &crate::daemon::status(e), end);
         }
+
         self.mode = Mode::Running;
         self.watch();
         if let Some(ui) = self.ui() {
@@ -482,6 +492,7 @@ impl State {
             c.settings = Some(settings.clone());
             c
         }));
+
         if let Some(ui) = self.ui() {
             ui.set_status(status.into());
             if self.selected().is_none() && self.clips.len() > first {
@@ -544,6 +555,7 @@ impl State {
                 self.settings = own;
             }
         }
+
         self.refresh_fit();
         let c = &self.clips[i];
         q.set_clip_name(c.name().into());
@@ -617,8 +629,10 @@ impl State {
             self.live();
             return;
         }
+
         self.awaiting = true;
         let mut b = None;
+
         if let Some(ui) = self.ui() {
             let v = ui.global::<View>();
             v.set_busy(true);
@@ -662,12 +676,14 @@ impl State {
             self.live = None;
             self.live_b = (None, None);
         }
+
         let at = self.views.get(view).cloned().flatten().filter(|p| is_ppm(p)).and_then(|path| {
             let held = self.latest.get(&path).cloned();
             let stamp = held
                 .as_ref()
                 .map(|(t, ..)| *t)
                 .or_else(|| std::fs::metadata(&path).and_then(|m| m.modified()).ok());
+
             if stamp.is_some() && stamp != self.live {
                 let (px, at) = match held {
                     Some((_, px, at)) => (px, Some(at)),
@@ -679,6 +695,7 @@ impl State {
                 v.set_frame(Image::from_rgb8(px));
                 v.set_count(1);
                 v.set_index(0);
+
                 return at;
             }
             None
@@ -688,11 +705,11 @@ impl State {
         }
     }
 
-    /// Fills the B side of a wipe during a run: another live output straight from memory,
-    /// or the input decoded at the frame A shows.
+    /// Fills the B side of a wipe during a run: another live output, or the input at A's frame.
     fn live_b(&mut self, b: usize, at: Option<usize>) {
         let (Some(ui), Some(path)) = (self.ui(), self.views.get(b).cloned().flatten()) else { return };
         let v = ui.global::<View>();
+
         if !is_ppm(&path) {
             let idle = self.live_b.1.as_ref().is_none_or(|(_, t)| t.elapsed() > Duration::from_secs(2));
             if let Some(i) = at.filter(|_| idle) {
@@ -716,6 +733,7 @@ impl State {
         if s.is_err() {
             self.live_b.1 = None;
         }
+
         if self.live_b.1.take_if(|(p, _)| s.as_ref().is_ok_and(|s| s.path == *p)).is_some() {
             if let Ok(s) = s {
                 v.set_frame_b(Image::from_rgb8(s.pixels));
@@ -729,6 +747,7 @@ impl State {
 
                 v.set_src_w(0);
             }
+
             Ok(s) => {
                 let current = usize::try_from(v.get_view())
                     .ok()
@@ -741,6 +760,7 @@ impl State {
                     .ok()
                     .and_then(|b| self.views.get(b).cloned().flatten())
                     .is_some_and(|p| is_ppm(&p));
+
                 if !b_live {
                     v.set_b_ready(s.b.is_some());
                 }
@@ -782,6 +802,7 @@ impl State {
                 .into_iter()
                 .collect()
         };
+
         if picked.is_empty() {
             if let Some(ui) = self.ui() {
                 ui.set_status("Nothing to run. Select a clip that is not already running or queued.".into());
@@ -791,6 +812,7 @@ impl State {
         if let Some(i) = self.selected() {
             self.clips[i].settings = Some(self.settings.clone());
         }
+
         let (picked, refused): (Vec<usize>, Vec<(usize, String)>) =
             picked.into_iter().fold((vec![], vec![]), |(mut ok, mut no), i| {
                 match self.blocker(i) {
@@ -805,6 +827,7 @@ impl State {
         if let (Some((i, why)), Some(ui)) = (refused.first(), self.ui()) {
             ui.set_status(format!("Not started: {} — {why}", self.clips[*i].name()).into());
         }
+
         if picked.is_empty() {
             return;
         }
@@ -813,6 +836,7 @@ impl State {
             self.mark(i, Status::Queued, Some(&own));
         });
         self.persist();
+
         if self.mode == Mode::Running {
             if let Some(ui) = self.ui() {
                 ui.set_status("Queued with the current settings; it starts when a GPU frees up.".into());
@@ -846,6 +870,7 @@ impl State {
             !self.runs.iter().any(|r| r.gpus.iter().any(|g| s.contains(g)) || r.gpus.is_empty() && s.is_empty())
         };
         let slots = self.slots();
+
         self.clips.iter().enumerate().filter(|(_, c)| c.status == Status::Queued).find_map(|(i, c)| {
             let s = c.settings.as_ref().unwrap_or(&self.settings);
             let fits = |g: &[usize]| {
@@ -893,6 +918,7 @@ impl State {
                     .collect::<Vec<_>>()
                     .join(" "),
             ));
+
             #[cfg(unix)]
             if self.daemon.is_none() {
                 self.daemon = crate::daemon::connect(&self.events.0);
@@ -903,6 +929,7 @@ impl State {
             let submitted = self.daemon.as_mut().map(|d| d.submit(&cmd, &cwd, life));
             #[cfg(not(unix))]
             let submitted: Option<eyre::Result<Running>> = None;
+
             match submitted {
                 Some(Ok(job)) => Ok(job),
                 Some(Err(e)) => {
@@ -923,6 +950,7 @@ impl State {
                 self.log(log::line(Kind::Error, why));
                 self.refresh_row(i);
             }
+
             Ok(job) => {
                 c.job.clone_from(&job.id);
                 (c.status, c.progress) = (Status::Running, 0.0);
@@ -1122,6 +1150,7 @@ impl State {
         if all && !self.runs.is_empty() {
             self.mode = Mode::Stopping;
         }
+
         let selected = self.selected();
         let pids: Vec<u32> = self
             .runs
@@ -1157,6 +1186,7 @@ impl State {
                 kv("frames", count.to_string()),
             ]),
         }
+
         let now = Instant::now();
         let jobs: Vec<(i32, Summary, String)> = if self.runs.is_empty() {
             self.finished.iter().map(|j| (-1, j.clone(), String::new())).collect()
@@ -1170,9 +1200,11 @@ impl State {
                 })
                 .collect()
         };
+
         if jobs.is_empty() {
             l.extend([head("Job"), kv("clip", "none yet · start the queue")]);
         }
+
         jobs.into_iter().for_each(|(tint, j, gpus)| {
             let title = if gpus.is_empty() { format!("Job · {}", j.clip) } else { format!("Job · {} · GPU {gpus}", j.clip) };
             l.push(Stat { tint, ..head(title) });
@@ -1211,13 +1243,16 @@ fn job_rows(j: &Summary) -> Vec<Stat> {
     if p.frames > 0 {
         l.push(kv("frames", format!("{} · {}", p.frames, p.size)));
     }
+
     if !p.window.is_empty() {
         let at = if p.at.1 > 0 { format!("{}/{} · ", p.at.0, p.at.1) } else { String::new() };
         l.push(kv("window", format!("{at}{}", p.window)));
     }
+
     l.push(kv("progress", format!("{:.0}% · {}", p.value * 100.0, p.detail)));
     l.push(kv("elapsed", clock(Duration::from_secs_f32(j.elapsed))));
     l.extend(j.phases.iter().map(|(n, d)| kv(format!("  {}", n.to_lowercase()), format!("{d:.1} s"))));
+
     if let Some(k) = j.keying.filter(|_| p.frames > 0) {
         let keyed = if p.keyed > 0 {
             p.keyed
@@ -1253,6 +1288,7 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
         let mut st = s.borrow_mut();
         let events: Vec<Event> = st.events.1.try_iter().take(500).collect();
         let mut dispatched: VecDeque<Event> = events.into();
+
         while let Some(e) = dispatched.pop_front() {
             match e {
                 Event::Line(pid, l, seq) => {
@@ -1261,6 +1297,7 @@ fn wire_timers(state: &StateRef, shown_rx: Receiver<ShownMsg>, snap_rx: Receiver
                     }
                 }
                 Event::Exit(pid, code) => st.exited(pid, &code, Instant::now()),
+
                 Event::Frame(pid, name, px, at) => {
                     if let Some(key) = st.runs.iter().find(|r| r.job.pid == pid).map(|r| r.preview.join(format!("{name}.ppm"))) {
                         st.latest.insert(key, (SystemTime::now(), px, at));
@@ -1317,6 +1354,7 @@ fn wire_actions(ui: &AppWindow, state: &StateRef) {
     ui.on_run(move |all| s.borrow_mut().start(all));
     let s = state.clone();
     ui.on_stop(move |all| s.borrow_mut().stop(all));
+
     let s = state.clone();
     ui.on_stats_toggled(move |on| {
         let st = s.borrow();
@@ -1352,6 +1390,7 @@ fn wire_queue(ui: &AppWindow, state: &StateRef) {
             .add_filter("Clips", &CLIP_FILTER)
             .set_directory(dialog_dir(&s))
             .pick_files();
+
         later(async move {
             if let Some(files) = picked.await {
                 let mut st = s.borrow_mut();
@@ -1496,6 +1535,7 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
         st.persist();
         st.refresh_fit();
     });
+
     let s = state.clone();
     let p = ui.global::<crate::Prefs>();
     p.on_gpu_toggled(move |i, on| {
@@ -1506,6 +1546,7 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
         st.persist();
         st.refresh_fit();
     });
+
     let s = state.clone();
     p.on_changed(move || {
         let mut st = s.borrow_mut();
@@ -1514,6 +1555,7 @@ fn wire_job(ui: &AppWindow, state: &StateRef) {
         st.persist();
         st.refresh_fit();
     });
+
     let w = ui.as_weak();
     j.on_browse_out_parent(move || {
         let w = w.clone();
@@ -1600,6 +1642,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
         rows,
         frames,
         views: Default::default(),
+
         awaiting: false,
         detail: false,
         snapshot: Snapshot::default(),
@@ -1624,8 +1667,8 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
     state.borrow_mut().restore(saved);
     #[cfg(unix)]
     {
-        // SAFETY: getpriority only reads this process's scheduling niceness.
         let nice = unsafe { nix::libc::getpriority(nix::libc::PRIO_PROCESS, 0) };
+
         if nice > 0 {
             let st = state.borrow();
             st.log(log::line(
@@ -1637,6 +1680,7 @@ pub fn run(paths: &[PathBuf]) -> Result<(), slint::PlatformError> {
             }
         }
     }
+
     if !paths.is_empty() {
         state.borrow_mut().add(paths);
     }

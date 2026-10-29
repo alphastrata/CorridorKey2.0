@@ -60,6 +60,7 @@ impl History {
                 format!("{:.1} / {:.0} GB", gib(used), gib(total)),
             ),
         ];
+
         let Some(nvml) = nvml else { return out };
         (0..nvml.device_count().unwrap_or(0))
             .filter_map(|i| Some((i, nvml.device_by_index(i).ok()?)))
@@ -70,6 +71,7 @@ impl History {
                 let (sm, sm_max) = (d.clock_info(Clock::SM).unwrap_or(0), d.max_clock_info(Clock::SM).unwrap_or(0));
                 let (mc, mc_max) = (d.clock_info(Clock::Memory).unwrap_or(0), d.max_clock_info(Clock::Memory).unwrap_or(0));
                 let (w, cap) = (d.power_usage().unwrap_or(0) / 1000, d.enforced_power_limit().unwrap_or(0) / 1000);
+
                 out.extend([
                     self.push((g, format!("GPU{i} util")), util.f32(), format!("{util}%")),
                     self.push(

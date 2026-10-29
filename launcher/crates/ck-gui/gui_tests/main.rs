@@ -160,6 +160,7 @@ fn keys_a_clip_end_to_end() {
     if ck().is_none() || gpus() == 0 {
         return;
     }
+
     let Some(mut g) = Gui::start(None, &[clip(256, 144, 10)]) else { return };
     g.activate("Run selected", "Btn");
     wait(300, "the clip keyed", || match row(&mut g, "pattern_256x144_10").as_str() {
@@ -274,6 +275,7 @@ fn run_all_skips_only_the_impossible_clip() {
     if ck().is_none() || gpus() == 0 {
         return;
     }
+
     let state = "[[queue]]\npath = \"P\"\nsource = \"P\"\nframes = false\nhint = \"None\"\nstatus = \"Ready\"\nprogress = 0.0\ndetail = \"\"\n\n[queue.settings.share]\npriority = 50\nvram = 1\ncpu = 75\n";
     let big = clip(1920, 1080, 12);
     let state = state.replace('P', &big.display().to_string());
@@ -286,6 +288,7 @@ fn run_all_skips_only_the_impossible_clip() {
         "Failed" => panic!("keying failed:\n{}", g.log(40)),
         _ => None,
     });
+
     assert_eq!(row(&mut g, "pattern_1920x1080_12"), "Ready");
     g.activate("pattern_256x144_11", "Rectangle");
     assert_eq!(g.one("Alpha", "Tab").enabled, Some(true), "outputs are viewable after the run");

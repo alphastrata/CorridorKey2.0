@@ -36,6 +36,7 @@ fn step(r: &mut Remote, s: &str) -> eyre::Result<()> {
                 e.kind, e.id, e.label, e.value, e.checked, e.enabled, e.visible, e.x, e.y, e.w, e.h
             );
         }),
+
         ("c" | "a", _) => {
             let (query, n) = nth(rest);
             drop(r.act(&if kind == "c" { Act::Press { query, n } } else { Act::Activate { query, n } })?);
@@ -51,6 +52,7 @@ fn step(r: &mut Remote, s: &str) -> eyre::Result<()> {
                 print!("{t}");
             }
         }
+
         ("k", _) => {
             let keys = match rest.strip_suffix('+') {
                 Some(head) => head.split('+').chain(["+"]).map(String::from).collect(),

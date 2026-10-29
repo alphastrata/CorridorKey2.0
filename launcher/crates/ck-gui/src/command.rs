@@ -76,6 +76,7 @@ impl Catalogue {
             .collect();
         all.sort();
         let (refiners, models) = all.into_iter().partition(|p| file_name(p).contains("refiner"));
+
         Self { models, refiners, gpus, devices }
     }
 

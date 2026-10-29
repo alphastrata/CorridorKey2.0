@@ -54,6 +54,7 @@ pub fn parse(tag: &str, text: &str) -> LogLine {
             kind: kind as i32,
         };
     }
+
     let t = text.trim_start().to_lowercase();
     let kind = if t.starts_with("error") || t.starts_with("location:") {
         Kind::Error
