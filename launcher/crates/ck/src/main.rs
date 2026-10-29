@@ -22,6 +22,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, fmt};
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(FromArgs)]
 #[argh(description = "Key a video or frame directory with `CorridorKey` v2.")]
 struct Args {
