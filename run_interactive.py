@@ -244,6 +244,24 @@ def prompt_hann_window():
     hann_stride = int(prompt_input("Enter Hann Stride (integer):", default="24"))
     return hann_chunk, hann_stride
 
+def prompt_vram_profile():
+    """GPU memory profile. Returns (auto_vram, optimized)."""
+    vram_choice = prompt_choices(
+        "Select GPU Memory Profile:",
+        [
+            "Auto, optimized - the longest temporal window your GPU fits, using less memory and running faster",
+            "Auto, original - the shipped memory settings",
+            "Manual - choose Low VRAM mode and Hann window size yourself"
+        ],
+        default=1
+    )
+    if vram_choice == 3:
+        optimized = prompt_confirm(
+            "Use the optimized engine? (Same output for the same settings, less memory, faster)",
+            default=True)
+        return False, optimized
+    return True, vram_choice == 1
+
 def main():
     if os.name == "nt":
         os.system("")  # enables ANSI colours in the Windows console
@@ -398,15 +416,7 @@ def main():
             frame_dir_linear = (gamma_choice == 1)
 
         # VRAM profile
-        vram_choice = prompt_choices(
-            "Select GPU Memory Profile:",
-            [
-                "Auto - detect free GPU memory and pick the best settings that fit each clip",
-                "Manual - choose Low VRAM mode and Hann window size yourself"
-            ],
-            default=1
-        )
-        auto_vram = (vram_choice == 1)
+        auto_vram, optimized = prompt_vram_profile()
         low_vram = False
         hann_chunk = 48
         hann_stride = 24
@@ -545,6 +555,8 @@ def main():
             if not auto_vram:
                 cmd.extend(["--hann_chunk", str(hann_chunk)])
                 cmd.extend(["--hann_stride", str(hann_stride)])
+            if optimized:
+                cmd.append("--optimized")
             
             if num_frames > 0:
                 cmd.extend(["--num_frames", str(num_frames)])
@@ -742,15 +754,7 @@ def main():
             frame_dir_linear = (gamma_choice == 1)
 
         # 6. VRAM profile
-        vram_choice = prompt_choices(
-            "Select GPU Memory Profile:",
-            [
-                "Auto - detect free GPU memory and pick the best settings that fit each clip",
-                "Manual - choose Low VRAM mode and Hann window size yourself"
-            ],
-            default=1
-        )
-        auto_vram = (vram_choice == 1)
+        auto_vram, optimized = prompt_vram_profile()
         low_vram = False
         hann_chunk = 48
         hann_stride = 24
@@ -911,6 +915,8 @@ def main():
             if not auto_vram:
                 cmd.extend(["--hann_chunk", str(hann_chunk)])
                 cmd.extend(["--hann_stride", str(hann_stride)])
+            if optimized:
+                cmd.append("--optimized")
             
             if num_frames > 0:
                 cmd.extend(["--num_frames", str(num_frames)])
