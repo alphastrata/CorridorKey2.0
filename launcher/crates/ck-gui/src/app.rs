@@ -261,11 +261,13 @@ impl State {
             layout: Layout {
                 left_width: ui.get_left_width(),
                 right_width: ui.get_right_width(),
+                log_height: ui.get_log_height(),
                 log: ui.get_log_visible(),
                 stats: ui.get_stats_visible(),
                 view_b: ui.global::<View>().get_view_b(),
                 last_dir: self.last_dir.clone(),
             },
+
             selected: self.selected(),
             last: self.finished.clone(),
             queue: self.clips.clone(),
@@ -284,8 +286,10 @@ impl State {
         prefs::to_ui(&self.prefs, &self.catalogue.gpus, &ui);
         self.settings = saved.settings;
         let l = &saved.layout;
+
         ui.set_left_width(l.left_width);
         ui.set_right_width(l.right_width);
+        ui.set_log_height(l.log_height);
         ui.set_log_visible(l.log);
         ui.set_stats_visible(l.stats);
         let keep = |c: &Clip| c.status == Status::Running || saved.queue.iter().any(|o| o.source == c.source);
@@ -322,6 +326,7 @@ impl State {
         self.last_dir.clone_from(&l.last_dir);
         ui.set_left_width(l.left_width);
         ui.set_right_width(l.right_width);
+        ui.set_log_height(l.log_height);
         ui.set_log_visible(l.log);
         ui.set_stats_visible(l.stats);
         self.probe.detailed.store(l.stats, Ordering::Release);

@@ -1432,6 +1432,7 @@ export component AppWindow inherits Window {
     in-out property <bool> stats-visible;
     in-out property <length> left-width: 340px;
     in-out property <length> right-width: 380px;
+    in-out property <length> log-height: 150px;
     in property <[Stat]> stats;
     in property <[Plot]> plots;
     callback run(bool);
@@ -1611,12 +1612,12 @@ export component AppWindow inherits Window {
                 changed lines => {
                     log-view.content-y = min(0px, log-view.visible-height - self.lines * 17px);
                 }
-                height: 150px;
+                height: root.log-height;
                 background: T.canvas;
                 Rectangle {
                     y: 0;
                     height: 1px;
-                    background: T.line;
+                    background: grip.pressed || grip.has-hover ? T.brand : T.line;
                 }
                 log-view := ListView {
                     for line in root.log: HorizontalLayout {
@@ -1646,6 +1647,19 @@ export component AppWindow inherits Window {
                             font-family: T.mono;
                             font-size: 12px;
                             font-weight: line.kind == 1 ? 700 : 400;
+                        }
+                    }
+                }
+                grip := TouchArea {
+                    y: 0;
+                    height: 5px;
+                    mouse-cursor: row-resize;
+                    moved => {
+                        root.log-height = clamp(root.log-height - (self.mouse-y - self.pressed-y), 60px, root.height - 300px);
+                    }
+                    pointer-event(e) => {
+                        if e.kind == PointerEventKind.up {
+                            root.layout-changed();
                         }
                     }
                 }

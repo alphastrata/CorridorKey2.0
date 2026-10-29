@@ -111,6 +111,7 @@ impl Default for Settings {
 pub struct Layout {
     pub left_width: f32,
     pub right_width: f32,
+    pub log_height: f32,
     pub log: bool,
     pub stats: bool,
     pub view_b: i32,
@@ -123,6 +124,7 @@ impl Default for Layout {
         Self {
             left_width: 340.0,
             right_width: 380.0,
+            log_height: 150.0,
             log: true,
             stats: false,
             view_b: -1,
