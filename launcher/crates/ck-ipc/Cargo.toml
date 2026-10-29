@@ -9,8 +9,12 @@ name = "ck-fake-worker"
 path = "tests/support/fake_worker.rs"
 test = false
 
-[lints]
-workspace = true
+[lints.clippy]
+pedantic                  = {level = "warn", priority = -1}
+perf                      = {level = "deny", priority = -1}
+missing_errors_doc        = "allow"
+missing_safety_doc        = "allow"
+missing_panics_doc        = "allow"
 
 [dependencies]
 argh = "0.1.19"
@@ -21,3 +25,7 @@ rkyv = "0.8.18"
 tachyon = { git = "https://codeberg.org/jer-gremlin/tachyon-rs", branch = "main" }
 thiserror = "2.0.21"
 uuid = { version = "1.29.0", features = ["v4"] }
+
+[[bench]]
+name = "proto"
+harness = false
