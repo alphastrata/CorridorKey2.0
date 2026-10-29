@@ -31,9 +31,10 @@ impl History {
         }
         let step = W / (SAMPLES - 1).f32();
         let x0 = W - step * (q.len() - 1).f32();
+
         let line = q.iter().enumerate().fold(String::new(), |mut s, (i, v)| {
             let y = H - 1.0 - v / 100.0 * (H - 2.0);
-            let _ = write!(s, "{} {:.1} {y:.1} ", if i == 0 { "M" } else { "L" }, x0 + step * i.f32());
+            write!(s, "{} {:.1} {y:.1} ", if i == 0 { "M" } else { "L" }, x0 + step * i.f32()).unwrap_or_default();
             s
         });
         Plot {

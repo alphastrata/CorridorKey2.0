@@ -130,7 +130,7 @@ fn log(u: &AppWindow, n: u32) -> String {
     let lines = u.get_log();
     let skip = lines.row_count().saturating_sub(usize::try_from(n).unwrap_or(usize::MAX));
     lines.iter().skip(skip).fold(String::new(), |mut out, l| {
-        let _ = writeln!(out, "{} {} {}", l.time, l.level, l.text);
+        writeln!(out, "{} {} {}", l.time, l.level, l.text).unwrap_or_default();
         out
     })
 }
@@ -172,9 +172,11 @@ fn input(u: &AppWindow, a: &Act) {
             w.dispatch_event(WindowEvent::PointerMoved { position: at(*x, *y) });
             w.dispatch_event(WindowEvent::PointerScrolled { position: at(*x, *y), delta_x: 0.0, delta_y: *dy });
         }
+
         Act::Keys(keys) => {
-            let keys: Vec<SharedString> = keys.iter().map(|k| key(k)).collect();
+            let keys: Vec<SharedString> = keys.iter().map(String::as_str).map(key).collect();
             keys.iter().for_each(|k| w.dispatch_event(WindowEvent::KeyPressed { text: k.clone() }));
+
             keys.iter().rev().for_each(|k| w.dispatch_event(WindowEvent::KeyReleased { text: k.clone() }));
         }
         _ => {}
