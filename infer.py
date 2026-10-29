@@ -110,6 +110,11 @@ def main():
     ap.add_argument("--ffmpeg_threads", type=int, default=2)
     ap.add_argument("--stage2_batch", type=int, default=1,
                     help="Number of /1 output frames to run/render per stage-2 batch.")
+    ap.add_argument("--vram_share", type=float, default=100.0,
+                    help="Percentage of the GPU's memory the automatic window "
+                         "plans for. Default: 100.")
+    ap.add_argument("--vram_cap", type=float, default=None,
+                    help="At most this many GiB for the automatic window.")
     ap.add_argument("--low_vram_foundation_chunk", type=int, default=4)
     ap.add_argument("--low_vram_mlp_chunk_tokens", type=int, default=65536)
     ap.add_argument("--low_vram_enc_frame_chunk", type=int, default=1)
@@ -117,6 +122,8 @@ def main():
     ap.add_argument("--low_vram_full_attn_query_chunk_tokens", type=int,
                     default=2048)
     args = ap.parse_args()
+    if not 0 < args.vram_share <= 100:
+        ap.error("--vram_share must be in (0, 100]")
 
     if not torch.cuda.is_available():
         raise RuntimeError("CorridorKey v2 runtime requires a CUDA GPU.")
@@ -148,6 +155,8 @@ def main():
         start_mode=args.start_mode,
         seed=args.seed,
         low_vram=args.low_vram,
+        vram_share=args.vram_share,
+        vram_cap_gb=args.vram_cap,
         low_vram_foundation_chunk=args.low_vram_foundation_chunk,
         low_vram_mlp_chunk_tokens=args.low_vram_mlp_chunk_tokens,
         low_vram_enc_frame_chunk=args.low_vram_enc_frame_chunk,

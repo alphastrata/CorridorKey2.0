@@ -118,6 +118,9 @@ class InferenceConfig:
     auto_vram: bool = False
     vram_estimate_gb: float | None = None
     vram_ceiling_gb: float | None = None
+    # Plan for at most this percentage of the GPU's memory, and at most vram_cap_gb.
+    vram_share: float = 100.0
+    vram_cap_gb: float | None = None
     low_vram_foundation_chunk: int = 4
     low_vram_mlp_chunk_tokens: int = 65536
     low_vram_enc_frame_chunk: int = 1
@@ -137,21 +140,69 @@ class InferenceConfig:
     exr_dtype: str = "half"
 
 
-# Peak GPU memory in GiB by megapixels of model input, measured at each Hann
-# chunk size. Keys are low_vram False/True.
+# Peak GPU memory (torch's peak reserved GiB) by megapixels of model input at each
+# Hann chunk size, keyed by (backend, GPU class) and then low_vram False/True.
+# Backend: "ptx" with corridorkey.ptx's kernels patched in, else "torch". Class:
+# 80 for sm_80 and newer (measured on an RTX 5080), 75 for older (TITAN RTX, where
+# PyTorch has no bf16 flash attention). Cells too large for those cards are
+# extrapolated linearly in chunk at the steepest measured slope.
 _VRAM_PEAK_GB = {
-    False: ((8, 24, 48, 80), (
-        (0.98, (6.19, 7.52, 9.77, 12.89)),
-        (2.21, (7.50, 11.33, 18.66, 24.89)),
-        (3.93, (9.06, 14.78, 23.92, 33.19)),
-        (8.36, (13.94, 25.96, 45.15, 70.45)),
-    )),
-    True: ((1, 2, 4, 8, 24, 48, 80), (
-        (0.98, (2.71, 2.78, 2.94, 3.25, 4.54, 6.57, 9.50)),
-        (2.21, (2.80, 2.97, 3.35, 4.12, 7.69, 13.20, 20.56)),
-        (3.93, (2.92, 3.23, 3.85, 5.09, 10.09, 17.57, 27.75)),
-        (8.36, (3.25, 3.92, 5.28, 8.38, 20.78, 39.66, 64.65)),
-    )),
+    ("torch", 75): {
+        False: ((8, 24, 48, 80), (
+            (0.98, (11.16, 25.91, 48.04, 77.54)),
+            (2.21, (23.47, 56.73, 106.63, 173.15)),
+            (3.93, (23.47, 82.62, 171.35, 289.65)),
+            (8.36, (23.47, 149.3, 338.04, 589.69)),
+        )),
+        True: ((1, 2, 4, 8, 24, 48, 80), (
+            (0.98, (2.13, 2.13, 2.59, 6.28, 23.47, 43.15, 72.65)),
+            (2.21, (3.47, 3.47, 3.47, 7.79, 41.05, 90.94, 157.47)),
+            (3.93, (5.74, 5.74, 5.74, 8.58, 67.73, 156.46, 274.76)),
+            (8.36, (11.91, 11.91, 11.91, 11.96, 137.79, 326.53, 578.18)),
+        )),
+    },
+    ("ptx", 75): {
+        False: ((8, 24, 48, 80), (
+            (0.98, (5.34, 7.23, 10.77, 13.71)),
+            (2.21, (6.67, 10.79, 17.25, 27.88)),
+            (3.93, (8.58, 16.06, 30.23, 49.14)),
+            (8.36, (13.85, 33.95, 64.11, 104.32)),
+        )),
+        True: ((1, 2, 4, 8, 24, 48, 80), (
+            (0.98, (3.02, 3.06, 3.27, 3.67, 4.92, 6.85, 9.54)),
+            (2.21, (3.41, 3.49, 3.88, 4.74, 8.06, 13.37, 20.6)),
+            (3.93, (3.98, 4.05, 4.64, 5.74, 11.32, 19.62, 32.47)),
+            (8.36, (5.4, 5.56, 6.58, 9.64, 22.24, 42.74, 70.09)),
+        )),
+    },
+    ("torch", 80): {
+        False: ((8, 24, 48, 80), (
+            (0.98, (3.29, 4.93, 7.39, 10.66)),
+            (2.21, (4.7, 8.92, 15.56, 23.68)),
+            (3.93, (6.06, 12.49, 23.74, 38.75)),
+            (8.36, (10.81, 26.77, 50.71, 82.63)),
+        )),
+        True: ((1, 2, 4, 8, 24, 48, 80), (
+            (0.98, (2.13, 2.13, 2.13, 2.13, 3.31, 5.69, 8.68)),
+            (2.21, (2.13, 2.13, 2.13, 3.2, 7.16, 12.39, 20.32)),
+            (3.93, (2.13, 2.13, 2.79, 4.42, 10.05, 20.62, 34.71)),
+            (8.36, (3.49, 3.49, 4.97, 8.49, 23.48, 45.97, 75.95)),
+        )),
+    },
+    ("ptx", 80): {
+        False: ((8, 24, 48, 80), (
+            (0.98, (3.29, 4.82, 6.5, 9.17)),
+            (2.21, (4.35, 7.3, 11.99, 18.87)),
+            (3.93, (5.86, 10.77, 19.95, 32.18)),
+            (8.36, (8.94, 21.95, 41.47, 67.49)),
+        )),
+        True: ((1, 2, 4, 8, 24, 48, 80), (
+            (0.98, (2.13, 2.13, 2.13, 2.13, 2.86, 4.46, 6.53)),
+            (2.21, (2.13, 2.13, 2.13, 2.62, 5.56, 10.27, 16.56)),
+            (3.93, (2.13, 2.13, 2.58, 3.68, 7.97, 16.36, 27.54)),
+            (8.36, (2.87, 3.19, 4.32, 7.15, 19.05, 36.89, 60.68)),
+        )),
+    },
 }
 _VRAM_MARGIN_SCALE = 1.1
 _VRAM_HEADROOM_GB = 1.5
@@ -171,9 +222,21 @@ def _interp(x: float, points) -> float:
     return points[0][1]
 
 
-def estimate_peak_vram_gb(megapixels: float, frames: int, low_vram: bool) -> float:
+def kernels_active(model: nn.Module) -> bool:
+    """Whether corridorkey.ptx has patched `model` (it swaps instance-level forwards)."""
+    return any("forward" in vars(m) for m in model.modules())
+
+
+def vram_table(kernels: bool, device=None) -> dict:
+    """The peak table for this backend and the GPU class of `device`."""
+    major, _ = torch.cuda.get_device_capability(device)
+    return _VRAM_PEAK_GB[("ptx" if kernels else "torch", 80 if major >= 8 else 75)]
+
+
+def estimate_peak_vram_gb(megapixels: float, frames: int, low_vram: bool,
+                          table: dict) -> float:
     """Estimated peak GPU memory for a Hann window of `frames` frames."""
-    chunks, rows = _VRAM_PEAK_GB[low_vram]
+    chunks, rows = table[low_vram]
     frames = max(frames, chunks[0])
     per_chunk = [
         max(_interp(megapixels, [(mp, peaks[i]) for mp, peaks in rows]), rows[0][1][i])
@@ -183,7 +246,8 @@ def estimate_peak_vram_gb(megapixels: float, frames: int, low_vram: bool) -> flo
 
 
 def select_vram_profile(shape_hw, num_frames: int, budget_gb: float,
-                        headroom_gb: float, ceiling_gb: float | None = None):
+                        headroom_gb: float, table: dict,
+                        ceiling_gb: float | None = None):
     """Largest Hann window that fits `budget_gb`, as (chunk, stride, low_vram, estimate).
 
     Bigger windows give better temporal consistency, and low-VRAM mode is
@@ -193,11 +257,12 @@ def select_vram_profile(shape_hw, num_frames: int, budget_gb: float,
     """
     megapixels = shape_hw[0] * shape_hw[1] / 1e6
     estimate = 0.0
-    for chunk in reversed(_VRAM_PEAK_GB[True][0]):
+    for chunk in reversed(table[True][0]):
         for low_vram in (False, True):
-            if chunk not in _VRAM_PEAK_GB[low_vram][0]:
+            if chunk not in table[low_vram][0]:
                 continue
-            estimate = estimate_peak_vram_gb(megapixels, min(chunk, num_frames), low_vram)
+            estimate = estimate_peak_vram_gb(
+                megapixels, min(chunk, num_frames), low_vram, table)
             if ceiling_gb is not None and estimate >= ceiling_gb:
                 continue
             if estimate * _VRAM_MARGIN_SCALE + headroom_gb <= budget_gb:
@@ -225,11 +290,38 @@ def _read_vram_budget_gb() -> tuple[float, float]:
     return min(readings), total_bytes / 2**30
 
 
-def apply_auto_vram(cfg: InferenceConfig, shape_hw, num_frames: int) -> None:
+def _planned_budget_gb(cfg: InferenceConfig) -> tuple[float, float]:
+    """(budget, headroom) in GiB: free memory, limited by --vram_share and --vram_cap."""
     budget_gb, total_gb = _read_vram_budget_gb()
-    headroom_gb = _vram_headroom_gb(total_gb)
+    budget_gb = min(budget_gb, total_gb * cfg.vram_share / 100.0)
+    if cfg.vram_cap_gb is not None:
+        budget_gb = min(budget_gb, cfg.vram_cap_gb)
+    return budget_gb, _vram_headroom_gb(total_gb)
+
+
+def check_manual_vram(cfg: InferenceConfig, shape_hw, num_frames: int,
+                      table: dict) -> None:
+    """Warn when an explicit window is estimated not to fit, naming the largest that does."""
+    budget_gb, headroom_gb = _planned_budget_gb(cfg)
+    megapixels = shape_hw[0] * shape_hw[1] / 1e6
+    estimate = estimate_peak_vram_gb(
+        megapixels, min(cfg.hann_chunk, num_frames), cfg.low_vram, table)
+    needed_gb = estimate * _VRAM_MARGIN_SCALE + headroom_gb
+    if needed_gb <= budget_gb:
+        return
+    chunk, _, low_vram, _ = select_vram_profile(
+        shape_hw, num_frames, budget_gb, headroom_gb, table)
+    print(f"  [WARNING] hann_chunk={cfg.hann_chunk}, low_vram={cfg.low_vram} is estimated "
+          f"at {estimate:.1f} GB ({needed_gb:.1f} GB with margin and headroom), over the "
+          f"{budget_gb:.1f} GB budget; the largest estimated to fit is "
+          f"hann_chunk={min(chunk, num_frames)}, low_vram={low_vram}.")
+
+
+def apply_auto_vram(cfg: InferenceConfig, shape_hw, num_frames: int,
+                    table: dict) -> None:
+    budget_gb, headroom_gb = _planned_budget_gb(cfg)
     chunk, stride, low_vram, estimate = select_vram_profile(
-        shape_hw, num_frames, budget_gb, headroom_gb, cfg.vram_ceiling_gb)
+        shape_hw, num_frames, budget_gb, headroom_gb, table, cfg.vram_ceiling_gb)
     cfg.hann_chunk, cfg.hann_stride, cfg.low_vram = chunk, stride, low_vram
     cfg.vram_estimate_gb = estimate
     margin_gb = budget_gb - (estimate * _VRAM_MARGIN_SCALE + headroom_gb)
@@ -854,8 +946,14 @@ def _run_inference_once(model, input_path: str, output_dir: str, cfg: InferenceC
             linear_contrast_pivot=cfg.linear_contrast_pivot)
     T_all = int(meta["num_frames"])
     H, W = meta["shape_hw"]
+    kernels = kernels_active(model)
+    table = vram_table(kernels)
+    print(f"  VRAM table: {'ptx' if kernels else 'torch'}, "
+          f"sm_{80 if torch.cuda.get_device_capability()[0] >= 8 else 75} class")
     if cfg.auto_vram:
-        apply_auto_vram(cfg, (H, W), T_all)
+        apply_auto_vram(cfg, (H, W), T_all, table)
+    else:
+        check_manual_vram(cfg, (H, W), T_all, table)
     H_out, W_out = meta["output_hw"]
     meta["cutout_linear"] = cfg.cutout_linear
     meta["despill_strength"] = cfg.despill_strength
