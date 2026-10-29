@@ -55,12 +55,15 @@ fn daemon_round_trip() {
     assert!(c.call(&Request::Attach { id: "nope".into() }).is_err());
 
     let (_, pid) = submit(&mut c, "ps -o ni= -p $$", false);
+
     let nice = events.iter().find_map(|e| match e {
         Event::Line { pid: p, text, .. } if p == pid => text.trim().parse::<i32>().ok(),
         _ => None,
     });
-    assert!(nice.is_some_and(|n| n >= 10), "jobs run niced, got {nice:?}");
-    let _ = events.iter().find(|e| matches!(e, Event::Exit { pid: p, .. } if *p == pid));
+    let base = unsafe { libc::getpriority(libc::PRIO_PROCESS, 0) };
+    let floor = (base + 10).min(19);
+    assert!(nice.is_some_and(|n| n >= floor), "jobs run niced, got {nice:?}");
+    drop(events.iter().find(|e| matches!(e, Event::Exit { pid: p, .. } if *p == pid)));
 
     let frame = Frame { output: "alpha".into(), index: 7, w: 2, h: 1, rgb: vec![1, 2, 3, 4, 5, 6] };
     let mut framed = Vec::new();
