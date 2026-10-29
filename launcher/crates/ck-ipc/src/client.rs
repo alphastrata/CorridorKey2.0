@@ -59,7 +59,7 @@ impl Client {
         static NEXT: AtomicU32 = AtomicU32::new(0);
         let mut c = Self { stream: dial(daemon)? };
         let events = dir()?
-            .join(format!("ev-{}-{}.sock", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)))
+            .join(format!("ev-{}-{}.sock", std::process::id(), NEXT.fetch_add(1, Ordering::AcqRel)))
             .to_string_lossy()
             .into_owned();
         let rx = listen(events.clone(), |b| decode::<Event>(b).ok());

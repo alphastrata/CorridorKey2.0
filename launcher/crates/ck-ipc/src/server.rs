@@ -30,8 +30,9 @@ pub fn serve() -> Result<()> {
 
 fn session(stream: UnixStream, hub: &Sender<Hub>) {
     static NEXT: AtomicU64 = AtomicU64::new(0);
-    let id = NEXT.fetch_add(1, Ordering::Relaxed);
+    let id = NEXT.fetch_add(1, Ordering::AcqRel);
     let (Ok(mut r), mut w) = (stream.try_clone(), stream) else { return };
+
     while let Ok(req) = recv::<Request>(&mut r) {
         let reply = match req {
             Request::Hello { events } => {

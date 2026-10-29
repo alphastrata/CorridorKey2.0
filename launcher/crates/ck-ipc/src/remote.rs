@@ -80,7 +80,7 @@ impl Remote {
     pub fn connect_in(dir: &Path) -> Result<Self> {
         static NEXT: AtomicU32 = AtomicU32::new(0);
         let mut stream = UnixStream::connect(dir.join("gui.sock"))?;
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let n = NEXT.fetch_add(1, Ordering::AcqRel);
         let path = dir.join(format!("shots-{}-{n}.sock", std::process::id())).to_string_lossy().into_owned();
         let shots = client::listen(path.clone(), |b| Some(b.to_vec()));
         call(&mut stream, &Act::Hello { shots: path })?;
