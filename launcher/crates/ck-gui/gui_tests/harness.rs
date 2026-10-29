@@ -48,7 +48,7 @@ pub fn gpus() -> usize {
 /// A short test-pattern video, made once per size and frame count.
 pub fn clip(w: u32, h: u32, frames: u32) -> PathBuf {
     let dir = std::env::temp_dir().join("ck-gui-tests");
-    std::fs::create_dir_all(&dir).expect("footage dir");
+    std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("footage dir: {e}"));
     let out = dir.join(format!("pattern_{w}x{h}_{frames}.mp4"));
     if !out.is_file() {
         let part = dir.join(format!("{}.{}.part.mp4", out.display(), std::process::id()));
@@ -60,7 +60,8 @@ pub fn clip(w: u32, h: u32, frames: u32) -> PathBuf {
             .status()
             .is_ok_and(|s| s.success());
         assert!(ok, "ffmpeg could not make {}", out.display());
-        std::fs::rename(&part, &out).expect("footage rename");
+
+        std::fs::rename(&part, &out).unwrap_or_else(|e| panic!("footage rename: {e}"));
     }
     out
 }
@@ -73,26 +74,33 @@ impl Gui {
             eprintln!("skipped: Xvfb and ffmpeg are needed for GUI tests");
             return None;
         }
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let n = NEXT.fetch_add(1, Ordering::AcqRel);
         let root = std::env::temp_dir().join(format!("ck-gui-test-{}-{n}", std::process::id()));
         drop(std::fs::remove_dir_all(&root));
         let (home, rt, bin) = (root.join("home"), root.join("rt"), root.join("bin"));
-        [&home.join(".ck_gui"), &rt, &bin].iter().for_each(|d| std::fs::create_dir_all(d).expect("test dirs"));
-        std::fs::set_permissions(&rt, std::fs::Permissions::from_mode(0o700)).expect("rt mode");
+
+        [&home.join(".ck_gui"), &rt, &bin]
+            .iter()
+            .for_each(|d| std::fs::create_dir_all(d).unwrap_or_else(|e| panic!("test dirs: {e}")));
+        std::fs::set_permissions(&rt, std::fs::Permissions::from_mode(0o700)).unwrap_or_else(|e| panic!("rt mode: {e}"));
         if let Some(s) = state {
-            std::fs::write(home.join(".ck_gui/state.toml"), s).expect("seed state");
+            std::fs::write(home.join(".ck_gui/state.toml"), s).unwrap_or_else(|e| panic!("seed state: {e}"));
         }
         if let Some(ck) = ck() {
-            std::os::unix::fs::symlink(ck, bin.join("ck")).expect("ck link");
+            std::os::unix::fs::symlink(ck, bin.join("ck")).unwrap_or_else(|e| panic!("ck link: {e}"));
         }
+
         let mut xvfb = Command::new("Xvfb")
             .args(["-displayfd", "1", "-screen", "0", "1600x1000x24", "-nolisten", "tcp"])
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
-            .expect("Xvfb");
+            .unwrap_or_else(|e| panic!("Xvfb: {e}"));
         let mut display = String::new();
-        BufReader::new(xvfb.stdout.take().expect("Xvfb stdout")).read_line(&mut display).expect("Xvfb display");
+        BufReader::new(xvfb.stdout.take().unwrap_or_else(|| panic!("Xvfb stdout")))
+            .read_line(&mut display)
+            .unwrap_or_else(|e| panic!("Xvfb display: {e}"));
+
         let display = display.trim().to_owned();
         let gui = Command::new(env!("CARGO_BIN_EXE_ck-gui"))
             .args(clips)
@@ -103,9 +111,10 @@ impl Gui {
             .env("CK_BIN", bin.join("ck"))
             .env("CK_REPO", Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.."))
             .stdout(Stdio::null())
-            .stderr(std::fs::File::create(root.join("gui.log")).expect("gui log"))
+            .stderr(std::fs::File::create(root.join("gui.log")).unwrap_or_else(|e| panic!("gui log: {e}")))
             .spawn()
-            .expect("ck-gui");
+            .unwrap_or_else(|e| panic!("ck-gui: {e}"));
+
         let r = wait(30, "the GUI's remote socket", || Remote::connect_in(&rt.join("ck")).ok());
         let g = Self { r, root, app: gui, xvfb };
         Self::settle();
@@ -118,7 +127,7 @@ impl Gui {
     }
 
     pub fn find(&mut self, q: &str) -> Vec<Element> {
-        self.r.find(q).expect("find")
+        self.r.find(q).unwrap_or_else(|e| panic!("find {q}: {e:?}"))
     }
 
     /// Index and element of the first visible `kind` matching `q`.
@@ -132,7 +141,8 @@ impl Gui {
         if let Some(found) = self.first(q, kind) {
             return Some(found);
         }
-        let head = self.first("INSPECTOR", "PanelTitle").expect("inspector").1;
+
+        let head = self.first("INSPECTOR", "PanelTitle").unwrap_or_else(|| panic!("inspector")).1;
         let (x, y) = (head.x + head.w / 2.0, head.y + 300.0);
         self.act(&Act::Scroll { x, y, dy: 10_000.0 });
         (0..30).find_map(|_| {
@@ -188,11 +198,11 @@ impl Gui {
     }
 
     pub fn status(&mut self) -> String {
-        self.r.text(&Act::Status).expect("status")
+        self.r.text(&Act::Status).unwrap_or_else(|e| panic!("status: {e:?}"))
     }
 
     pub fn log(&mut self, n: u32) -> String {
-        self.r.text(&Act::Log(n)).expect("log")
+        self.r.text(&Act::Log(n)).unwrap_or_else(|e| panic!("log {n}: {e:?}"))
     }
 
     pub fn state_path(&self) -> PathBuf {
@@ -214,9 +224,13 @@ impl Gui {
 
     /// Saves a snapshot beside the test's files, for a look when one fails.
     pub fn snap(&mut self, name: &str) -> PathBuf {
-        let (px, w, h, _) = self.r.snap().expect("snapshot");
+        let (px, w, h, _) = self.r.snap().unwrap_or_else(|e| panic!("snapshot: {e:?}"));
         let path = self.root.join(format!("{name}.png"));
-        image::RgbaImage::from_raw(w, h, px).expect("snapshot size").save(&path).expect("snapshot save");
+
+        image::RgbaImage::from_raw(w, h, px)
+            .unwrap_or_else(|| panic!("snapshot size"))
+            .save(&path)
+            .unwrap_or_else(|e| panic!("snapshot save: {e}"));
         path
     }
 }

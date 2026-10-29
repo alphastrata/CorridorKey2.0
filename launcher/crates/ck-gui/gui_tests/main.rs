@@ -85,13 +85,22 @@ fn a_clip_chooses_its_gpus() {
     if gpus() == 0 {
         return;
     }
+
     let Some(mut g) = Gui::start(None, &[clip(320, 180, 12)]) else { return };
     g.activate("Choose GPUs for this clip", "CheckBox");
     let all: Vec<i64> = (0..gpus()).map(|i| i64::try_from(i).unwrap_or_default()).collect();
     let saved = |g: &Gui| g.saved("queue.0.settings.gpus").and_then(|v| v.as_array().map(|a| a.iter().filter_map(toml::Value::as_integer).collect::<Vec<_>>()));
     wait(5, "every enabled GPU picked", || (saved(&g) == Some(all.clone())).then_some(()));
     g.one("Choose GPUs for this clip", "CheckBox");
-    let gpu0 = g.find("type:CheckBox").into_iter().find(|e| e.label.starts_with("GPU0") && e.enabled == Some(true)).expect("GPU0 box");
+
+    let Some(gpu0) = g
+        .find("type:CheckBox")
+        .into_iter()
+        .find(|e| e.label.starts_with("GPU0") && e.enabled == Some(true))
+    else {
+        panic!("GPU0 box");
+    };
+
     g.activate(&gpu0.label, "CheckBox");
     let rest: Vec<i64> = all[1..].to_vec();
     wait(5, "GPU0 dropped", || {
@@ -131,8 +140,9 @@ fn manual_window_presets_follow_edits() {
 fn outside_edits_of_the_state_file_are_adopted() {
     let Some(mut g) = Gui::start(None, &[clip(320, 180, 12)]) else { return };
     wait(5, "a saved state", || g.saved("prefs.share.cpu").map(|_| ()));
-    let text = std::fs::read_to_string(g.state_path()).expect("state");
-    std::fs::write(g.state_path(), text.replace("cpu = 75", "cpu = 33")).expect("edit state");
+    let text = std::fs::read_to_string(g.state_path()).unwrap_or_else(|e| panic!("state: {e}"));
+
+    std::fs::write(g.state_path(), text.replace("cpu = 75", "cpu = 33")).unwrap_or_else(|e| panic!("edit state: {e}"));
     wait(5, "the edit adopted", || (g.one("CPU cores", "Slider").value == "33").then_some(()));
 }
 
@@ -140,7 +150,8 @@ fn outside_edits_of_the_state_file_are_adopted() {
 fn snapshots_cover_the_window() {
     let Some(mut g) = Gui::start(None, &[]) else { return };
     let path = g.snap("window");
-    let (w, h) = image::image_dimensions(&path).expect("snapshot");
+
+    let (w, h) = image::image_dimensions(&path).unwrap_or_else(|e| panic!("snapshot: {e}"));
     assert!(w >= 800 && h >= 600, "{w}x{h}");
 }
 
@@ -156,7 +167,11 @@ fn keys_a_clip_end_to_end() {
         "Failed" => panic!("keying failed:\n{}", g.log(40)),
         _ => None,
     });
-    let out = g.saved("queue.0.output_dir").and_then(|v| v.as_str().map(std::path::PathBuf::from)).expect("output dir");
+
+    let out = g
+        .saved("queue.0.output_dir")
+        .and_then(|v| v.as_str().map(std::path::PathBuf::from))
+        .unwrap_or_else(|| panic!("output dir"));
     let files = std::fs::read_dir(&out).map_or(0, Iterator::count);
     assert!(files > 0, "no outputs in {}", out.display());
     drop(std::fs::remove_dir_all(out));
@@ -209,11 +224,12 @@ fn encoder_and_format_choices_persist() {
 #[test]
 fn outputs_never_all_switch_off() {
     let Some(mut g) = Gui::start(None, &[clip(320, 180, 12)]) else { return };
-    ["Alpha matte", "Foreground", "Cutout (RGBA)", "Checker preview"].iter().for_each(|o| {
-        if g.one(o, "CheckBox").checked == Some(true) {
-            g.activate(o, "CheckBox");
-        }
-    });
+    let outs: Vec<&str> = ["Alpha matte", "Foreground", "Cutout (RGBA)", "Checker preview"]
+        .into_iter()
+        .filter(|o| g.one(o, "CheckBox").checked == Some(true))
+        .collect();
+
+    outs.iter().for_each(|o| g.activate(o, "CheckBox"));
     wait(5, "outputs saved", || g.saved("queue.0.settings.outputs").map(|_| ()));
     let outs: Vec<bool> = g.saved("queue.0.settings.outputs").and_then(|v| v.as_array().map(|a| a.iter().filter_map(toml::Value::as_bool).collect())).unwrap_or_default();
     assert_eq!(outs, [true, false, false, false], "the alpha matte stays on");
@@ -233,9 +249,17 @@ fn gpu_preferences_persist() {
     if gpus() < 2 {
         return;
     }
+
     let Some(mut g) = Gui::start(None, &[]) else { return };
     g.keys(&["ctrl", ","]);
-    let gpu1 = g.find("type:CheckBox").into_iter().find(|e| e.label.starts_with("GPU1") && e.visible).expect("GPU1 box");
+    let Some(gpu1) = g
+        .find("type:CheckBox")
+        .into_iter()
+        .find(|e| e.label.starts_with("GPU1") && e.visible)
+    else {
+        panic!("GPU1 box");
+    };
+
     g.activate(&gpu1.label, "CheckBox");
     g.activate("One clip per GPU at a time", "CheckBox");
     wait(5, "GPU1 off and placement together", || {
