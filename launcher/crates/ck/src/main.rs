@@ -7,6 +7,7 @@ use argh::FromArgs;
 
 #[cfg(unix)]
 mod serve;
+
 use ck::farm::{Assets, Session, run_in};
 use ck::frame::{Adjust, Look, Output};
 use ck::run::{Config, Hints, PreviewTo};
@@ -253,6 +254,7 @@ fn main() -> Result<()> {
         Theme::new()
     };
     HookBuilder::default().theme(theme).install()?;
+
     #[cfg(unix)]
     if a.serve {
         return serve::run();

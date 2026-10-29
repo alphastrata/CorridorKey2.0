@@ -42,9 +42,9 @@ impl Preview {
                 std::fs::create_dir_all(d)?;
                 Sink::Dir(d.clone())
             }
+
             #[cfg(unix)]
             PreviewTo::Fd(fd) => {
-                // SAFETY: `ckd` hands this descriptor down open for the life of the process; we use a duplicate.
                 let fd = unsafe { std::os::fd::BorrowedFd::borrow_raw(*fd) }.try_clone_to_owned()?;
                 Sink::Socket(UnixStream::from(fd))
             }
@@ -106,6 +106,7 @@ impl Preview {
                 [r, g, b].map(|v| ((v * a + under * (1.0 - a)).clamp(0.0, 1.0) * 255.0 + 0.5).u8())
             })
             .collect();
+
         match &mut self.sink {
             Sink::Dir(dir) => {
                 let (tmp, out) = (dir.join(format!(".{}.ppm", o.name())), dir.join(format!("{}.ppm", o.name())));
@@ -114,6 +115,7 @@ impl Preview {
                 std::fs::write(&tmp, ppm)?;
                 std::fs::rename(tmp, out)?;
             }
+
             #[cfg(unix)]
             Sink::Socket(s) => {
                 let frame = ck_ipc::Frame {
@@ -127,6 +129,7 @@ impl Preview {
                     self.sink = Sink::Gone;
                 }
             }
+
             Sink::Gone => {}
         }
         Ok(())

@@ -10,7 +10,6 @@ use crate::{Args, job};
 
 /// Resident worker: runs jobs from `ckd` one at a time with models kept loaded; exits when `ckd` hangs up.
 pub fn run() -> Result<()> {
-    // SAFETY: `ckd` hands fd 4 down open for our lifetime; we only duplicate it.
     let ctl = UnixStream::from(unsafe { BorrowedFd::borrow_raw(CONTROL_FD) }.try_clone_to_owned()?);
     let resident = Resident::default();
     ck_ipc::worker::serve(ctl, |args, abort| {
@@ -18,6 +17,7 @@ pub fn run() -> Result<()> {
         let r = Args::from_args(&["ck"], &argv)
             .map_err(|e| eyre!("{}", e.output.trim()))
             .and_then(|a| job(a, Session { resident: Some(&resident), abort }));
+
         if let Err(e) = &r {
             eprintln!("Error: {e:?}");
         }

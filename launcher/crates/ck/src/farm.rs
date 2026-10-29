@@ -318,6 +318,7 @@ fn lead<'s, 'e>(
             g.h,
         );
     }
+
     if cfg.auto {
         let (chunk, stride, est) = vram::window(g, total, free, gpu.sm);
         info!("{free:.1} GiB free → window {chunk}, stride {stride} (estimated peak {est:.1} GiB)");
@@ -326,6 +327,7 @@ fn lead<'s, 'e>(
         }
         (cfg.chunk, cfg.stride) = (chunk, stride);
     }
+
     if src.float() && !cfg.linear_input {
         warn!("float frames read as display-coded and clipped to [0, 1]; pass --linear for scene-linear");
     }
@@ -404,6 +406,7 @@ fn worker<'s, 'e>(k: usize, device: usize, sh: &'e Shared<'e>, s: &'s Scope<'s, 
     let free = gib(&l.gpu)?.0 + l.held;
     sh.loaded.store(true, Ordering::Release);
     info!("sm_{}, {free:.1} GiB free", l.gpu.sm);
+
     loop {
         if matches!(tick((&l.gpu, &l.m, k), sh, s, free)?, Tick::Finish) {
             break;
