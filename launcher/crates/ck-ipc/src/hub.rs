@@ -148,14 +148,17 @@ impl State {
 
     fn worker(&mut self, spec: &Spec, keep_alive: Duration) -> std::io::Result<usize> {
         let key = key(spec);
+
         if let Some(k) = self.workers.iter().position(|w| w.key == key) {
             return Ok(k);
         }
+
         let devices = key.iter().find(|(k, _)| k == "--device").map(|(_, v)| v.clone());
         self.workers
             .iter()
             .filter(|w| w.busy.is_none() && w.overlaps(devices.as_deref()))
             .for_each(|w| process::kill(w.pid));
+
         let ((frames, theirs_f), (ctl, theirs_c)) = (UnixStream::pair()?, UnixStream::pair()?);
         let serve = Spec { args: vec![], env: spec.env.clone(), cwd: spec.cwd.clone(), program: spec.program.clone(), nice: spec.nice };
         let child = process::spawn(&serve, &["--serve"], &[(&theirs_f, PREVIEW_FD), (&theirs_c, CONTROL_FD)])?;
@@ -166,23 +169,29 @@ impl State {
 
     fn submit(&mut self, spec: Spec, (preview, resident, keep_alive): (bool, bool, Duration)) -> Started {
         let mut args = spec.args.clone();
+
         if preview {
             args.extend(["--preview-fd".into(), PREVIEW_FD.to_string()]);
         }
+
         if resident {
             let k = self.worker(&spec, keep_alive)?;
             let pid = self.workers[k].pid;
             let id = self.record(pid, spec.args);
+
             let job = self.next;
             self.next += 1;
+
             let w = &mut self.workers[k];
             if w.busy.is_some() {
                 w.queue.push_back((job, args));
             } else {
                 w.run(job, args);
             }
+
             return Ok((id, pid));
         }
+
         let pair = preview.then(UnixStream::pair).transpose()?;
         let fds: Vec<(&UnixStream, i32)> = pair.iter().map(|(_, t)| (t, PREVIEW_FD)).collect();
         let extra: Vec<&str> = args[spec.args.len()..].iter().map(String::as_str).collect();
@@ -237,21 +246,29 @@ impl State {
                 let found = self.jobs.iter().find(|r| r.info.id == id);
                 drop(tx.send(found.map(|r| (r.info(), r.lines.iter().cloned().collect()))));
             }
+
             Hub::Submit { spec, preview, resident, keep_alive, reply } => {
                 drop(reply.send(self.submit(spec, (preview, resident, keep_alive))));
             }
+
             Hub::Stop(pid) => self.stop(pid),
+
             Hub::Expire(pid, id) => {
                 if self.running(pid).is_some_and(|r| r.info.id == id) {
                     process::kill(pid);
                 }
             }
+
             Hub::Line(pid, text) => self.line(pid, text),
+
             Hub::Frame(pid, frame) => {
                 let Some(id) = self.running(pid).map(|r| r.info.id.clone()) else { return };
+
                 self.emit(&Event::Frame { id, pid, frame });
             }
+
             Hub::Gone(pid, exit) => self.gone(pid, &exit),
+
             Hub::Tick => self
                 .workers
                 .iter()

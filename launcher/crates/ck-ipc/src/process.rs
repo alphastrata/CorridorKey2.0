@@ -22,8 +22,7 @@ pub struct Spec {
     pub nice: i32,
 }
 
-/// Spawns `spec` in its own process group at lower CPU priority (`SCHED_BATCH`, plus its niceness),
-/// handing each socket down on its paired descriptor.
+/// Spawns `spec` in its own process group at lower CPU priority, handing each socket down on its paired descriptor.
 pub fn spawn(spec: &Spec, extra: &[&str], fds: &[(&UnixStream, i32)]) -> std::io::Result<Child> {
     let mut cmd = Command::new(&spec.program);
     cmd.args(&spec.args)
@@ -34,9 +33,10 @@ pub fn spawn(spec: &Spec, extra: &[&str], fds: &[(&UnixStream, i32)]) -> std::io
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .process_group(0);
+
     let nice = spec.nice;
     let pairs: Vec<(i32, i32)> = fds.iter().map(|(s, to)| (s.as_raw_fd(), *to)).collect();
-    // SAFETY: only async-signal-safe calls between fork and exec; dup2 leaves each copy inheritable.
+    #[allow(clippy::undocumented_unsafe_blocks)]
     unsafe {
         cmd.pre_exec(move || {
             let batch = libc::sched_param { sched_priority: 0 };
@@ -48,6 +48,7 @@ pub fn spawn(spec: &Spec, extra: &[&str], fds: &[(&UnixStream, i32)]) -> std::io
             })
         });
     }
+
     cmd.spawn()
 }
 
@@ -61,6 +62,7 @@ fn lines(mut from: impl Read + Send + 'static, pid: u32, hub: Sender<Hub>) -> Jo
                 drop(hub.send(Hub::Line(pid, text)));
             }
         };
+
         while let Ok(n @ 1..) = from.by_ref().read(&mut buf) {
             buf[..n].iter().for_each(|&b| match b {
                 b'\n' | b'\r' => emit(&mut line),
@@ -82,6 +84,7 @@ pub fn watch(mut child: Child, frames: Option<UnixStream>, hub: &Sender<Hub>) ->
             }
         });
     }
+
     let readers: Vec<_> = [
         child.stdout.take().map(|o| lines(o, pid, hub.clone())),
         child.stderr.take().map(|e| lines(e, pid, hub.clone())),
@@ -89,6 +92,7 @@ pub fn watch(mut child: Child, frames: Option<UnixStream>, hub: &Sender<Hub>) ->
     .into_iter()
     .flatten()
     .collect();
+
     let hub = hub.clone();
     thread::spawn(move || {
         let status = child.wait().ok();

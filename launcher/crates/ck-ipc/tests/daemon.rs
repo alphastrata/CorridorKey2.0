@@ -81,6 +81,7 @@ fn daemon_round_trip() {
     assert_eq!(relayed, Some(frame));
 
     let (a, pid) = resident(&mut c, "slow");
+
     let (b, same) = resident(&mut c, "quick");
     assert_eq!(pid, same, "one worker per key");
     c.call(&Request::Stop { pid }).unwrap();
@@ -89,6 +90,7 @@ fn daemon_round_trip() {
         .filter(|e| matches!(e, Event::Line { pid: p, .. } | Event::Exit { pid: p, .. } if *p == pid))
         .take(4)
         .collect();
+
     assert!(matches!(&ends[0], Event::Line { id, text, .. } if *id == a && text == "job slow"));
     assert!(matches!(&ends[1], Event::Exit { id, exit, .. } if *id == a && exit.code == Some(1)));
     assert!(matches!(&ends[2], Event::Line { id, text, .. } if *id == b && text == "job quick"));

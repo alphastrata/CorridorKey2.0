@@ -27,6 +27,7 @@ fn dial(daemon: Option<&Path>) -> Result<UnixStream> {
         .stderr(Stdio::null())
         .process_group(0)
         .spawn()?;
+
     let start = Instant::now();
     loop {
         match UnixStream::connect(&path) {

@@ -18,6 +18,7 @@ pub fn serve() -> Result<()> {
     }
     drop(std::fs::remove_file(&path));
     let listener = UnixListener::bind(&path)?;
+
     let (tx, rx) = flume::unbounded();
     let hub_tx = tx.clone();
     thread::spawn(move || hub::run(hub_tx, &rx));
@@ -41,6 +42,7 @@ fn session(stream: UnixStream, hub: &Sender<Hub>) {
                 thread::spawn(move || publish(&events, &rx));
                 Reply::Ok
             }
+
             Request::Submit { program, args, env, cwd, preview, resident, nice, keep_alive_secs } => {
                 let (tx, rx) = flume::bounded(1);
                 let spec = Spec { program: program.clone(), args, env, cwd, nice };
@@ -52,15 +54,18 @@ fn session(stream: UnixStream, hub: &Sender<Hub>) {
                     Err(_) => Reply::Error("ckd is shutting down".into()),
                 }
             }
+
             Request::Stop { pid } => {
                 drop(hub.send(Hub::Stop(pid)));
                 Reply::Ok
             }
+
             Request::List => {
                 let (tx, rx) = flume::bounded(1);
                 drop(hub.send(Hub::List(tx)));
                 Reply::Jobs(rx.recv().unwrap_or_default())
             }
+
             Request::Attach { id } => {
                 let (tx, rx) = flume::bounded(1);
                 drop(hub.send(Hub::Attach(id.clone(), tx)));
@@ -70,6 +75,7 @@ fn session(stream: UnixStream, hub: &Sender<Hub>) {
                     .map_or_else(|| Reply::Error(format!("no job {id}")), |(info, lines)| Reply::Job { info, lines })
             }
         };
+
         if send(&mut w, &reply).is_err() {
             break;
         }
