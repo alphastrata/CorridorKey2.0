@@ -5,6 +5,7 @@ import argparse
 import os
 import tempfile
 
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 

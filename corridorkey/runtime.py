@@ -1,18 +1,24 @@
 from __future__ import annotations
 
+import contextlib
+import gc
 import json
 import os
 import sys
 import tempfile
+import time
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 from . import color_utils as cu
+from . import ptx
 from .model import CorridorKeyV3
 from .video_io import (
     ExrSequenceWriter,
@@ -110,6 +116,8 @@ class InferenceConfig:
     low_vram: bool = False
     # Pick hann_chunk/hann_stride/low_vram per clip from free GPU memory.
     auto_vram: bool = False
+    vram_estimate_gb: float | None = None
+    vram_ceiling_gb: float | None = None
     low_vram_foundation_chunk: int = 4
     low_vram_mlp_chunk_tokens: int = 65536
     low_vram_enc_frame_chunk: int = 1
@@ -146,7 +154,12 @@ _VRAM_PEAK_GB = {
     )),
 }
 _VRAM_MARGIN_SCALE = 1.1
-_VRAM_MARGIN_GB = 0.3
+_VRAM_HEADROOM_GB = 1.5
+_VRAM_HEADROOM_FRAC = 0.05
+
+
+def _vram_headroom_gb(total_gb: float) -> float:
+    return max(_VRAM_HEADROOM_GB, _VRAM_HEADROOM_FRAC * total_gb)
 
 
 def _interp(x: float, points) -> float:
@@ -169,34 +182,61 @@ def estimate_peak_vram_gb(megapixels: float, frames: int, low_vram: bool) -> flo
     return _interp(frames, zip(chunks, per_chunk))
 
 
-def select_vram_profile(shape_hw, num_frames: int, budget_gb: float):
+def select_vram_profile(shape_hw, num_frames: int, budget_gb: float,
+                        headroom_gb: float, ceiling_gb: float | None = None):
     """Largest Hann window that fits `budget_gb`, as (chunk, stride, low_vram, estimate).
 
     Bigger windows give better temporal consistency, and low-VRAM mode is
     exact, so a larger low-VRAM window is preferred over a smaller normal one.
-    Falls back to a single-frame window when nothing is estimated to fit.
+    Profiles estimated at `ceiling_gb` or more are skipped. Falls back to a
+    single-frame window when nothing is estimated to fit.
     """
     megapixels = shape_hw[0] * shape_hw[1] / 1e6
+    estimate = 0.0
     for chunk in reversed(_VRAM_PEAK_GB[True][0]):
         for low_vram in (False, True):
             if chunk not in _VRAM_PEAK_GB[low_vram][0]:
                 continue
             estimate = estimate_peak_vram_gb(megapixels, min(chunk, num_frames), low_vram)
-            if estimate * _VRAM_MARGIN_SCALE + _VRAM_MARGIN_GB <= budget_gb:
+            if ceiling_gb is not None and estimate >= ceiling_gb:
+                continue
+            if estimate * _VRAM_MARGIN_SCALE + headroom_gb <= budget_gb:
                 return chunk, max(1, chunk // 2), low_vram, estimate
     return 1, 1, True, estimate
 
 
+def _read_vram_budget_gb() -> tuple[float, float]:
+    """(budget, total) in GiB; budget is free memory plus what this process holds.
+
+    Reads twice a second apart and keeps the lower value, since another process
+    may still be releasing memory at startup.
+    """
+    gc.collect()
+    torch.cuda.empty_cache()
+    readings = []
+    for i in range(2):
+        if i:
+            time.sleep(1.0)
+        free_bytes, total_bytes = torch.cuda.mem_get_info()
+        readings.append((free_bytes + torch.cuda.memory_reserved()) / 2**30)
+    if max(readings) - min(readings) > 1.0:
+        print(f"  [WARNING] GPU free memory is changing ({readings[0]:.1f} -> "
+              f"{readings[1]:.1f} GB); another process is using this GPU.")
+    return min(readings), total_bytes / 2**30
+
+
 def apply_auto_vram(cfg: InferenceConfig, shape_hw, num_frames: int) -> None:
-    free_bytes, _ = torch.cuda.mem_get_info()
-    # Memory this process already holds (the loaded model) is part of the budget.
-    budget_gb = (free_bytes + torch.cuda.memory_reserved()) / 2**30
-    chunk, stride, low_vram, estimate = select_vram_profile(shape_hw, num_frames, budget_gb)
+    budget_gb, total_gb = _read_vram_budget_gb()
+    headroom_gb = _vram_headroom_gb(total_gb)
+    chunk, stride, low_vram, estimate = select_vram_profile(
+        shape_hw, num_frames, budget_gb, headroom_gb, cfg.vram_ceiling_gb)
     cfg.hann_chunk, cfg.hann_stride, cfg.low_vram = chunk, stride, low_vram
+    cfg.vram_estimate_gb = estimate
+    margin_gb = budget_gb - (estimate * _VRAM_MARGIN_SCALE + headroom_gb)
     print(f"  Auto VRAM: {budget_gb:.1f} GB available at {shape_hw[1]}x{shape_hw[0]} -> "
           f"hann_chunk={chunk}, hann_stride={stride}, low_vram={low_vram} "
-          f"(estimated peak {estimate:.1f} GB)")
-    if estimate * _VRAM_MARGIN_SCALE + _VRAM_MARGIN_GB > budget_gb:
+          f"(estimated peak {estimate:.1f} GB, margin {margin_gb:+.1f} GB)")
+    if margin_gb < 0:
         print("  [WARNING] Even a single-frame window may not fit this GPU at this "
               "resolution. Inference may run out of memory.")
 
@@ -235,7 +275,34 @@ def load_runtime_checkpoint(path: Path) -> dict:
     return torch.load(path, map_location="cpu", weights_only=False, mmap=True)
 
 
-def load_model(paths: RuntimePaths, device: str = "cuda") -> CorridorKeyV3:
+_BF16_WEIGHT_MODULES = (
+    nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d,
+    nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d,
+)
+
+
+def bf16_storage(module: nn.Module) -> bool:
+    """Whether ``load_model`` stores ``module``'s weights in bf16. Depthwise convs stay f32: ck's kernels use their
+    exact weights (autocast rounds them for torch anyway)."""
+    return isinstance(module, _BF16_WEIGHT_MODULES) and getattr(module, "groups", 1) == 1
+
+
+@contextlib.contextmanager
+def _no_random_init() -> Iterator[None]:
+    """Every weight comes from a checkpoint, so torch's random initialisers are wasted work while building."""
+    names = ("uniform_", "normal_", "trunc_normal_", "kaiming_uniform_", "kaiming_normal_",
+             "xavier_uniform_", "xavier_normal_")
+    saved = {n: getattr(nn.init, n) for n in names}
+    for n in names:
+        setattr(nn.init, n, lambda t, *_, **__: t)
+    try:
+        yield
+    finally:
+        for n, f in saved.items():
+            setattr(nn.init, n, f)
+
+
+def load_model(paths: RuntimePaths, device: str = "cuda", bf16_weights: bool = True) -> CorridorKeyV3:
     paths.validate()
     prepare_runtime_environment(paths)
     ckpt = load_runtime_checkpoint(paths.weights)
@@ -251,7 +318,8 @@ def load_model(paths: RuntimePaths, device: str = "cuda") -> CorridorKeyV3:
     cfg["stage1_recurrent_64_sites"] = ()
 
     print(f"Loading CorridorKey v2 runtime weights: {paths.weights}")
-    model = CorridorKeyV3(**cfg)
+    with _no_random_init():
+        model = CorridorKeyV3(**cfg)
     missing, unexpected = model.load_state_dict(ckpt["state_dict"], strict=False)
     train_missing = [k for k in missing if not k.startswith("foundations.")]
     train_unexpected = [k for k in unexpected if not k.startswith("foundations.")]
@@ -261,6 +329,14 @@ def load_model(paths: RuntimePaths, device: str = "cuda") -> CorridorKeyV3:
             f"missing={train_missing[:8]} unexpected={train_unexpected[:8]}")
     print(f"  loaded weights; omitted frozen foundation tensors={len(missing)}")
     model.eval()
+    model.requires_grad_(False)
+
+    for module in model.modules():
+        if bf16_weights and bf16_storage(module):
+            for p in module.parameters(recurse=False):
+                p.data = p.data.to(torch.bfloat16)
+    if patched := ptx.enable(model):
+        print(f"  ck kernels: {patched} modules")
     del ckpt
     return model
 
@@ -614,18 +690,17 @@ def _despill_average_srgb_torch(fg: torch.Tensor, strength: float = 0.5) -> torc
     return fg * (1.0 - strength) + full * strength
 
 
+def _to_uint16(x: torch.Tensor) -> torch.Tensor:
+    return (x.clamp(0.0, 1.0) * 65535.0).to(torch.uint16)
+
+
 def _srgb_to_bgr_uint16_cpu(x: torch.Tensor) -> np.ndarray:
-    x = x.clamp(0.0, 1.0)
-    x = x[:, [2, 1, 0]].permute(0, 2, 3, 1).contiguous().cpu().numpy()
-    return (x * 65535.0).astype(np.uint16)
+    return _to_uint16(x[:, [2, 1, 0]]).permute(0, 2, 3, 1).contiguous().cpu().numpy()
 
 
 def _srgb_to_bgra_uint16_cpu(rgb: torch.Tensor, alpha: torch.Tensor) -> np.ndarray:
-    rgb = rgb.clamp(0.0, 1.0)
-    alpha = alpha.clamp(0.0, 1.0)
-    bgra = torch.cat([rgb[:, [2, 1, 0]], alpha], dim=1)
-    bgra = bgra.permute(0, 2, 3, 1).contiguous().cpu().numpy()
-    return (bgra * 65535.0).astype(np.uint16)
+    bgra = _to_uint16(torch.cat([rgb[:, [2, 1, 0]], alpha], dim=1))
+    return bgra.permute(0, 2, 3, 1).contiguous().cpu().numpy()
 
 
 def _chw_to_bgr_f32_cpu(x: torch.Tensor) -> np.ndarray:
@@ -731,8 +806,25 @@ def _render_predictions_torch(meta: dict, outputs: set[str],
 
 
 def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
-                  writer_cfg: WriterConfig, *, initial_hint_path: str | None,
-                  hint_video_path: str | None):
+                  writer_cfg: WriterConfig, **kwargs):
+    """Run inference; with cfg.auto_vram, an OOM restarts the clip with a cheaper profile."""
+    while True:
+        try:
+            return _run_inference_once(
+                model, input_path, output_dir, cfg, writer_cfg, **kwargs)
+        except torch.OutOfMemoryError:
+            if not cfg.auto_vram or (cfg.hann_chunk, cfg.low_vram) == (1, True):
+                raise
+            cfg.vram_ceiling_gb = cfg.vram_estimate_gb
+            print(f"  [AUTO VRAM] Out of memory at hann_chunk={cfg.hann_chunk}, "
+                  f"low_vram={cfg.low_vram}; retrying with a smaller profile.")
+        gc.collect()
+        torch.cuda.empty_cache()
+
+
+def _run_inference_once(model, input_path: str, output_dir: str, cfg: InferenceConfig,
+                        writer_cfg: WriterConfig, *, initial_hint_path: str | None,
+                        hint_video_path: str | None):
     input_path = str(input_path)
     output_dir = str(output_dir)
     cfg.temp_dir.mkdir(parents=True, exist_ok=True)

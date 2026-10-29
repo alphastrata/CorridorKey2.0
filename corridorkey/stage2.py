@@ -514,7 +514,7 @@ class Stage2(nn.Module):
             # affects gradients until patch_2 wakes up.
             gate = F.silu(self.patch_2_gate(x))                # (BT, H/16, W/16, d_rgb)
             patch2 = self.patch_2(rgb_flat)                    # (BT, d_rgb, H/16, W/16)
-            patch2 = patch2.permute(0, 2, 3, 1).contiguous() * gate
+            patch2 = patch2.permute(0, 2, 3, 1) * gate
             x = x + F.pad(patch2, (self.d_baton, 0))
 
         # Post-patch_2 final blocks (num_final_blocks)
@@ -524,7 +524,7 @@ class Stage2(nn.Module):
         # Depatchify to /1. With production dims and non-overlap patching,
         # FG rows are the exact inverse of patch_1 at init; alpha rows and
         # baton columns are zero.
-        feat_ch_first = x.permute(0, 3, 1, 2).contiguous()     # (BT, d, H/16, W/16)
+        feat_ch_first = x.permute(0, 3, 1, 2)                  # (BT, d, H/16, W/16)
         out_raw = self.depatchify(feat_ch_first)               # (BT, 4, H, W)
         if self.refine4 is not None:
             refined = out_raw + self.refine4(rgb_flat, feat_ch_first)

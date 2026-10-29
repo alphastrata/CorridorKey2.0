@@ -360,8 +360,10 @@ class DepthwiseSwiGLU2D(nn.Module):
         else:
             nn.init.normal_(self.value.weight, mean=0.0, std=init_std)
             nn.init.normal_(self.gate.weight, mean=0.0, std=init_std)
-        nn.init.zeros_(self.value.bias)
-        nn.init.zeros_(self.gate.bias)
+        if self.value.bias is not None:
+            nn.init.zeros_(self.value.bias)
+        if self.gate.bias is not None:
+            nn.init.zeros_(self.gate.bias)
         self.gamma = nn.Parameter(torch.zeros(dim))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -894,7 +896,10 @@ def _sdpa_with_region_groups(
             batch_windows, device=q.device, dtype=torch.long) * num_windows
         return (idx.unsqueeze(0) + offsets.unsqueeze(1)).reshape(-1)
 
-    out = torch.zeros_like(q)
+    out_dtype = q.dtype
+    if torch.is_autocast_enabled(q.device.type):
+        out_dtype = torch.get_autocast_dtype(q.device.type)
+    out = torch.zeros_like(q, dtype=out_dtype)
     if full_idx:
         win_idx = _batched_windows(full_idx)
         out.index_copy_(
