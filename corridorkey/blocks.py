@@ -2264,9 +2264,9 @@ class CSwinAttention3D(nn.Module):
                 out_h[start:end] = F.scaled_dot_product_attention(
                     q, k, v, dropout_p=0.0, is_causal=False)
 
-
             if free:
                 del x_h, q, k, v
+
             attn_h = (out_h.reshape(B, W, h_heads, T, H, D)
                            .permute(0, 3, 4, 1, 2, 5)
                            .contiguous())
@@ -2289,9 +2289,9 @@ class CSwinAttention3D(nn.Module):
                 out_w[start:end] = F.scaled_dot_product_attention(
                     q, k, v, dropout_p=0.0, is_causal=False)
 
-
             if free:
                 del x_w, q, k, v
+
             attn_w = (out_w.reshape(B, H, w_heads, T, W, D)
                            .permute(0, 3, 1, 4, 2, 5)
                            .contiguous())

@@ -274,9 +274,15 @@ def estimate_peak_vram_gb(megapixels: float, frames: int, low_vram: bool,
     return _interp(frames, zip(chunks, per_chunk))
 
 
+def _planned_table() -> dict:
+    """The VRAM peak table this environment plans with when kernels are not patched in yet."""
+    return _VRAM_PEAK_GB
+
+
 def select_vram_profile(shape_hw, num_frames: int, budget_gb: float,
                         headroom_gb: float | None = None, table=None, margin=None,
                         ceiling_gb: float | None = None):
+
     """Largest Hann window that fits `budget_gb`, as (chunk, stride, low_vram, estimate).
 
     Bigger windows give better temporal consistency, and low-VRAM mode is
@@ -306,11 +312,6 @@ def select_vram_profile(shape_hw, num_frames: int, budget_gb: float,
             if estimate * scale + extra_gb <= budget_gb:
                 return chunk, max(1, chunk // 2), low_vram, estimate
     return 1, 1, True, estimate
-
-
-def _planned_table() -> dict:
-    """The VRAM peak table this environment plans with when kernels are not patched in yet."""
-    return _VRAM_PEAK_GB
 
 
 def _read_vram_budget_gb() -> tuple[float, float]:
