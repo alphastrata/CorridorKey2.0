@@ -152,6 +152,8 @@ fn settings_to_ui(s: &Settings, j: &Job, cat: &Catalogue) {
     j.set_cutout_colour(i32::from(s.cutout_linear));
 
     j.set_despill(s.despill);
+    j.set_quantum(s.quantum.cast_signed());
+    j.set_vfm_batch(s.vfm_batch.cast_signed());
     j.set_hint_quality(s.hint_quality);
     j.set_brightness(s.brightness);
     j.set_contrast(s.contrast);
@@ -210,6 +212,8 @@ fn settings_from_ui(j: &Job, cat: &Catalogue) -> Settings {
         threads: j.get_threads().clamp(0, 24).cast_unsigned(),
         hint_quality: (j.get_hint_quality() * 1000.0).round() / 1000.0,
         carry: j.get_carry().then(|| (j.get_carry_quality() * 1000.0).round() / 1000.0),
+        quantum: j.get_quantum().clamp(16, 1024).cast_unsigned(),
+        vfm_batch: j.get_vfm_batch().clamp(1, 64).cast_unsigned(),
         window: (j.get_vram_mode() == 1).then(|| {
             (
                 j.get_chunk().max(1).cast_unsigned(),

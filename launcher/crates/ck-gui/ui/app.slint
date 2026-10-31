@@ -54,6 +54,8 @@ export global Job {
     in-out property <float> carry-quality: 0.95;
     in-out property <int> vram-mode;
     in-out property <int> chunk: 48;
+    in-out property <int> quantum: 128;
+    in-out property <int> vfm-batch: 8;
     in-out property <int> stride: 24;
     in-out property <int> frame-colour;
     in-out property <string> fps: "24";
@@ -1366,7 +1368,40 @@ component Inspector inherits Rectangle {
                     }
                 }
                 Section {
+                    title: "Model";
+                    Row {
+                        label: "Padding quantum";
+                        SpinBox {
+                            min-width: 0;
+                            minimum: 16;
+                            maximum: 1024;
+                            value <=> Job.quantum;
+                            edited => { Job.changed(); }
+                        }
+                        Text {
+                            text: "frames are padded to this";
+                            color: T.subtle;
+                            font-size: T.small;
+                        }
+                    }
+                }
+                Section {
                     title: "Speed";
+                    Row {
+                        label: "Foundation batch";
+                        SpinBox {
+                            min-width: 0;
+                            minimum: 1;
+                            maximum: 64;
+                            value <=> Job.vfm-batch;
+                            edited => { Job.changed(); }
+                        }
+                        Text {
+                            text: "frames per foundation batch";
+                            color: T.subtle;
+                            font-size: T.small;
+                        }
+                    }
                     Row {
                         label: "Model scale";
                         ComboBox {

@@ -31,6 +31,10 @@ pub struct Settings {
     pub out_parent: Option<String>,
     pub model: String,
     pub refiner: String,
+    /// Model frames are padded to multiples of this.
+    pub quantum: u32,
+    /// Frames per foundation-model batch.
+    pub vfm_batch: u32,
     /// Scene-linear gain, 1.0 = ungraded.
     pub brightness: f32,
     /// Scene-linear contrast, 1.0 = ungraded.
@@ -110,6 +114,8 @@ impl Default for Settings {
             out_parent: None,
             model: String::new(),
             refiner: String::new(),
+            quantum: 128,
+            vfm_batch: 8,
             brightness: 1.0,
             contrast: 1.0,
             crf: 12,
