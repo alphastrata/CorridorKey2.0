@@ -1,4 +1,4 @@
-use crate::convert::Float;
+use crate::convert::{Float, Narrow};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -153,6 +153,11 @@ fn settings_to_ui(s: &Settings, j: &Job, cat: &Catalogue) {
 
     j.set_despill(s.despill);
     j.set_hint_quality(s.hint_quality);
+    j.set_brightness(s.brightness);
+    j.set_contrast(s.contrast);
+    j.set_crf(s.crf.f32());
+    j.set_preset(i32::from(s.preset));
+    j.set_threads(s.threads.cast_signed());
     j.set_carry(s.carry.is_some());
     j.set_carry_quality(s.carry.unwrap_or(0.95));
     j.set_vram_mode(i32::from(s.window.is_some()));
@@ -195,6 +200,14 @@ fn settings_from_ui(j: &Job, cat: &Catalogue) -> Settings {
         exr: (j.get_format() == 1).then_some(j.get_exr_type() == 1),
         cutout_linear: j.get_cutout_colour() == 1,
         despill: (j.get_despill() * 1000.0).round() / 1000.0,
+        brightness: (j.get_brightness() * 1000.0).round() / 1000.0,
+        contrast: (j.get_contrast() * 1000.0).round() / 1000.0,
+        crf: f64::from(j.get_crf()).round().clamp(0.0, 51.0).u32(),
+        preset: u8::try_from(
+            j.get_preset().clamp(0, i32::try_from(crate::command::PRESETS.len()).unwrap_or_default() - 1),
+        )
+        .unwrap_or_default(),
+        threads: j.get_threads().clamp(0, 24).cast_unsigned(),
         hint_quality: (j.get_hint_quality() * 1000.0).round() / 1000.0,
         carry: j.get_carry().then(|| (j.get_carry_quality() * 1000.0).round() / 1000.0),
         window: (j.get_vram_mode() == 1).then(|| {

@@ -111,6 +111,9 @@ impl Catalogue {
 }
 
 const SCALES: [&str; 4] = ["1", "0.5", "0.25", "0.125"];
+pub const PRESETS: [&str; 9] = [
+    "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow",
+];
 
 fn linear(clip: &Clip, s: &Settings) -> bool {
     match s.frame_colour {
@@ -163,6 +166,21 @@ fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
         }
     }
     a.extend(["--despill".into(), s.despill.to_string()]);
+    if (s.brightness - 1.0).abs() > f32::EPSILON {
+        a.extend(["--brightness".into(), s.brightness.to_string()]);
+    }
+    if (s.contrast - 1.0).abs() > f32::EPSILON {
+        a.extend(["--contrast".into(), s.contrast.to_string()]);
+    }
+    if s.crf != 12 {
+        a.extend(["--crf".into(), s.crf.to_string()]);
+    }
+    if let Some(preset) = PRESETS.get(usize::from(s.preset)).filter(|p| **p != "medium") {
+        a.extend(["--preset".into(), (*preset).to_string()]);
+    }
+    if s.threads != 8 {
+        a.extend(["--threads".into(), s.threads.to_string()]);
+    }
     if clip.frames {
         a.extend(["--fps".into(), s.fps.to_string()]);
         if linear(clip, s) {

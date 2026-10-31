@@ -44,6 +44,11 @@ export global Job {
     in-out property <int> exr-type;
     in-out property <int> cutout-colour;
     in-out property <float> despill: 0.5;
+    in-out property <float> brightness: 1.0;
+    in-out property <float> contrast: 1.0;
+    in-out property <int> preset: 5;
+    in-out property <int> threads: 8;
+    in-out property <float> crf: 12;
     in-out property <float> hint-quality: 0.75;
     in-out property <bool> carry: true;
     in-out property <float> carry-quality: 0.95;
@@ -935,6 +940,7 @@ component PrefsSheet inherits Rectangle {
 component Inspector inherits Rectangle {
     in property <bool> locked;
     property <bool> exr: Job.format == 1;
+    property <bool> nvenc: Job.codec == 1;
     property <bool> manual: Job.vram-mode == 1;
     property <[string]> presets: ["80 / 40 · max continuity", "48 / 24", "24 / 12", "8 / 4", "1 / 1 · single frames", "Custom"];
     property <[int]> chunks: [80, 48, 24, 8, 1];
@@ -1028,6 +1034,49 @@ component Inspector inherits Rectangle {
                             selected => { Job.changed(); }
                         }
                     }
+                    Row {
+                        label: "Quality";
+                        enabled: !root.exr;
+                        Slider {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 40;
+                            value <=> Job.crf;
+                            enabled: !root.exr;
+                            changed => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.crf;
+                        }
+                    }
+                    Row {
+                        label: "Preset";
+                        enabled: !root.exr;
+                        ComboBox {
+                            min-width: 0;
+                            model: ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"];
+                            current-index <=> Job.preset;
+                            enabled: !root.exr;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Threads";
+                        enabled: !root.exr;
+                        SpinBox {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 24;
+                            value <=> Job.threads;
+                            enabled: !root.exr;
+                            edited => { Job.changed(); }
+                        }
+                        Text {
+                            text: "per output · 0 = ffmpeg decides";
+                            color: T.subtle;
+                            font-size: T.small;
+                        }
+                    }
                 }
                 Section {
                     title: "Outputs";
@@ -1111,6 +1160,36 @@ component Inspector inherits Rectangle {
                         }
                         Value {
                             value: Job.despill;
+                        }
+                    }
+                    Row {
+                        label: "Gain";
+                        enabled: !root.exr;
+                        Slider {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 2;
+                            value <=> Job.brightness;
+                            enabled: !root.exr;
+                            changed => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.brightness;
+                        }
+                    }
+                    Row {
+                        label: "Contrast";
+                        enabled: !root.exr;
+                        Slider {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 2;
+                            value <=> Job.contrast;
+                            enabled: !root.exr;
+                            changed => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.contrast;
                         }
                     }
                 }

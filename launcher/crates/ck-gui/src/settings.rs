@@ -31,6 +31,16 @@ pub struct Settings {
     pub out_parent: Option<String>,
     pub model: String,
     pub refiner: String,
+    /// Scene-linear gain, 1.0 = ungraded.
+    pub brightness: f32,
+    /// Scene-linear contrast, 1.0 = ungraded.
+    pub contrast: f32,
+    /// x264 `-crf`, or NVENC `-cq`: lower is better quality and bigger files.
+    pub crf: u32,
+    /// Index into `command::PRESETS`.
+    pub preset: u8,
+    /// Encoder threads per output; 0 = ffmpeg decides.
+    pub threads: u32,
     /// This job's own resource shares; `None` follows the Preferences defaults.
     pub share: Option<Share>,
     /// GPUs this job runs on together; `None` follows the Preferences placement.
@@ -100,6 +110,11 @@ impl Default for Settings {
             out_parent: None,
             model: String::new(),
             refiner: String::new(),
+            brightness: 1.0,
+            contrast: 1.0,
+            crf: 12,
+            preset: 5,
+            threads: 8,
             share: None,
             gpus: None,
         }
