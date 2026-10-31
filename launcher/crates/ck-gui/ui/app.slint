@@ -56,6 +56,7 @@ export global Job {
     in-out property <int> chunk: 48;
     in-out property <int> quantum: 128;
     in-out property <int> vfm-batch: 8;
+    in-out property <string> log;
     in-out property <int> stride: 24;
     in-out property <int> frame-colour;
     in-out property <string> fps: "24";
@@ -1417,6 +1418,18 @@ component Inspector inherits Rectangle {
                         checked <=> Job.refine;
                         enabled: Job.scale > 0;
                         toggled => { Job.changed(); }
+                    }
+                }
+                Section {
+                    title: "Diagnostics";
+                    expanded: false;
+                    LineEdit {
+                        min-width: 0;
+                        placeholder-text: "log filter: `debug`, `info,ck::time=debug`";
+                        edited(text) => {
+                            Job.log = text;
+                            Job.changed();
+                        }
                     }
                 }
                 Section {

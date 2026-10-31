@@ -154,6 +154,7 @@ fn settings_to_ui(s: &Settings, j: &Job, cat: &Catalogue) {
     j.set_despill(s.despill);
     j.set_quantum(s.quantum.cast_signed());
     j.set_vfm_batch(s.vfm_batch.cast_signed());
+    j.set_log(s.log.clone().into());
     j.set_hint_quality(s.hint_quality);
     j.set_brightness(s.brightness);
     j.set_contrast(s.contrast);
@@ -214,6 +215,7 @@ fn settings_from_ui(j: &Job, cat: &Catalogue) -> Settings {
         carry: j.get_carry().then(|| (j.get_carry_quality() * 1000.0).round() / 1000.0),
         quantum: j.get_quantum().clamp(16, 1024).cast_unsigned(),
         vfm_batch: j.get_vfm_batch().clamp(1, 64).cast_unsigned(),
+        log: j.get_log().to_string(),
         window: (j.get_vram_mode() == 1).then(|| {
             (
                 j.get_chunk().max(1).cast_unsigned(),

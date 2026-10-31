@@ -35,6 +35,8 @@ pub struct Settings {
     pub quantum: u32,
     /// Frames per foundation-model batch.
     pub vfm_batch: u32,
+    /// ck log filter; empty = default `info`.
+    pub log: String,
     /// Scene-linear gain, 1.0 = ungraded.
     pub brightness: f32,
     /// Scene-linear contrast, 1.0 = ungraded.
@@ -116,6 +118,7 @@ impl Default for Settings {
             refiner: String::new(),
             quantum: 128,
             vfm_batch: 8,
+            log: String::new(),
             brightness: 1.0,
             contrast: 1.0,
             crf: 12,

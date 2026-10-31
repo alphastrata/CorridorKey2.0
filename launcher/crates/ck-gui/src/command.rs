@@ -194,6 +194,9 @@ fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
     if s.vfm_batch != 8 {
         a.extend(["--vfm-batch".into(), s.vfm_batch.to_string()]);
     }
+    if !s.log.is_empty() {
+        a.extend(["--log".into(), s.log.clone()]);
+    }
     if let Some((chunk, stride)) = s.window {
         a.extend([
             "--chunk".into(),
