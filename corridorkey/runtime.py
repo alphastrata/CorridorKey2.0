@@ -127,6 +127,9 @@ class InferenceConfig:
     # Plan for at most this percentage of the GPU's memory, and at most vram_cap_gb.
     vram_share: float = 100.0
     vram_cap_gb: float | None = None
+    # Auto VRAM: read the memory table measured for the optimized path
+    # (bf16 weights + lean activations) instead of the per-backend one.
+    auto_vram_optimized: bool = False
     low_vram_foundation_chunk: int = 4
     low_vram_mlp_chunk_tokens: int = 65536
     low_vram_enc_frame_chunk: int = 1
@@ -485,8 +488,14 @@ def reserve_activation_arena(nbytes: int) -> int:
 def apply_auto_vram(cfg: InferenceConfig, shape_hw, num_frames: int,
                     table: dict | None = None) -> None:
     budget_gb, headroom_gb = _planned_budget_gb(cfg)
+    margin = None
+    if cfg.auto_vram_optimized:
+        table = _VRAM_PEAK_GB_OPTIMIZED
+        margin = optimized_vram_margin(shape_hw[0] * shape_hw[1] / 1e6,
+                                       expandable_segments_active())
     chunk, stride, low_vram, estimate = select_vram_profile(
-        shape_hw, num_frames, budget_gb, headroom_gb, table, cfg.vram_ceiling_gb)
+        shape_hw, num_frames, budget_gb, headroom_gb, table, margin,
+        ceiling_gb=cfg.vram_ceiling_gb)
     cfg.hann_chunk, cfg.hann_stride, cfg.low_vram = chunk, stride, low_vram
     cfg.vram_estimate_gb = estimate
     margin_gb = budget_gb - (estimate * _VRAM_MARGIN_SCALE + headroom_gb)
