@@ -276,7 +276,7 @@ def estimate_peak_vram_gb(megapixels: float, frames: int, low_vram: bool,
 
 def _planned_table() -> dict:
     """The VRAM peak table this environment plans with when kernels are not patched in yet."""
-    return vram_table(torch.cuda.is_available() and ptx.available())
+    return _VRAM_PEAK_GB
 
 
 def select_vram_profile(shape_hw, num_frames: int, budget_gb: float,
@@ -536,6 +536,7 @@ def load_model(paths: RuntimePaths, device: str = "cuda", bf16_weights: bool = T
             for p in module.parameters(recurse=False):
                 p.data = p.data.to(torch.bfloat16)
     if patched := ptx.enable(model):
+        model._ck_kernels_patched = True
         print(f"  ck kernels: {patched} modules")
     del ckpt
     return model
@@ -613,6 +614,12 @@ def configure_lean_activations(model, enabled: bool) -> None:
     path's intermediates as soon as they are consumed, add the stage-1 skip
     connections in place, and (in the runtime) hand stage 1 its window
     inputs so they are freed once consumed."""
+    if enabled:
+        # ck's PTX kernels already own the qkv/glue/local-mix fusions these
+        # attributes route around; mixing the two without kernels' own
+        # geometry is faster but not byte-identical to the stock path.
+        if getattr(model, "_ck_kernels_patched", False):
+            enabled = False
     for module in model.modules():
         name = module.__class__.__name__
         if name in ("SwinAttention3D", "Stage1"):
