@@ -233,10 +233,15 @@ def vram_table(kernels: bool, device=None) -> dict:
     return _VRAM_PEAK_GB[("ptx" if kernels else "torch", 80 if major >= 8 else 75)]
 
 
+def _planned_table() -> dict:
+    """The VRAM table this environment would plan with if kernels are not patched in yet."""
+    return vram_table(torch.cuda.is_available() and ptx.available())
+
+
 def estimate_peak_vram_gb(megapixels: float, frames: int, low_vram: bool,
-                          table: dict) -> float:
+                          table: dict | None = None) -> float:
     """Estimated peak GPU memory for a Hann window of `frames` frames."""
-    chunks, rows = table[low_vram]
+    chunks, rows = (table or _planned_table())[low_vram]
     frames = max(frames, chunks[0])
     per_chunk = [
         max(_interp(megapixels, [(mp, peaks[i]) for mp, peaks in rows]), rows[0][1][i])
@@ -246,7 +251,7 @@ def estimate_peak_vram_gb(megapixels: float, frames: int, low_vram: bool,
 
 
 def select_vram_profile(shape_hw, num_frames: int, budget_gb: float,
-                        headroom_gb: float, table: dict,
+                        headroom_gb: float | None = None, table: dict | None = None,
                         ceiling_gb: float | None = None):
     """Largest Hann window that fits `budget_gb`, as (chunk, stride, low_vram, estimate).
 
@@ -255,6 +260,10 @@ def select_vram_profile(shape_hw, num_frames: int, budget_gb: float,
     Profiles estimated at `ceiling_gb` or more are skipped. Falls back to a
     single-frame window when nothing is estimated to fit.
     """
+    table = table or _planned_table()
+    if headroom_gb is None:
+        headroom_gb = _vram_headroom_gb(torch.cuda.get_device_properties(
+        ).total_memory / 2**30) if torch.cuda.is_available() else _VRAM_HEADROOM_GB
     megapixels = shape_hw[0] * shape_hw[1] / 1e6
     estimate = 0.0
     for chunk in reversed(table[True][0]):
@@ -300,7 +309,7 @@ def _planned_budget_gb(cfg: InferenceConfig) -> tuple[float, float]:
 
 
 def check_manual_vram(cfg: InferenceConfig, shape_hw, num_frames: int,
-                      table: dict) -> None:
+                      table: dict | None = None) -> None:
     """Warn when an explicit window is estimated not to fit, naming the largest that does."""
     budget_gb, headroom_gb = _planned_budget_gb(cfg)
     megapixels = shape_hw[0] * shape_hw[1] / 1e6
@@ -318,7 +327,7 @@ def check_manual_vram(cfg: InferenceConfig, shape_hw, num_frames: int,
 
 
 def apply_auto_vram(cfg: InferenceConfig, shape_hw, num_frames: int,
-                    table: dict) -> None:
+                    table: dict | None = None) -> None:
     budget_gb, headroom_gb = _planned_budget_gb(cfg)
     chunk, stride, low_vram, estimate = select_vram_profile(
         shape_hw, num_frames, budget_gb, headroom_gb, table, cfg.vram_ceiling_gb)
@@ -423,12 +432,16 @@ def load_model(paths: RuntimePaths, device: str = "cuda", bf16_weights: bool = T
     model.eval()
     model.requires_grad_(False)
 
-    for module in model.modules():
-        if bf16_weights and bf16_storage(module):
-            for p in module.parameters(recurse=False):
-                p.data = p.data.to(torch.bfloat16)
-    if patched := ptx.enable(model):
-        print(f"  ck kernels: {patched} modules")
+    if kernels := ptx.enable(model):
+        # bf16 storage accompanies the patched kernels (half.py also upcasts per call),
+        # so the unpatched path keeps the upstream f32 weights for exact vanilla numerics.
+        for module in model.modules():
+            if bf16_storage(module):
+                for p in module.parameters(recurse=False):
+                    p.data = p.data.to(torch.bfloat16)
+        print(f"  ck kernels: {kernels} modules")
+    elif not bf16_weights:
+        print("  ck kernels unavailable; running stock torch with f32 weights")
     del ckpt
     return model
 
@@ -898,12 +911,14 @@ def _render_predictions_torch(meta: dict, outputs: set[str],
 
 
 def run_inference(model, input_path: str, output_dir: str, cfg: InferenceConfig,
-                  writer_cfg: WriterConfig, **kwargs):
+                  writer_cfg: WriterConfig, *, initial_hint_path: str | None,
+                  hint_video_path: str | None):
     """Run inference; with cfg.auto_vram, an OOM restarts the clip with a cheaper profile."""
     while True:
         try:
             return _run_inference_once(
-                model, input_path, output_dir, cfg, writer_cfg, **kwargs)
+                model, input_path, output_dir, cfg, writer_cfg,
+                initial_hint_path=initial_hint_path, hint_video_path=hint_video_path)
         except torch.OutOfMemoryError:
             if not cfg.auto_vram or (cfg.hann_chunk, cfg.low_vram) == (1, True):
                 raise
