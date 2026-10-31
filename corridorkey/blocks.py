@@ -18,7 +18,7 @@ Publicly exported:
   • Depatchify — Linear(d → C·r²) + PixelShuffle(r) for /16 → /1 and /16 → /2.
   • icnr_init_ — Aitken 2017 ICNR init for conv feeding PixelShuffle.
 
-Residual blocks use pre-norm plus zero-initialized output projections/gates so
+Residual blocks use pre-norm plus zero-initialised output projections/gates so
 every block is near-identity at t=0 and grows responsibility with training.
 """
 
@@ -33,9 +33,6 @@ import torch.nn.functional as F
 from .rope import RoPE2D, RoPE3D, apply_rotary
 
 
-# ---------------------------------------------------------------------------
-# Norms and utilities
-# ---------------------------------------------------------------------------
 
 
 class LayerNorm2d(nn.Module):
@@ -43,7 +40,7 @@ class LayerNorm2d(nn.Module):
 
     Kept the historical class name for backward compat of state-dict keys,
     but the implementation is now RMSNorm: mean subtraction dropped, no
-    learnable bias, variance-only normalization. ~10-15% faster than
+    learnable bias, variance-only normalisation. ~10-15% faster than
     LayerNorm, and matches the EUPE / DINOv3 convention used by our
     frozen foundations.
     """
@@ -58,15 +55,10 @@ class LayerNorm2d(nn.Module):
             self.weight = nn.Parameter(torch.ones(num_channels))
         else:
             self.register_parameter('weight', None)
-        # RMSNorm has no bias; keep the attribute for any code that touches
-        # it defensively, but it is always None.
         self.register_parameter('bias', None)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # (B, C, H, W) → (B, H, W, C) → RMSNorm → back
         x = x.permute(0, 2, 3, 1)
-        # Cast weight to input dtype so F.rms_norm's fused kernel dispatches
-        # (autocast keeps params fp32; mismatch blocks the fast path).
         w = self.weight.to(x.dtype) if self.weight is not None else None
         x = F.rms_norm(x, (self.num_channels,), w, self.eps)
         return x.permute(0, 3, 1, 2).contiguous()
@@ -82,12 +74,12 @@ class RMSNorm(nn.Module):
     """
     def __init__(self, dim: int, eps: float = 1e-6):
         super().__init__()
-        self.normalized_shape = (dim,)
+        self.normalised_shape = (dim,)
         self.weight = nn.Parameter(torch.ones(dim))
         self.eps = eps
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return F.rms_norm(x, self.normalized_shape,
+        return F.rms_norm(x, self.normalised_shape,
                            self.weight.to(x.dtype), self.eps)
 
 
@@ -95,7 +87,7 @@ def icnr_init_(conv: nn.Conv2d, upscale_factor: int):
     """ICNR init (Aitken 2017) for a Conv2d that feeds a PixelShuffle.
 
     Writes a "tile" where each r² group of output channels shares the
-    same sub-kernel — the initial PixelShuffle becomes a nearest-neighbor
+    same sub-kernel — the initial PixelShuffle becomes a nearest-neighbour
     upsample, so zero high-freq at t=0.
     """
     r2 = upscale_factor * upscale_factor
@@ -118,7 +110,7 @@ def icnr_init_linear_(linear: nn.Linear, upscale_factor: int,
     `linear.weight` has shape `(out_dim, in_dim)` with
     `out_dim = out_channels_per_slot * upscale_factor²`. Groups of r² along
     out_dim share the same slot-weight so PixelShuffle at init is nearest-
-    neighbor.
+    neighbour.
     """
     r2 = upscale_factor * upscale_factor
     out_dim, in_dim = linear.weight.data.shape
@@ -130,6 +122,7 @@ def icnr_init_linear_(linear: nn.Linear, upscale_factor: int,
     nn.init.kaiming_uniform_(sub, a=5 ** 0.5)
     linear.weight.data.copy_(sub.repeat_interleave(r2, dim=0))
     if linear.bias is not None:
+
         linear.bias.data.zero_()
 
 
@@ -149,7 +142,7 @@ def init_orthogonal_rgb_passthrough_(
     output_rgb_offset: int = 1,
     downsample: int = 1,
 ) -> bool:
-    """Initialize patchify/depatchify as an exact RGB passthrough.
+    """Initialise patchify/depatchify as an exact RGB passthrough.
 
     A full random orthogonal basis maps each native RGB patch to tokens when
     the token width is 768. For lower-width stage-1 aux heads, the encoded
@@ -196,6 +189,7 @@ def init_orthogonal_rgb_passthrough_(
                     for dy in range(downsample):
                         for dx in range(downsample):
                             p_idx = c * patch * patch + (y0 + dy) * patch + (x0 + dx)
+
                             target_rows[row, p_idx] = 1.0 / downsample
         rot = _random_orthogonal_matrix(target_dim, device)
         fixed_rows = rot @ target_rows
@@ -227,6 +221,7 @@ def init_orthogonal_rgb_passthrough_(
                 y0 = oy * downsample
                 x0 = ox * downsample
                 for dy in range(downsample):
+
                     for dx in range(downsample):
                         p_idx = c * patch * patch + (y0 + dy) * patch + (x0 + dx)
                         cols.append(p_idx)
@@ -238,9 +233,6 @@ def init_orthogonal_rgb_passthrough_(
     return True
 
 
-# ---------------------------------------------------------------------------
-# MLP: SwiGLU 2× expansion
-# ---------------------------------------------------------------------------
 
 
 class SwiGLU(nn.Module):
@@ -256,7 +248,7 @@ class SwiGLU(nn.Module):
     `zero_init_down=True` (default) zeros `w_down.weight` and `w_down.bias`
     so the residual branch contributes exactly 0 at init, letting us drop
     LayerScale gating. Set `zero_init_down=False` to keep Kaiming init
-    (legacy behavior that relied on LayerScale for near-identity).
+    (legacy behaviour that relied on LayerScale for near-identity).
     """
 
     def __init__(
@@ -274,6 +266,7 @@ class SwiGLU(nn.Module):
         self.dw_pad = int(dw_kernel) // 2 if dw_kernel and dw_kernel > 0 else 0
         self.w_gate = nn.Linear(dim, hidden, bias=bias)
         self.w_up   = nn.Linear(dim, hidden, bias=bias)
+
         self.dw = (
             nn.Conv2d(hidden, hidden, kernel_size=int(dw_kernel),
                       padding=0, groups=hidden, bias=True)
@@ -300,6 +293,7 @@ class SwiGLU(nn.Module):
             return h
         y = y.permute(0, 3, 1, 2)
         if self.dw_pad:
+
             mode = 'reflect' if H > self.dw_pad and W > self.dw_pad else 'replicate'
             y = F.pad(
                 y,
@@ -308,6 +302,13 @@ class SwiGLU(nn.Module):
             )
         y = self.dw(y).permute(0, 2, 3, 1)
         return y.reshape(shape_out)
+
+    def _gated(self, x: torch.Tensor) -> torch.Tensor:
+        if getattr(self, 'inference_inplace_mlp', False) and not self.training:
+            # Same values as below with two hidden-size temporaries fewer:
+            # silu and the product overwrite the fresh w_gate output.
+            return F.silu(self.w_gate(x), inplace=True).mul_(self.w_up(x))
+        return F.silu(self.w_gate(x)) * self.w_up(x)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         chunk_tokens = int(getattr(self, 'inference_chunk_tokens', 0) or 0)
@@ -319,18 +320,19 @@ class SwiGLU(nn.Module):
             out = y.new_empty(y.shape)
             for start in range(0, y.shape[0], chunk_tokens):
                 yi = y[start:start + chunk_tokens]
-                h = F.silu(self.w_gate(yi)) * self.w_up(yi)
+                h = self._gated(yi)
                 out[start:start + yi.shape[0]] = self.w_down(h)
             return out.reshape(shape)
-        h = F.silu(self.w_gate(x)) * self.w_up(x)
+        h = self._gated(x)
         h = self._dw_spatial(h)
+
         return self.w_down(h)
 
 
 class DepthwiseSwiGLU2D(nn.Module):
     """Depthwise spatial SwiGLU branch for NHWC feature maps.
 
-    The branch is gated by a per-channel gamma initialized to exact zero, so it
+    The branch is gated by a per-channel gamma initialised to exact zero, so it
     is an exact residual identity at init.
     The value and gate kernels are both depthwise 7x7 filters. After gamma
     learns away from zero, they provide local translation-equivariant mixing
@@ -352,6 +354,7 @@ class DepthwiseSwiGLU2D(nn.Module):
         self.pad = kernel_size // 2
         self.value = nn.Conv2d(dim, dim, kernel_size=kernel_size,
                                padding=0, groups=dim, bias=True)
+
         self.gate = nn.Conv2d(dim, dim, kernel_size=kernel_size,
                               padding=0, groups=dim, bias=True)
         if init_std is None:
@@ -368,7 +371,7 @@ class DepthwiseSwiGLU2D(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """x: (B, H, W, C). Returns a residual branch in the same layout."""
-        u = self.norm(x)
+        u = _bf16_branch_input(self, self.norm(x))
         # NHWC-contiguous -> NCHW shape with channels-last strides. Avoid an
         # explicit contiguous copy; cuDNN handles this layout efficiently.
         u = u.permute(0, 3, 1, 2)
@@ -376,9 +379,6 @@ class DepthwiseSwiGLU2D(nn.Module):
             mode = 'reflect' if x.shape[1] > self.pad and x.shape[2] > self.pad else 'replicate'
             u = F.pad(u, (self.pad, self.pad, self.pad, self.pad),
                       mode=mode)
-        # One grouped conv with two filters per input channel. Keep value/gate
-        # as separate parameters for optimizer state and checkpoint clarity,
-        # but avoid launching two depthwise convs over the same activation.
         weight = torch.stack((self.value.weight, self.gate.weight), dim=1)
         weight = weight.reshape(2 * self.dim, 1, self.kernel_size, self.kernel_size)
         if self.value.bias is not None and self.gate.bias is not None:
@@ -386,6 +386,7 @@ class DepthwiseSwiGLU2D(nn.Module):
         else:
             bias = None
         out_elems_per_item = 2 * self.dim * x.shape[1] * x.shape[2]
+
         max_items = max(1, 1_000_000_000 // max(1, out_elems_per_item))
         if u.shape[0] > max_items:
             y = torch.cat([
@@ -398,6 +399,55 @@ class DepthwiseSwiGLU2D(nn.Module):
         y = y[:, :, 0] * F.silu(y[:, :, 1])
         y = y * self.gamma.to(y.dtype).view(1, -1, 1, 1)
         return y.permute(0, 2, 3, 1)
+
+
+def _bf16_branch_input(module: nn.Module, x: torch.Tensor) -> torch.Tensor:
+    """Opt-in (`inference_bf16_branch_input`): the normalized input of an
+    attention, MLP or local-mix branch, cast to the autocast dtype.
+
+    Inside those branches the input only reaches Linear/Conv layers, which
+    autocast casts to bf16 anyway, and copies (pad, roll, permute) of it.
+    Casting once up front gives the Linear/Conv layers the same values and
+    halves the copies. The CSwin gate product rounds to the same bf16 value
+    either way (a bf16 x bf16 product is exact in fp32).
+    """
+    if (getattr(module, 'inference_bf16_branch_input', False) and not module.training
+            and torch.is_autocast_enabled("cuda")):
+        return x.to(torch.get_autocast_dtype("cuda"))
+    return x
+
+
+def _residual_add(module: nn.Module, shortcut: torch.Tensor,
+                  branch: torch.Tensor) -> torch.Tensor:
+    """shortcut + branch. With `inference_inplace_residual`, set only on
+    blocks whose caller hands over its only reference to the block input
+    (Stage1._swin3d_run_lean), the sum goes into shortcut's buffer: the same
+    elementwise add, without a second residual-sized tensor."""
+    if (getattr(module, 'inference_inplace_residual', False) and not module.training
+            and torch.result_type(shortcut, branch) == shortcut.dtype
+            and branch.shape == shortcut.shape):
+        return shortcut.add_(branch)
+    return shortcut + branch
+
+
+def _chunked_local_mix(local_mix: nn.Module, x: torch.Tensor,
+                       frame_chunk: int, inplace: bool = False) -> torch.Tensor:
+    """x + local_mix(x) for x (B, T, H, W, C), `frame_chunk` frames at a time.
+
+    The local mix works per frame (RMSNorm per token, reflect pad and
+    depthwise conv per frame), so this is the same math as one call over all
+    frames, with only one chunk's normalized, padded and conv intermediates
+    alive at a time. With `inplace` the sums go back into x (each chunk's
+    mix is computed before its frames are overwritten).
+    """
+    B, T, H, W, C = x.shape
+    out = x if inplace else torch.empty_like(x)
+    for t0 in range(0, T, frame_chunk):
+        xt = x[:, t0:t0 + frame_chunk]
+        y = local_mix(xt.reshape(-1, H, W, C))
+        torch.add(xt, y.reshape(xt.shape), out=out[:, t0:t0 + frame_chunk])
+        del y
+    return out
 
 
 class AdaLNZero(nn.Module):
@@ -430,6 +480,7 @@ class AdaLNZero(nn.Module):
             view_shape = (x.shape[0], 1, 1, self.dim)
         else:
             raise ValueError(f"AdaLNZero x must be NHWC or NTHWC, got {tuple(x.shape)}")
+
         return tuple(p.reshape(view_shape) for p in params.chunk(self.pairs * 3, dim=-1))
 
 
@@ -444,7 +495,7 @@ class FusionLinSwiglu(nn.Module):
     Two parallel paths, summed:
 
       • Straight linear shortcut:
-          Linear(vfm_dim + aux_dim → out_dim), initialized as
+          Linear(vfm_dim + aux_dim → out_dim), initialised as
           `[P | 0]`, where P is identity when dimensions match and otherwise
           a variance-preserving semi-orthogonal projection over every VFM
           channel. At t=0, the /64 stream is a stable VFM-derived latent and
@@ -459,14 +510,14 @@ class FusionLinSwiglu(nn.Module):
           genuine nonlinear mixing between the vfm and aux channels
           prior to collapse.
 
-    Combined behavior: at t=0, `output == P(vfm)`. During training the
+    Combined behaviour: at t=0, `output == P(vfm)`. During training the
     shortcut learns source weighting and the SwiGLU learns nonlinear
     interactions between VFM and aux features.
     """
 
-    def __init__(self, vfm_dim: int, aux_dim: int, out_dim: int = None,
+    def __init__(self, vfm_dim: int, aux_dim: int, out_dim: int | None = None,
                  mult: float = 2.5, bias: bool = True,
-                 hidden: int = None):
+                 hidden: int | None = None):
         """If `hidden` is None, it defaults to `round((vfm_dim + aux_dim) · mult)`.
         Pass an explicit `hidden` to hold the SwiGLU hidden size constant
         when retrofitting new input channels (e.g. adding RVM features)
@@ -479,12 +530,12 @@ class FusionLinSwiglu(nn.Module):
         self.vfm_dim = vfm_dim
         self.aux_dim = aux_dim
         self.in_dim = in_dim
+
         self.out_dim = out_dim
         if hidden is None:
             hidden = int(round(in_dim * mult))
         self.hidden = hidden
 
-        # Straight linear shortcut — semi-orthogonal VFM projection + zero aux.
         self.linear_shortcut = nn.Linear(in_dim, out_dim, bias=bias)
         with torch.no_grad():
             self.linear_shortcut.weight.zero_()
@@ -493,8 +544,6 @@ class FusionLinSwiglu(nn.Module):
                     idx = torch.arange(out_dim)
                     self.linear_shortcut.weight[idx, idx] = 1.0
                 elif out_dim < vfm_dim:
-                    # Compress: rows are orthonormal, so whitened VFM features
-                    # retain unit variance per output channel.
                     q, r = torch.linalg.qr(
                         torch.randn(vfm_dim, out_dim,
                                     device=self.linear_shortcut.weight.device,
@@ -502,13 +551,12 @@ class FusionLinSwiglu(nn.Module):
                         mode='reduced',
                     )
                     signs = torch.sign(torch.diagonal(r))
+
                     signs = torch.where(signs == 0, torch.ones_like(signs), signs)
                     proj = (q * signs.view(1, -1)).T
                     self.linear_shortcut.weight[:, :vfm_dim].copy_(
                         proj.to(dtype=self.linear_shortcut.weight.dtype))
                 else:
-                    # Expand: columns are orthonormal, so the VFM vector norm is
-                    # preserved while occupying the full output channel space.
                     q, r = torch.linalg.qr(
                         torch.randn(out_dim, vfm_dim,
                                     device=self.linear_shortcut.weight.device,
@@ -518,12 +566,12 @@ class FusionLinSwiglu(nn.Module):
                     signs = torch.sign(torch.diagonal(r))
                     signs = torch.where(signs == 0, torch.ones_like(signs), signs)
                     proj = q * signs.view(1, -1)
+
                     self.linear_shortcut.weight[:, :vfm_dim].copy_(
                         proj.to(dtype=self.linear_shortcut.weight.dtype))
             if self.linear_shortcut.bias is not None:
                 self.linear_shortcut.bias.zero_()
 
-        # SwiGLU path — own pre-norm; zero-init on down so contributes 0 at t=0.
         self.norm = RMSNorm(in_dim)
         self.w_gate = nn.Linear(in_dim, hidden, bias=bias)
         self.w_up   = nn.Linear(in_dim, hidden, bias=bias)
@@ -547,6 +595,7 @@ class FusionLinSwiglu(nn.Module):
                 h = self.norm(yi)
                 nonlinear = self.w_down(F.silu(self.w_gate(h)) * self.w_up(h))
                 out[start:start + yi.shape[0]] = shortcut + nonlinear
+
             return out.reshape(shape)
         shortcut = self.linear_shortcut(x)
         h = self.norm(x)
@@ -554,9 +603,6 @@ class FusionLinSwiglu(nn.Module):
         return shortcut + nonlinear
 
 
-# ---------------------------------------------------------------------------
-# Window partitioning (2D + 3D)
-# ---------------------------------------------------------------------------
 
 
 def window_partition_2d(x: torch.Tensor, window_size: int) -> Tuple[torch.Tensor, Tuple[int, int]]:
@@ -596,7 +642,6 @@ def window_partition_3d(x: torch.Tensor, T_w: int, H_w: int, W_w: int,
         f"window_partition_3d: shape ({T},{H},{W}) vs window "
         f"({T_w},{H_w},{W_w}) — must divide evenly.")
     x = x.view(B, T // T_w, T_w, H // H_w, H_w, W // W_w, W_w, C)
-    # Reorder to (B, n_t, n_h, n_w, T_w, H_w, W_w, C)
     windows = x.permute(0, 1, 3, 5, 2, 4, 6, 7).contiguous()
     return windows.view(-1, T_w, H_w, W_w, C), (T, H, W)
 
@@ -626,7 +671,7 @@ def _shifted_region_ids_2d(
     exactly like the activations and partitioned into windows. Tokens with
     different non-negative ids must not attend to each other; id -1 denotes
     padding. This represents the standard Swin wraparound mask without
-    materializing a full N×N mask, which is critical for full-temporal 3D
+    materialising a full N×N mask, which is critical for full-temporal 3D
     windows.
     """
 
@@ -645,6 +690,7 @@ def _shifted_region_ids_2d(
         (slice(0, -w), slice(-w, -sw), slice(-sw, None))
         if sw > 0 else (slice(0, None),)
     )
+
     idx = 0
     for hs in h_slices:
         for ws in w_slices:
@@ -672,7 +718,7 @@ def _shifted_attention_mask_2d(
     """Standard Swin shifted-window bool mask for 2D SDPA.
 
     This is the high-throughput path used when the attention window is small
-    enough to materialize the per-window N x N mask. It also handles padded
+    enough to materialise the per-window N x N mask. It also handles padded
     tokens by masking padded keys from real queries; padded queries are cropped
     after reverse shift, so they are allowed to attend to real keys only to
     keep SDPA rows finite.
@@ -701,10 +747,9 @@ def _shifted_region_ids_3d(
     shift_w: int,
     device: torch.device,
 ) -> torch.Tensor | None:
-    # window_H == window_W for current Swin3D callers; keep the assertion
-    # explicit so a future rectangular-window change updates this helper.
     if int(window_H) != int(window_W):
         raise ValueError("shifted 3D region ids currently require square spatial windows")
+
     spatial = _shifted_region_ids_2d(
         H, W, Hp, Wp, window_H, shift_h, shift_w, device)
     if spatial is None:
@@ -740,6 +785,7 @@ def _sdpa_with_region_ids(
     full = valid.all(dim=1) & (region_ids == first).all(dim=1)
     full_idx = torch.nonzero(full, as_tuple=False).flatten()
     if full_idx.numel() > 0:
+
         out.index_copy_(
             0,
             full_idx,
@@ -756,9 +802,6 @@ def _sdpa_with_region_ids(
     if partial.numel() == 0:
         return out
 
-    # Shift masks have only a small number of repeated token-region layouts
-    # across edge windows. Batch identical token slices together instead of
-    # launching one SDPA call per window/region.
     groups: dict[tuple[int, ...], list[int]] = {}
     partial_cpu = region_ids.index_select(0, partial).detach().cpu()
     partial_list = partial.detach().cpu().tolist()
@@ -802,6 +845,7 @@ def _shifted_region_groups_2d_cached(
     if region is None:
         return 0, (), ()
     num_windows = int(region.shape[0])
+
     valid = region >= 0
     first = region[:, :1]
     full = valid.all(dim=1) & (region == first).all(dim=1)
@@ -838,6 +882,7 @@ def _shifted_region_groups_3d_cached(
 ) -> tuple[int, tuple[int, ...], tuple[tuple[tuple[int, ...], tuple[int, ...]], ...]]:
     if int(window_H) != int(window_W):
         raise ValueError("shifted 3D region groups currently require square spatial windows")
+
     spatial = _shifted_region_ids_2d(
         H, W, Hp, Wp, window_H, shift_h, shift_w, torch.device('cpu'))
     if spatial is None:
@@ -859,16 +904,32 @@ def _shifted_region_groups_3d_cached(
             sp = torch.nonzero(row == label, as_tuple=False).flatten().tolist()
             if not sp:
                 continue
+
             token_tuple = tuple(
                 t * spatial_tokens + int(idx)
                 for t in range(int(T))
                 for idx in sp
             )
+
             groups.setdefault(token_tuple, []).append(int(win_idx))
     return num_windows, full_idx, tuple(
         (token_tuple, tuple(win_list))
         for token_tuple, win_list in groups.items()
     )
+
+
+_REGION_INDEX_CACHE: dict | None = None
+# Whether a row band's QKV projection gives the whole frame's bits, per shape.
+_BAND_GEMM_EXACT: dict = {}
+
+
+def set_region_index_cache(enabled: bool) -> None:
+    """Opt-in: keep the index tensors of shifted-window region groups on the
+    GPU across calls. Without it every call uploads them from Python tuples,
+    and each upload waits for the GPU to finish its queued work, so the GPU
+    idles while the CPU catches up. Same indices, same results."""
+    global _REGION_INDEX_CACHE
+    _REGION_INDEX_CACHE = {} if enabled else None
 
 
 def _sdpa_with_region_groups(
@@ -886,15 +947,30 @@ def _sdpa_with_region_groups(
         raise ValueError(
             f"cached window count {num_windows} does not divide attention "
             f"window batch {q.shape[0]}")
+
     batch_windows = q.shape[0] // num_windows
+    cache = _REGION_INDEX_CACHE
+
+    def _index(values: tuple[int, ...]) -> torch.Tensor:
+        if cache is None:
+            return torch.tensor(values, device=q.device, dtype=torch.long)
+        key = ("idx", values, q.device)
+        if key not in cache:
+            cache[key] = torch.tensor(values, device=q.device, dtype=torch.long)
+        return cache[key]
 
     def _batched_windows(base: tuple[int, ...]) -> torch.Tensor:
-        idx = torch.tensor(base, device=q.device, dtype=torch.long)
-        if batch_windows == 1 or idx.numel() == 0:
-            return idx
-        offsets = torch.arange(
-            batch_windows, device=q.device, dtype=torch.long) * num_windows
-        return (idx.unsqueeze(0) + offsets.unsqueeze(1)).reshape(-1)
+        key = ("win", base, batch_windows, num_windows, q.device)
+        if cache is not None and key in cache:
+            return cache[key]
+        idx = _index(base)
+        if batch_windows != 1 and idx.numel() != 0:
+            offsets = torch.arange(
+                batch_windows, device=q.device, dtype=torch.long) * num_windows
+            idx = (idx.unsqueeze(0) + offsets.unsqueeze(1)).reshape(-1)
+        if cache is not None:
+            cache[key] = idx
+        return idx
 
     out_dtype = q.dtype
     if torch.is_autocast_enabled(q.device.type):
@@ -902,6 +978,7 @@ def _sdpa_with_region_groups(
     out = torch.zeros_like(q, dtype=out_dtype)
     if full_idx:
         win_idx = _batched_windows(full_idx)
+
         out.index_copy_(
             0,
             win_idx,
@@ -913,13 +990,14 @@ def _sdpa_with_region_groups(
                 is_causal=False,
             ),
         )
+
     if not groups:
         return out
 
     out_nlhd = out.permute(0, 2, 1, 3)
     for token_tuple, win_tuple in groups:
         win_idx = _batched_windows(win_tuple)
-        token_idx = torch.tensor(token_tuple, device=q.device, dtype=torch.long)
+        token_idx = _index(token_tuple)
         attn = F.scaled_dot_product_attention(
             q.index_select(0, win_idx).index_select(2, token_idx),
             k.index_select(0, win_idx).index_select(2, token_idx),
@@ -931,9 +1009,6 @@ def _sdpa_with_region_groups(
     return out
 
 
-# ---------------------------------------------------------------------------
-# Attention cores
-# ---------------------------------------------------------------------------
 
 
 class _QKVProj(nn.Module):
@@ -952,7 +1027,7 @@ class _QKVProj(nn.Module):
         *B_dims, N, _ = x.shape
         qkv = self.qkv(x).reshape(*B_dims, N, 3, self.num_heads, self.head_dim)
         qkv = qkv.permute(*range(len(B_dims)), -3, -2, -4, -1).contiguous()
-        q, k, v = qkv.unbind(dim=-4)   # each (..., num_heads, N, head_dim)
+        q, k, v = qkv.unbind(dim=-4)
         return q, k, v
 
 
@@ -986,7 +1061,7 @@ class HeadwiseAttentionGate(nn.Module):
 class QKVDepthwiseSpatial(nn.Module):
     """Depthwise spatial filter on fused QKV maps in NHWC/NTHWC layout.
 
-    The kernel is initialized to exact identity, so enabling this module is
+    The kernel is initialised to exact identity, so enabling this module is
     nondisruptive for existing weights while still giving every off-center
     tap an immediate gradient path.
     """
@@ -1022,6 +1097,7 @@ class QKVDepthwiseSpatial(nn.Module):
         if C3 != 3 * self.dim:
             raise ValueError(f"QKV channel count {C3} != 3*dim {3 * self.dim}")
         y = y.permute(0, 3, 1, 2)
+
         mode = 'reflect' if H > self.pad and W > self.pad else 'replicate'
 
         elems_per_item = C3 * (H + 2 * self.pad) * (W + 2 * self.pad)
@@ -1064,17 +1140,13 @@ class SwinAttention2D(nn.Module):
             QKVDepthwiseSpatial(dim, kernel_size=int(qkv_dw_kernel))
             if qkv_dw_kernel and qkv_dw_kernel > 0 else None
         )
+
         self.attn_gate = HeadwiseAttentionGate(dim, num_heads)
-        # QK-norm: RMSNorm applied to Q and K AFTER the qkv linear, BEFORE
-        # the dot product. Stabilizes attention at scale and in bf16 (where
-        # a large QK dot-product can overflow). Default on.
         self.qk_norm = qk_norm
         if qk_norm:
             self.q_norm = RMSNorm(self.head_dim)
             self.k_norm = RMSNorm(self.head_dim)
         self.proj = nn.Linear(dim, dim)
-        # Zero-init output proj so residual branch contributes 0 at init.
-        # Paired with removal of LayerScale in SwinBlock2D.
         nn.init.zeros_(self.proj.weight)
         if self.proj.bias is not None:
             nn.init.zeros_(self.proj.bias)
@@ -1100,7 +1172,6 @@ class SwinAttention2D(nn.Module):
         has_pad = pad_h != 0 or pad_w != 0
         x_orig = x
         if has_pad and self.qkv_dw is None:
-            # F.pad arg order for (B, H, W, C): (C_l, C_r, W_l, W_r, H_l, H_r)
             x = F.pad(x, (0, 0, 0, pad_w, 0, pad_h))
         Hp, Wp = H + pad_h, W + pad_w
 
@@ -1119,6 +1190,7 @@ class SwinAttention2D(nn.Module):
             gate_src = x_orig
             if has_pad:
                 gate_src = F.pad(gate_src, (0, 0, 0, pad_w, 0, pad_h))
+
             gate_windows, _ = window_partition_2d(gate_src, w)
             gate_tokens = gate_windows.reshape(nW_total, N, C)
         else:
@@ -1128,7 +1200,6 @@ class SwinAttention2D(nn.Module):
             tokens = windows.reshape(nW_total, N, C)
             q, k, v = self.qkv(tokens)
             gate_tokens = tokens
-        # q, k, v: (nW_total, num_heads, N, head_dim)
         if self.qk_norm:
             q = self.q_norm(q)
             k = self.k_norm(k)
@@ -1151,18 +1222,16 @@ class SwinAttention2D(nn.Module):
                 q_view, k_view, v_view,
                 attn_mask=attn_mask.unsqueeze(0).unsqueeze(2),
                 dropout_p=0.0, is_causal=False)
+
             attn = attn.reshape(nW_total, self.num_heads, N, self.head_dim)
         elif region_ids is not None:
             attn = _sdpa_with_region_ids(q, k, v, region_ids)
         elif has_pad:
-            # Bool key-mask (True = real token). Broadcast over query dim L
-            # and heads via (B·nWin, 1, 1, N). Every window has ≥1 real token
-            # (pad_{h,w} < w), so softmax is always well-defined.
             real = torch.zeros(Hp, Wp, dtype=torch.bool, device=x.device)
             real[:H, :W] = True
             nH_w, nW_w = Hp // w, Wp // w
             real = real.view(nH_w, w, nW_w, w).permute(0, 2, 1, 3).contiguous()
-            per_win_mask = real.view(nH_w * nW_w, N)               # (nWin, N)
+            per_win_mask = real.view(nH_w * nW_w, N)
             attn_mask = per_win_mask.unsqueeze(0).expand(B, -1, -1).reshape(nW_total, 1, 1, N)
             attn = F.scaled_dot_product_attention(q, k, v,
                                                   attn_mask=attn_mask,
@@ -1224,13 +1293,12 @@ class HaloAttention2D(nn.Module):
         self.qk_norm = qk_norm
         if qk_norm:
             self.q_norm = RMSNorm(self.head_dim)
+
             self.k_norm = RMSNorm(self.head_dim)
         self.proj = nn.Linear(dim, dim)
         nn.init.zeros_(self.proj.weight)
         if self.proj.bias is not None:
             nn.init.zeros_(self.proj.bias)
-        # RoPE lives in the (b+2h)×(b+2h) halo'd coord system. Q uses the
-        # central b×b subset of this coord system; K/V use the full set.
         self.rope = rope or RoPE2D(self.head_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -1240,62 +1308,45 @@ class HaloAttention2D(nn.Module):
         h = self.halo
         kh = b + 2 * h
 
-        # 1. Pad to block alignment on bottom/right.
         pad_h = (-H) % b
         pad_w = (-W) % b
         has_block_pad = pad_h != 0 or pad_w != 0
-        if has_block_pad:
-            x_aligned = F.pad(x, (0, 0, 0, pad_w, 0, pad_h))
-        else:
-            x_aligned = x
+        x_aligned = F.pad(x, (0, 0, 0, pad_w, 0, pad_h)) if has_block_pad else x
         Hp, Wp = H + pad_h, W + pad_w
         nH, nW = Hp // b, Wp // b
         nBlocks = nH * nW
 
-        # 2. QKV projection on the block-aligned (no-halo) input.
-        #    Output split into separate q_full, k_full, v_full because the
-        #    block extraction differs between Q and K/V.
         heads = self.num_heads
         D = self.head_dim
-        qkv = self.qkv.qkv(x_aligned)                     # (B, Hp, Wp, 3·heads·D)
+        qkv = self.qkv.qkv(x_aligned)
         qkv = qkv.view(B, Hp, Wp, 3, heads, D)
-        q_full = qkv[..., 0, :, :]                        # (B, Hp, Wp, heads, D)
+        q_full = qkv[..., 0, :, :]
         k_full = qkv[..., 1, :, :]
         v_full = qkv[..., 2, :, :]
 
-        # 3. Q: block partition (no halo). Output (B·nBlocks, heads, b², D).
         Q = q_full.view(B, nH, b, nW, b, heads, D)
-        Q = Q.permute(0, 1, 3, 5, 2, 4, 6).contiguous()   # (B, nH, nW, heads, b, b, D)
+        Q = Q.permute(0, 1, 3, 5, 2, 4, 6).contiguous()
         Q = Q.view(B * nBlocks, heads, b * b, D)
         q_tokens = (x_aligned.view(B, nH, b, nW, b, C)
                              .permute(0, 1, 3, 2, 4, 5)
                              .reshape(B * nBlocks, b * b, C))
 
-        # 4. K, V: halo-pad by `h` on spatial dims, then unfold (b+2h)×(b+2h)
-        #    windows with stride b. Zero-pad at boundaries.
         if h > 0:
             k_pad = F.pad(k_full, (0, 0, 0, 0, h, h, h, h))
             v_pad = F.pad(v_full, (0, 0, 0, 0, h, h, h, h))
         else:
             k_pad = k_full
             v_pad = v_full
-        # k_pad: (B, Hp+2h, Wp+2h, heads, D)
-        # unfold(1, kh, b) → (B, nH, Wp+2h, heads, D, kh)
-        # unfold(2, kh, b) → (B, nH, nW, heads, D, kh, kh)
-        # permute to (B, nH, nW, heads, kh, kh, D)
         K = k_pad.unfold(1, kh, b).unfold(2, kh, b).permute(0, 1, 2, 3, 5, 6, 4).contiguous()
         V = v_pad.unfold(1, kh, b).unfold(2, kh, b).permute(0, 1, 2, 3, 5, 6, 4).contiguous()
         N_kv = kh * kh
         K = K.view(B * nBlocks, heads, N_kv, D)
         V = V.view(B * nBlocks, heads, N_kv, D)
 
-        # 5. QK-norm + RoPE. K/V use full (kh × kh) coord tables; Q uses the
-        #    central b×b subset of those tables.
         if self.qk_norm:
             Q = self.q_norm(Q)
             K = self.k_norm(K)
         cos_kv, sin_kv = self.rope.get_cos_sin(kh, kh, device=x.device)
-        # Extract central b×b rows of the flattened (kh·kh, D//2) table.
         device = cos_kv.device
         rows = torch.arange(h, h + b, device=device)
         cols = torch.arange(h, h + b, device=device)
@@ -1305,14 +1356,11 @@ class HaloAttention2D(nn.Module):
         Q = apply_rotary(Q, cos_q, sin_q)
         K = apply_rotary(K, cos_kv, sin_kv)
 
-        # 6. Attention mask for padding + out-of-image halo.
-        #    Build an (Hp+2h, Wp+2h) "valid" map (True = inside original
-        #    H×W image), unfold into per-block (kh, kh) key masks.
         needs_mask = has_block_pad or h > 0
         if needs_mask:
             valid = torch.zeros(Hp + 2 * h, Wp + 2 * h, dtype=torch.bool, device=x.device)
             valid[h:h + H, h:h + W] = True
-            valid_u = valid.unfold(0, kh, b).unfold(1, kh, b)  # (nH, nW, kh, kh)
+            valid_u = valid.unfold(0, kh, b).unfold(1, kh, b)
             valid_u = valid_u.reshape(nBlocks, N_kv)
             attn_mask = valid_u.unsqueeze(0).expand(B, -1, -1).reshape(B * nBlocks, 1, 1, N_kv)
             attn = F.scaled_dot_product_attention(Q, K, V, attn_mask=attn_mask,
@@ -1320,9 +1368,8 @@ class HaloAttention2D(nn.Module):
         else:
             attn = F.scaled_dot_product_attention(Q, K, V, dropout_p=0.0, is_causal=False)
 
-        # 7. Unpack: (B·nBlocks, heads, b², D) → (B, Hp, Wp, C) → crop to (B, H, W, C)
         attn = self.attn_gate(q_tokens, attn)
-        attn = attn.transpose(1, 2).reshape(B * nBlocks, b * b, heads * D)  # (BnBlocks, b², C)
+        attn = attn.transpose(1, 2).reshape(B * nBlocks, b * b, heads * D)
         attn = self.proj(attn)
         out = attn.view(B, nH, nW, b, b, heads * D)
         out = out.permute(0, 1, 3, 2, 4, 5).contiguous()
@@ -1361,6 +1408,7 @@ class SwinAttention3D(nn.Module):
         self.window_H = window_H
         self.window_W = window_W
         self.qkv = _QKVProj(dim, num_heads, qkv_bias=qkv_bias)
+
         self.qkv_dw = (
             QKVDepthwiseSpatial(dim, kernel_size=int(qkv_dw_kernel))
             if qkv_dw_kernel and qkv_dw_kernel > 0 else None
@@ -1372,7 +1420,6 @@ class SwinAttention3D(nn.Module):
             self.k_norm = RMSNorm(self.head_dim)
         self.proj = nn.Linear(dim, dim)
         if zero_init_proj:
-            # Zero-init output proj so residual branch contributes 0 at init.
             nn.init.zeros_(self.proj.weight)
             if self.proj.bias is not None:
                 nn.init.zeros_(self.proj.bias)
@@ -1391,6 +1438,11 @@ class SwinAttention3D(nn.Module):
         bottom/right and masks padded keys out of attention. T is always
         used in full (T_w = T, no temporal padding).
         """
+        if (getattr(self, 'inference_lean', False) and not self.training
+                and region_ids is None):
+            out = self._forward_lean(x, t_stride, region_groups)
+            if out is not None:
+                return out
         B, T, H, W, C = x.shape
         T_w = T
         H_w = self.window_H
@@ -1400,7 +1452,6 @@ class SwinAttention3D(nn.Module):
         has_pad = pad_h != 0 or pad_w != 0
         x_orig = x
         if has_pad and self.qkv_dw is None:
-            # F.pad order for (B, T, H, W, C): (C_l, C_r, W_l, W_r, H_l, H_r)
             x = F.pad(x, (0, 0, 0, pad_w, 0, pad_h))
         Hp, Wp = H + pad_h, W + pad_w
 
@@ -1429,12 +1480,12 @@ class SwinAttention3D(nn.Module):
                 wins = tuple(idx - start for idx in win_tuple
                              if start <= idx < end)
                 if wins:
+
                     sliced.append((token_tuple, wins))
             return (end - start, full, tuple(sliced))
 
         pad_attn_mask = None
         if has_pad and region_groups is None and region_ids is None:
-            # Spatial validity (per window) tiled across T (T never padded).
             real = torch.zeros(Hp, Wp, dtype=torch.bool, device=x.device)
             real[:H, :W] = True
             real = real.view(nH_w, H_w, nW_w, W_w).permute(0, 2, 1, 3).contiguous()
@@ -1444,15 +1495,10 @@ class SwinAttention3D(nn.Module):
             pad_attn_mask = per_win_mask.unsqueeze(0).expand(
                 B, -1, -1).reshape(nW_total, 1, 1, N)
 
-        # Local positions per window: t=0..T-1 (full), h=0..H_w-1, w=0..W_w-1.
-        # Temporal inter-window info isn't needed since T_w=T (no temporal
-        # partitioning). Spatial inter-window info is handled by the
-        # SwinBlock3D wrapper's cyclic shift.
         cos, sin = self.rope.get_cos_sin(T_w, H_w, W_w, device=x.device,
                                          t_stride=t_stride)
 
         def _take_windows(grid: torch.Tensor, start: int, end: int) -> torch.Tensor:
-            # grid: (B, T, Hp, Wp, Cg). Return only requested spatial windows.
             Cg = grid.shape[-1]
             view = grid.view(B, T_w, nH_w, H_w, nW_w, W_w, Cg)
             out = []
@@ -1478,6 +1524,7 @@ class SwinAttention3D(nn.Module):
             elif region_ids is not None:
                 attn = _sdpa_with_region_ids(q, k, v, region_ids[start:end])
             elif pad_attn_mask is not None:
+
                 attn = F.scaled_dot_product_attention(
                     q, k, v, attn_mask=pad_attn_mask[start:end],
                     dropout_p=0.0, is_causal=False)
@@ -1503,6 +1550,7 @@ class SwinAttention3D(nn.Module):
                 frame_chunk = max(1, frame_chunk) if frame_chunk > 0 else T_w
                 for t_start in range(0, T_w, frame_chunk):
                     t_end = min(t_start + frame_chunk, T_w)
+
                     y = self.qkv.qkv(x_orig[:, t_start:t_end])
                     y = self.qkv_dw(y)
                     if has_pad:
@@ -1519,6 +1567,7 @@ class SwinAttention3D(nn.Module):
                 gate_tokens = _take_windows(
                     gate_src, start, end).reshape(end - start, N, C)
                 if self.qkv_dw is not None:
+                    assert qkv_grid is not None
                     qkv_win = _take_windows(qkv_grid, start, end)
                     qkv = (qkv_win.reshape(
                                 end - start, N, 3, self.num_heads,
@@ -1527,6 +1576,7 @@ class SwinAttention3D(nn.Module):
                            .contiguous())
                     q, k, v = qkv.unbind(dim=0)
                 else:
+
                     q, k, v = self.qkv(gate_tokens)
                 attn[start:end] = _attend_windows(
                     q, k, v, gate_tokens, start, end)
@@ -1552,6 +1602,7 @@ class SwinAttention3D(nn.Module):
             gate_tokens = gate_windows.reshape(nW_total, N, C)
         else:
             windows, _ = window_partition_3d(x, T_w, H_w, W_w)
+
             nW_total = windows.shape[0]
             tokens = windows.reshape(nW_total, N, C)
             gate_tokens = tokens
@@ -1571,6 +1622,7 @@ class SwinAttention3D(nn.Module):
             if region_groups is not None:
                 groups = _slice_region_groups(start, end)
                 attn = _sdpa_with_region_groups(q, k, v, *groups)
+
             elif region_ids is not None:
                 attn = _sdpa_with_region_ids(q, k, v, region_ids[start:end])
             elif pad_attn_mask is not None:
@@ -1599,6 +1651,182 @@ class SwinAttention3D(nn.Module):
         out = window_unpartition_3d(out_w, T_w, H_w, W_w, (T, Hp, Wp), B)
         if has_pad:
             out = out[:, :, :H, :W, :].contiguous()
+
+        return out
+
+    def _forward_lean(
+        self,
+        x: torch.Tensor,
+        t_stride: float,
+        region_groups,
+    ) -> torch.Tensor | None:
+        """Batched-window inference path without full-grid copies.
+
+        Same windows, same batches and the same per-window math as the lazy
+        window path in `forward`. The difference is that windows are cut
+        straight from the unpadded input, zero-filled only where a window
+        crosses the bottom/right edge, and each batch's result goes straight
+        into the unpadded output. That skips the padded copy of the input, the
+        padded output buffer, the unpartition copy and the final crop: four
+        full-grid tensors in the residual dtype. Returns None when the lazy
+        path would not be taken, so `forward` falls back to the original code.
+        """
+        B, T, H, W, C = x.shape
+        H_w, W_w = self.window_H, self.window_W
+        pad_h, pad_w = (-H) % H_w, (-W) % W_w
+        has_pad = pad_h != 0 or pad_w != 0
+        Hp, Wp = H + pad_h, W + pad_w
+        N = T * H_w * W_w
+        nH_w, nW_w = Hp // H_w, Wp // W_w
+        per_b = nH_w * nW_w
+        nW_total = B * per_b
+        window_batch = int(getattr(self, 'inference_window_batch', 0) or 0)
+        if window_batch <= 0:
+            max_windows = max(1, 200_000_000 // max(1, N * C))
+            if nW_total > max_windows:
+                window_batch = max_windows
+        if not (window_batch > 0 and nW_total > window_batch
+                and (region_groups is None or B == 1)):
+            return None
+
+        def slice_groups(start: int, end: int):
+            if region_groups is None:
+                return None
+            if B != 1:
+                return region_groups
+            num_windows, full_idx, groups = region_groups
+            if num_windows != nW_total:
+                return region_groups
+            full = tuple(idx - start for idx in full_idx if start <= idx < end)
+            sliced = []
+            for token_tuple, win_tuple in groups:
+                wins = tuple(idx - start for idx in win_tuple if start <= idx < end)
+                if wins:
+                    sliced.append((token_tuple, wins))
+            return (end - start, full, tuple(sliced))
+
+        pad_attn_mask = None
+        if has_pad and region_groups is None:
+            real = torch.zeros(Hp, Wp, dtype=torch.bool, device=x.device)
+            real[:H, :W] = True
+            real = real.view(nH_w, H_w, nW_w, W_w).permute(0, 2, 1, 3).contiguous()
+            per_win_hw = real.view(per_b, H_w * W_w)
+            per_win_mask = per_win_hw.unsqueeze(1).expand(-1, T, -1).reshape(per_b, N)
+            pad_attn_mask = per_win_mask.unsqueeze(0).expand(B, -1, -1).reshape(nW_total, 1, 1, N)
+
+        cos, sin = self.rope.get_cos_sin(T, H_w, W_w, device=x.device, t_stride=t_stride)
+
+        def locate(idx: int) -> tuple[int, int, int]:
+            b = idx // per_b
+            ih, iw = divmod(idx - b * per_b, nW_w)
+            return b, ih * H_w, iw * W_w
+
+        def take(grid: torch.Tensor, start: int, end: int, row0: int = 0) -> torch.Tensor:
+            wins = []
+            for idx in range(start, end):
+                b, h0, w0 = locate(idx)
+                win = grid[b, :, h0 - row0:h0 - row0 + H_w, w0:w0 + W_w, :]
+                ph, pw = H_w - win.shape[1], W_w - win.shape[2]
+                if ph or pw:
+                    win = F.pad(win, (0, 0, 0, pw, 0, ph))
+                wins.append(win)
+            return torch.stack(wins, dim=0)
+
+        frame_chunk = int(getattr(self, 'inference_qkv_frame_chunk', 0) or 0)
+        frame_chunk = max(1, frame_chunk) if frame_chunk > 0 else T
+        # Opt-in: build the depthwise-filtered QKV only for the rows a window
+        # batch covers (plus the conv's halo) instead of the whole grid.
+        band = bool(getattr(self, 'inference_qkv_band', False)) and self.qkv_dw is not None
+
+        def qkv_rows(a: int, z: int) -> torch.Tensor:
+            # The band's projection is a GEMM with fewer rows than the
+            # frame's. cuBLAS may pick a different kernel for it (it does on
+            # an RTX 3090 for one band shape at 1080p), which changes the
+            # bits, so the band GEMM is used only where it matches the
+            # whole-frame GEMM on this input; otherwise each frame is
+            # projected whole and the band cut out.
+            key = (B, z - a, H, W, C, min(frame_chunk, T), x.dtype, x.device,
+                   torch.is_autocast_enabled("cuda"), torch.get_autocast_dtype("cuda"))
+            if key not in _BAND_GEMM_EXACT:
+                t1 = min(frame_chunk, T)
+                whole = self.qkv.qkv(x[:, :t1])[:, :, a:z].contiguous()
+                part = self.qkv.qkv(x[:, :t1, a:z])
+                _BAND_GEMM_EXACT[key] = (whole.dtype == part.dtype and torch.equal(
+                    whole.view(torch.int16) if whole.element_size() == 2 else whole.view(torch.int32),
+                    part.view(torch.int16) if part.element_size() == 2 else part.view(torch.int32)))
+                del whole, part
+            grid = None
+            for t_start in range(0, T, frame_chunk):
+                t_end = min(t_start + frame_chunk, T)
+                if _BAND_GEMM_EXACT[key]:
+                    y = self.qkv_dw(self.qkv.qkv(x[:, t_start:t_end, a:z]))
+                else:
+                    y = self.qkv_dw(self.qkv.qkv(x[:, t_start:t_end]))[:, :, a:z]
+                if grid is None:
+                    grid = y.new_empty(B, T, z - a, W, 3 * C)
+                grid[:, t_start:t_end] = y
+                del y
+            return grid
+
+        qkv_grid = None
+        if self.qkv_dw is not None and not band:
+            for t_start in range(0, T, frame_chunk):
+                t_end = min(t_start + frame_chunk, T)
+                y = self.qkv_dw(self.qkv.qkv(x[:, t_start:t_end]))
+                if qkv_grid is None:
+                    qkv_grid = y.new_empty(B, T, H, W, 3 * C)
+                qkv_grid[:, t_start:t_end] = y
+                del y
+
+        out = x.new_empty((B, T, H, W, C))
+        for start in range(0, nW_total, window_batch):
+            end = min(start + window_batch, nW_total)
+            gate_tokens = take(x, start, end).reshape(end - start, N, C)
+            if band:
+                # Rows [r0, r1) of this batch's windows, with the conv's halo:
+                # rows inside the band see the same neighbours (or the same
+                # reflected border) as in the full grid.
+                r0 = min(locate(i)[1] for i in range(start, end))
+                r1 = min(H, max(locate(i)[1] for i in range(start, end)) + H_w)
+                a = max(0, r0 - self.qkv_dw.pad)
+                z = min(H, r1 + self.qkv_dw.pad)
+                qkv = (take(qkv_rows(a, z), start, end, row0=a)
+                       .reshape(end - start, N, 3, self.num_heads, self.head_dim)
+                       .permute(2, 0, 3, 1, 4)
+                       .contiguous())
+                q, k, v = qkv.unbind(dim=0)
+            elif qkv_grid is not None:
+                qkv = (take(qkv_grid, start, end)
+                       .reshape(end - start, N, 3, self.num_heads, self.head_dim)
+                       .permute(2, 0, 3, 1, 4)
+                       .contiguous())
+                q, k, v = qkv.unbind(dim=0)
+            else:
+                q, k, v = self.qkv(gate_tokens)
+            if self.qk_norm:
+                q = self.q_norm(q)
+                k = self.k_norm(k)
+            q = apply_rotary(q, cos, sin)
+            k = apply_rotary(k, cos, sin)
+            if region_groups is not None:
+                attn = _sdpa_with_region_groups(q, k, v, *slice_groups(start, end))
+            elif pad_attn_mask is not None:
+                attn = F.scaled_dot_product_attention(
+                    q, k, v, attn_mask=pad_attn_mask[start:end],
+                    dropout_p=0.0, is_causal=False)
+            else:
+                attn = F.scaled_dot_product_attention(
+                    q, k, v, dropout_p=0.0, is_causal=False)
+            attn = self.attn_gate(gate_tokens, attn)
+            attn = attn.transpose(1, 2).reshape(end - start, N, C)
+            res = self.proj(attn).view(end - start, T, H_w, W_w, C)
+            del q, k, v, attn, gate_tokens
+            qkv = None
+            for i, idx in enumerate(range(start, end)):
+                b, h0, w0 = locate(idx)
+                hv, wv = min(H_w, H - h0), min(W_w, W - w0)
+                out[b, :, h0:h0 + hv, w0:w0 + wv, :] = res[i, :, :hv, :wv, :]
+            del res
         return out
 
 
@@ -1629,6 +1857,7 @@ class HaloAttention3D(nn.Module):
         self.qkv = _QKVProj(dim, num_heads, qkv_bias=qkv_bias)
         self.attn_gate = HeadwiseAttentionGate(dim, num_heads)
         self.qk_norm = qk_norm
+
         if qk_norm:
             self.q_norm = RMSNorm(self.head_dim)
             self.k_norm = RMSNorm(self.head_dim)
@@ -1646,28 +1875,20 @@ class HaloAttention3D(nn.Module):
         khH, khW = bH + 2 * h, bW + 2 * h
         heads, D = self.num_heads, self.head_dim
 
-        # 1. Block-align pad on H, W (T stays full).
         pad_h = (-H) % bH
         pad_w = (-W) % bW
         has_block_pad = pad_h != 0 or pad_w != 0
-        if has_block_pad:
-            x_a = F.pad(x, (0, 0, 0, pad_w, 0, pad_h))
-        else:
-            x_a = x
+        x_a = F.pad(x, (0, 0, 0, pad_w, 0, pad_h)) if has_block_pad else x
         Hp, Wp = H + pad_h, W + pad_w
         nH, nW = Hp // bH, Wp // bW
         nBlocks = nH * nW
 
-        # 2. QKV projection.
-        qkv = self.qkv.qkv(x_a)                           # (B, T, Hp, Wp, 3·heads·D)
+        qkv = self.qkv.qkv(x_a)
         qkv = qkv.view(B, T, Hp, Wp, 3, heads, D)
-        q_full = qkv[..., 0, :, :]                        # (B, T, Hp, Wp, heads, D)
+        q_full = qkv[..., 0, :, :]
         k_full = qkv[..., 1, :, :]
         v_full = qkv[..., 2, :, :]
 
-        # 3. Q: block partition (no halo). Per block: T·bH·bW tokens.
-        # (B, T, Hp, Wp, heads, D) → (B, T, nH, bH, nW, bW, heads, D)
-        # → permute to (B, nH, nW, heads, T, bH, bW, D)
         Q = q_full.view(B, T, nH, bH, nW, bW, heads, D)
         Q = Q.permute(0, 2, 4, 6, 1, 3, 5, 7).contiguous()
         Q = Q.view(B * nBlocks, heads, T * bH * bW, D)
@@ -1675,17 +1896,12 @@ class HaloAttention3D(nn.Module):
                        .permute(0, 2, 4, 1, 3, 5, 6)
                        .reshape(B * nBlocks, T * bH * bW, C))
 
-        # 4. K, V: halo pad spatially (T always full), then unfold.
         if h > 0:
             k_pad = F.pad(k_full, (0, 0, 0, 0, h, h, h, h))
             v_pad = F.pad(v_full, (0, 0, 0, 0, h, h, h, h))
         else:
             k_pad = k_full
             v_pad = v_full
-        # Shape: (B, T, Hp+2h, Wp+2h, heads, D)
-        # unfold(2, khH, bH) → (B, T, nH, Wp+2h, heads, D, khH)
-        # unfold(3, khW, bW) → (B, T, nH, nW, heads, D, khH, khW)
-        # permute to (B, nH, nW, heads, T, khH, khW, D)
         K = k_pad.unfold(2, khH, bH).unfold(3, khW, bW)
         V = v_pad.unfold(2, khH, bH).unfold(3, khW, bW)
         K = K.permute(0, 2, 3, 4, 1, 6, 7, 5).contiguous()
@@ -1694,8 +1910,6 @@ class HaloAttention3D(nn.Module):
         K = K.view(B * nBlocks, heads, N_kv, D)
         V = V.view(B * nBlocks, heads, N_kv, D)
 
-        # 5. QK-norm + RoPE. K/V use full (T, khH, khW) coord tables.
-        #    Q uses (T full, H in [h, h+bH), W in [h, h+bW)) subset.
         if self.qk_norm:
             Q = self.q_norm(Q)
             K = self.k_norm(K)
@@ -1706,24 +1920,22 @@ class HaloAttention3D(nn.Module):
         t_idx = torch.arange(T, device=dev)
         r_idx = torch.arange(h, h + bH, device=dev)
         c_idx = torch.arange(h, h + bW, device=dev)
-        # Flat row-major index into (T, khH, khW) grid:
         flat_q_idx = (t_idx[:, None, None] * (khH * khW)
                       + r_idx[None, :, None] * khW
                       + c_idx[None, None, :]).reshape(-1)
         cos_q = cos_kv.index_select(0, flat_q_idx)
         sin_q = sin_kv.index_select(0, flat_q_idx)
+
         Q = apply_rotary(Q, cos_q, sin_q)
         K = apply_rotary(K, cos_kv, sin_kv)
 
-        # 6. Attention mask for block-pad + out-of-image halo.
         needs_mask = has_block_pad or h > 0
         if needs_mask:
             valid_hw = torch.zeros(Hp + 2 * h, Wp + 2 * h,
                                     dtype=torch.bool, device=x.device)
             valid_hw[h:h + H, h:h + W] = True
-            valid_u = valid_hw.unfold(0, khH, bH).unfold(1, khW, bW)  # (nH, nW, khH, khW)
+            valid_u = valid_hw.unfold(0, khH, bH).unfold(1, khW, bW)
             valid_u = valid_u.reshape(nBlocks, khH * khW)
-            # Tile over T (T always valid).
             valid_tiled = valid_u.unsqueeze(1).expand(-1, T, -1).reshape(nBlocks, N_kv)
             attn_mask = valid_tiled.unsqueeze(0).expand(B, -1, -1).reshape(B * nBlocks, 1, 1, N_kv)
             attn = F.scaled_dot_product_attention(Q, K, V, attn_mask=attn_mask,
@@ -1732,7 +1944,6 @@ class HaloAttention3D(nn.Module):
             attn = F.scaled_dot_product_attention(Q, K, V,
                                                   dropout_p=0.0, is_causal=False)
 
-        # 7. Unpack: (B·nBlocks, heads, T·bH·bW, D) → (B, T, H, W, C)
         attn = self.attn_gate(q_tokens, attn)
         attn = attn.transpose(1, 2).reshape(B * nBlocks, T * bH * bW, heads * D)
         attn = self.proj(attn)
@@ -1773,6 +1984,7 @@ class AxialAttention2D(nn.Module):
         if qk_norm:
             self.q_norm = RMSNorm(self.head_dim)
             self.k_norm = RMSNorm(self.head_dim)
+
         self.proj = nn.Linear(dim, dim)
         nn.init.zeros_(self.proj.weight)
         if self.proj.bias is not None:
@@ -1782,22 +1994,16 @@ class AxialAttention2D(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """x: (B, H, W, C). Returns (B, H, W, C)."""
         B, H, W, C = x.shape
-        # Reshape so the attended axis is the sequence dim; the other spatial
-        # axis joins the batch. Nothing else needs padding — any H or W works.
         if self.axis == 'H':
-            # Columns: each of W columns has H tokens.
-            # (B, H, W, C) → (B, W, H, C) → (B·W, H, C)
             x_strips = x.permute(0, 2, 1, 3).reshape(B * W, H, C)
             N = H
             num_h_rope, num_w_rope = H, 1
-        else:  # 'W'
-            # Rows: each of H rows has W tokens.
-            # (B, H, W, C) → (B·H, W, C)
+        else:
             x_strips = x.reshape(B * H, W, C)
             N = W
             num_h_rope, num_w_rope = 1, W
 
-        q, k, v = self.qkv(x_strips)                 # (B·M, heads, N, head_dim)
+        q, k, v = self.qkv(x_strips)
         if self.qk_norm:
             q = self.q_norm(q)
             k = self.k_norm(k)
@@ -1807,11 +2013,9 @@ class AxialAttention2D(nn.Module):
 
         attn = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0, is_causal=False)
         attn = self.attn_gate(x_strips, attn)
-        # (B·M, heads, N, head_dim) → (B·M, N, C)
         attn = attn.transpose(1, 2).reshape(-1, N, C)
         attn = self.proj(attn)
 
-        # Un-reshape back to (B, H, W, C)
         if self.axis == 'H':
             out = attn.view(B, W, H, C).permute(0, 2, 1, 3).contiguous()
         else:
@@ -1845,6 +2049,7 @@ class AxialAttention3D(nn.Module):
         if qk_norm:
             self.q_norm = RMSNorm(self.head_dim)
             self.k_norm = RMSNorm(self.head_dim)
+
         self.proj = nn.Linear(dim, dim)
         nn.init.zeros_(self.proj.weight)
         if self.proj.bias is not None:
@@ -1855,13 +2060,10 @@ class AxialAttention3D(nn.Module):
         """x: (B, T, H, W, C). Returns (B, T, H, W, C)."""
         B, T, H, W, C = x.shape
         if self.axis == 'H':
-            # Strip per W column: (T·H) tokens. Reshape:
-            # (B, T, H, W, C) → (B, W, T, H, C) → (B·W, T·H, C)
             x_strips = x.permute(0, 3, 1, 2, 4).reshape(B * W, T * H, C)
             N = T * H
             num_t_rope, num_h_rope, num_w_rope = T, H, 1
-        else:  # 'W'
-            # (B, T, H, W, C) → (B, H, T, W, C) → (B·H, T·W, C)
+        else:
             x_strips = x.permute(0, 2, 1, 3, 4).reshape(B * H, T * W, C)
             N = T * W
             num_t_rope, num_h_rope, num_w_rope = T, 1, W
@@ -1912,10 +2114,11 @@ class CSwinAttention2D(nn.Module):
             f"CSwinAttention2D requires num_heads % 2 == 0, got {num_heads}")
         self.dim = dim
         self.num_heads = num_heads
-        self.h_heads = num_heads // 2           # V-stripe heads (attend along H)
-        self.w_heads = num_heads - self.h_heads  # H-stripe heads (attend along W)
+        self.h_heads = num_heads // 2
+        self.w_heads = num_heads - self.h_heads
         self.head_dim = dim // num_heads
         self.qkv = _QKVProj(dim, num_heads, qkv_bias=qkv_bias)
+
         self.qkv_dw = (
             QKVDepthwiseSpatial(dim, kernel_size=int(qkv_dw_kernel))
             if qkv_dw_kernel and qkv_dw_kernel > 0 else None
@@ -1936,8 +2139,6 @@ class CSwinAttention2D(nn.Module):
         B, H, W, C = x.shape
         h_heads, w_heads, D = self.h_heads, self.w_heads, self.head_dim
 
-        # QKV is pointwise unless qkv_dw is enabled; the optional DW filter
-        # runs on the full spatial map before strip reshape.
         if self.qkv_dw is not None:
             y = self.qkv_dw(self.qkv.qkv(x))
             qkv = (y.reshape(B, H * W, 3, self.num_heads, D)
@@ -1946,32 +2147,26 @@ class CSwinAttention2D(nn.Module):
             q, k, v = qkv.unbind(dim=0)
         else:
             x_flat = x.reshape(B, H * W, C)
-            q, k, v = self.qkv(x_flat)                          # each (B, num_heads, H*W, D)
+            q, k, v = self.qkv(x_flat)
         if self.qk_norm:
             q = self.q_norm(q)
             k = self.k_norm(k)
 
-        # Split heads into V-stripe (attend H) and H-stripe (attend W) groups.
         q_h, k_h, v_h = q[:, :h_heads], k[:, :h_heads], v[:, :h_heads]
         q_w, k_w, v_w = q[:, h_heads:], k[:, h_heads:], v[:, h_heads:]
 
-        # H-group: each of W columns is a strip of H tokens.
-        # (B, h_heads, H*W, D) → (B, h_heads, H, W, D) → (B, W, h_heads, H, D) → (B·W, h_heads, H, D)
         def _to_hstrip(t):
             return (t.reshape(B, h_heads, H, W, D)
                      .permute(0, 3, 1, 2, 4)
                      .reshape(B * W, h_heads, H, D))
         q_h, k_h, v_h = _to_hstrip(q_h), _to_hstrip(k_h), _to_hstrip(v_h)
 
-        # W-group: each of H rows is a strip of W tokens.
         def _to_wstrip(t):
             return (t.reshape(B, w_heads, H, W, D)
                      .permute(0, 2, 1, 3, 4)
                      .reshape(B * H, w_heads, W, D))
         q_w, k_w, v_w = _to_wstrip(q_w), _to_wstrip(k_w), _to_wstrip(v_w)
 
-        # RoPE: H-group uses the H-axis coords (num_w=1 → identity on W-chunk);
-        #       W-group uses the W-axis coords (num_h=1 → identity on H-chunk).
         cos_h, sin_h = self.rope.get_cos_sin(H, 1, device=x.device)
         cos_w, sin_w = self.rope.get_cos_sin(1, W, device=x.device)
         q_h = apply_rotary(q_h, cos_h, sin_h)
@@ -1979,18 +2174,14 @@ class CSwinAttention2D(nn.Module):
         q_w = apply_rotary(q_w, cos_w, sin_w)
         k_w = apply_rotary(k_w, cos_w, sin_w)
 
-        # Attention along each axis.
         attn_h = F.scaled_dot_product_attention(q_h, k_h, v_h,
                                                  dropout_p=0.0, is_causal=False)
         attn_w = F.scaled_dot_product_attention(q_w, k_w, v_w,
                                                  dropout_p=0.0, is_causal=False)
 
-        # Un-strip back to (B, H, W, head_group, D) and concat heads.
-        # H-group: (B·W, h_heads, H, D) → (B, W, h_heads, H, D) → (B, H, W, h_heads, D)
         attn_h = (attn_h.reshape(B, W, h_heads, H, D)
                         .permute(0, 3, 1, 2, 4)
                         .contiguous())
-        # W-group: (B·H, w_heads, W, D) → (B, H, w_heads, W, D) → (B, H, W, w_heads, D)
         attn_w = (attn_w.reshape(B, H, w_heads, W, D)
                         .permute(0, 1, 3, 2, 4)
                         .contiguous())
@@ -2024,6 +2215,7 @@ class CSwinAttention3D(nn.Module):
         self.w_heads = num_heads - self.h_heads
         self.head_dim = dim // num_heads
         self.qkv = _QKVProj(dim, num_heads, qkv_bias=qkv_bias)
+
         self.qkv_dw = (
             QKVDepthwiseSpatial(dim, kernel_size=int(qkv_dw_kernel))
             if qkv_dw_kernel and qkv_dw_kernel > 0 else None
@@ -2047,6 +2239,10 @@ class CSwinAttention3D(nn.Module):
 
         if (strip_batch > 0 and not self.training and self.qkv_dw is None
                 and max(B * H, B * W) > strip_batch):
+            # Opt-in: drop each strip-path intermediate once it is consumed
+            # (the strip copies of x, the per-strip outputs and their
+            # permuted copies) instead of holding all of them to the return.
+            free = bool(getattr(self, 'inference_free_strips', False))
             cos_h, sin_h = self.rope.get_cos_sin(
                 T, H, 1, device=x.device, t_stride=t_stride)
             cos_w, sin_w = self.rope.get_cos_sin(
@@ -2067,9 +2263,15 @@ class CSwinAttention3D(nn.Module):
                 k = apply_rotary(k, cos_h, sin_h)
                 out_h[start:end] = F.scaled_dot_product_attention(
                     q, k, v, dropout_p=0.0, is_causal=False)
+
+            if free:
+                del x_h, q, k, v
+
             attn_h = (out_h.reshape(B, W, h_heads, T, H, D)
                            .permute(0, 3, 4, 1, 2, 5)
                            .contiguous())
+            if free:
+                del out_h
 
             x_w = x.permute(0, 2, 1, 3, 4).reshape(B * H, T * W, C)
             out_w = x.new_empty((B * H, w_heads, T * W, D))
@@ -2086,11 +2288,19 @@ class CSwinAttention3D(nn.Module):
                 k = apply_rotary(k, cos_w, sin_w)
                 out_w[start:end] = F.scaled_dot_product_attention(
                     q, k, v, dropout_p=0.0, is_causal=False)
+
+            if free:
+                del x_w, q, k, v
+
             attn_w = (out_w.reshape(B, H, w_heads, T, W, D)
                            .permute(0, 3, 1, 4, 2, 5)
                            .contiguous())
+            if free:
+                del out_w
 
             attn = torch.cat([attn_h, attn_w], dim=-2)
+            if free:
+                del attn_h, attn_w
             attn = attn * self.attn_gate.grid(x, dtype=attn.dtype)
             attn = attn.reshape(B, T, H, W, C)
             return self.proj(attn)
@@ -2103,7 +2313,7 @@ class CSwinAttention3D(nn.Module):
             q, k, v = qkv.unbind(dim=0)
         else:
             x_flat = x.reshape(B, T * H * W, C)
-            q, k, v = self.qkv(x_flat)                        # (B, num_heads, T*H*W, D)
+            q, k, v = self.qkv(x_flat)
         if self.qk_norm:
             q = self.q_norm(q)
             k = self.k_norm(k)
@@ -2111,16 +2321,12 @@ class CSwinAttention3D(nn.Module):
         q_h, k_h, v_h = q[:, :h_heads], k[:, :h_heads], v[:, :h_heads]
         q_w, k_w, v_w = q[:, h_heads:], k[:, h_heads:], v[:, h_heads:]
 
-        # H-group (V-stripes, T·H tokens per column): (B, h_heads, T*H*W, D)
-        # → (B, h_heads, T, H, W, D) → (B, W, h_heads, T, H, D) → (B·W, h_heads, T·H, D)
         def _to_hstrip(t):
             return (t.reshape(B, h_heads, T, H, W, D)
                      .permute(0, 4, 1, 2, 3, 5)
                      .reshape(B * W, h_heads, T * H, D))
         q_h, k_h, v_h = _to_hstrip(q_h), _to_hstrip(k_h), _to_hstrip(v_h)
 
-        # W-group (H-stripes, T·W tokens per row): (B, w_heads, T*H*W, D)
-        # → (B, w_heads, T, H, W, D) → (B, H, w_heads, T, W, D) → (B·H, w_heads, T·W, D)
         def _to_wstrip(t):
             return (t.reshape(B, w_heads, T, H, W, D)
                      .permute(0, 3, 1, 2, 4, 5)
@@ -2141,11 +2347,9 @@ class CSwinAttention3D(nn.Module):
         attn_w = F.scaled_dot_product_attention(q_w, k_w, v_w,
                                                  dropout_p=0.0, is_causal=False)
 
-        # Un-strip: H-group → (B, T, H, W, h_heads, D)
         attn_h = (attn_h.reshape(B, W, h_heads, T, H, D)
                         .permute(0, 3, 4, 1, 2, 5)
                         .contiguous())
-        # W-group → (B, T, H, W, w_heads, D)
         attn_w = (attn_w.reshape(B, H, w_heads, T, W, D)
                         .permute(0, 3, 1, 4, 2, 5)
                         .contiguous())
@@ -2178,12 +2382,12 @@ class FullAttention3D(nn.Module):
             if qkv_dw_kernel and qkv_dw_kernel > 0 else None
         )
         self.attn_gate = HeadwiseAttentionGate(dim, num_heads)
+
         self.qk_norm = qk_norm
         if qk_norm:
             self.q_norm = RMSNorm(self.head_dim)
             self.k_norm = RMSNorm(self.head_dim)
         self.proj = nn.Linear(dim, dim)
-        # Zero-init output proj so residual branch contributes 0 at init.
         nn.init.zeros_(self.proj.weight)
         if self.proj.bias is not None:
             nn.init.zeros_(self.proj.bias)
@@ -2204,6 +2408,7 @@ class FullAttention3D(nn.Module):
             seq = x.reshape(B, N, C)
             q, k, v = self.qkv(seq)
         gate_tokens = x.reshape(B, N, C)
+
         if self.qk_norm:
             q = self.q_norm(q)
             k = self.k_norm(k)
@@ -2219,6 +2424,7 @@ class FullAttention3D(nn.Module):
                     q[:, :, start:end], k, v,
                     dropout_p=0.0, is_causal=False)
                 a = self.attn_gate(gate_tokens[:, start:end], a)
+
                 attn[:, :, start:end] = a
         else:
             attn = F.scaled_dot_product_attention(
@@ -2238,7 +2444,7 @@ class FullResolutionRecurrentMemorySite(nn.Module):
     style gated transformer candidate. Unlike RVM, the candidate updates only
     the recurrent memory; the frame stream remains the current-frame features
     plus the explicit read residual. The read output projection is zero-
-    initialized, so adding the site to an existing checkpoint is behavior-
+    initialised, so adding the site to an existing checkpoint is behaviour-
     neutral.
     """
 
@@ -2314,6 +2520,7 @@ class FullResolutionRecurrentMemorySite(nn.Module):
         k = self._split_heads(k_tokens, self.k)
         v = self._split_heads(k_tokens, self.v)
         if self.qk_norm:
+
             q = self.q_norm(q)
             k = self.k_norm(k)
         cos, sin = self.rope.get_cos_sin(H, W, device=x_t.device)
@@ -2341,6 +2548,7 @@ class FullResolutionRecurrentMemorySite(nn.Module):
         if self.qk_norm:
             q = self.write_ca_q_norm(q)
             k = self.write_ca_k_norm(k)
+
         cos, sin = self.rope.get_cos_sin(H, W, device=query_grid.device)
         q = apply_rotary(q, cos, sin)
         k = apply_rotary(k, cos, sin)
@@ -2382,6 +2590,7 @@ class FullResolutionRecurrentMemorySite(nn.Module):
             raise ValueError(
                 f"recurrent state shape {tuple(state.shape)} != "
                 f"expected {(B, H, W, C)}")
+
         outs = []
         for t in range(T):
             x_t = self._read(x[:, t], state)
@@ -2414,6 +2623,7 @@ class FullSpatialAttention2D(nn.Module):
             QKVDepthwiseSpatial(dim, kernel_size=int(qkv_dw_kernel))
             if qkv_dw_kernel and qkv_dw_kernel > 0 else None
         )
+
         self.attn_gate = HeadwiseAttentionGate(dim, num_heads)
         self.qk_norm = qk_norm
         if qk_norm:
@@ -2441,6 +2651,7 @@ class FullSpatialAttention2D(nn.Module):
         else:
             tokens = x.reshape(BT, N, C)
             q, k, v = self.qkv(tokens)
+
         if self.qk_norm:
             q = self.q_norm(q)
             k = self.k_norm(k)
@@ -2463,6 +2674,7 @@ class FullSpatialAttention2D(nn.Module):
                 q, k, v, dropout_p=0.0, is_causal=False)
             attn = self.attn_gate(gate_tokens, attn)
         attn = attn.transpose(1, 2).reshape(BT, N, C)
+
         attn = self.proj(attn)
         return attn.reshape(B, T, H, W, C)
 
@@ -2488,6 +2700,7 @@ class FullSpatialBlock2D(nn.Module):
             dim, num_heads, rope=rope,
             qkv_dw_kernel=qkv_dw_kernel,
         )
+
         self.local_mix = (
             DepthwiseSwiGLU2D(dim, kernel_size=local_mix_kernel,
                               init_std=local_mix_init_std)
@@ -2513,9 +2726,6 @@ class FullSpatialBlock2D(nn.Module):
         return x
 
 
-# ---------------------------------------------------------------------------
-# LayerScale — grows residual contribution from ~0 at init
-# ---------------------------------------------------------------------------
 
 
 class LayerScale(nn.Module):
@@ -2529,9 +2739,6 @@ class LayerScale(nn.Module):
         return x * self.gamma
 
 
-# ---------------------------------------------------------------------------
-# Block wrappers (Swin-2D, Swin-3D, Full-3D)
-# ---------------------------------------------------------------------------
 
 
 def _cyclic_shift_2d(x: torch.Tensor, shift: Tuple[int, int]) -> torch.Tensor:
@@ -2539,7 +2746,6 @@ def _cyclic_shift_2d(x: torch.Tensor, shift: Tuple[int, int]) -> torch.Tensor:
     sh, sw = shift
     if sh == 0 and sw == 0:
         return x
-    # x is (B, H, W, C)
     return torch.roll(x, shifts=(sh, sw), dims=(1, 2))
 
 
@@ -2548,7 +2754,6 @@ def _cyclic_shift_3d(x: torch.Tensor, shift: Tuple[int, int, int]) -> torch.Tens
     st, sh, sw = shift
     if st == 0 and sh == 0 and sw == 0:
         return x
-    # x is (B, T, H, W, C)
     return torch.roll(x, shifts=(st, sh, sw), dims=(1, 2, 3))
 
 
@@ -2629,6 +2834,7 @@ class SwinBlock2D(nn.Module):
             region_groups = _shifted_region_groups_2d_cached(
                 H, W, Hp, Wp, w, sh, sw)
             x = _cyclic_shift_2d(x, (-sh, -sw))
+
             x = self.attn(x, region_groups=region_groups)
             x = _cyclic_shift_2d(x, (sh, sw))
             x = x[:, :H, :W, :].contiguous()
@@ -2696,6 +2902,7 @@ class CSwinBlock2D(nn.Module):
             dim, num_heads, rope=rope,
             qkv_dw_kernel=qkv_dw_kernel,
         )
+
         self.local_mix = (
             DepthwiseSwiGLU2D(dim, kernel_size=local_mix_kernel,
                                init_std=local_mix_init_std)
@@ -2738,11 +2945,13 @@ class FullSpatialBlock3D(nn.Module):
         self.dim = dim
         self.use_adaln_zero = bool(adaln_cond_dim and adaln_cond_dim > 0)
         self.norm1 = RMSNorm(dim)
+
         self.attn = FullSpatialAttention2D(
             dim, num_heads, rope=rope,
             zero_init_proj=not self.use_adaln_zero,
             qkv_dw_kernel=qkv_dw_kernel,
         )
+
         self.local_mix = (
             DepthwiseSwiGLU2D(dim, kernel_size=local_mix_kernel,
                               init_std=local_mix_init_std)
@@ -2760,6 +2969,11 @@ class FullSpatialBlock3D(nn.Module):
     def _local_mix_frames(self, x: torch.Tensor) -> torch.Tensor:
         if self.local_mix is None:
             return x
+        frame_chunk = int(getattr(self, 'inference_local_mix_frame_chunk', 0) or 0)
+        if frame_chunk > 0 and not self.training:
+            return _chunked_local_mix(
+                self.local_mix, x, frame_chunk,
+                inplace=bool(getattr(self, 'inference_inplace_residual', False)))
         B, T, H, W, C = x.shape
         y = x.reshape(B * T, H, W, C)
         y = self.local_mix(y)
@@ -2781,7 +2995,7 @@ class FullSpatialBlock3D(nn.Module):
 
         shortcut = x
         x = self.norm1(x)
-        if shift1 is not None:
+        if shift1 is not None and scale1 is not None:
             x = x * (1.0 + scale1) + shift1
         x = self.attn(x)
         x = shortcut + (x * gate1 if gate1 is not None else x)
@@ -2790,7 +3004,7 @@ class FullSpatialBlock3D(nn.Module):
 
         shortcut = x
         x = self.norm2(x)
-        if shift2 is not None:
+        if shift2 is not None and scale2 is not None:
             x = x * (1.0 + scale2) + shift2
         x = self.mlp(x)
         x = shortcut + (x * gate2 if gate2 is not None else x)
@@ -2822,6 +3036,7 @@ class SwinBlock3D(nn.Module):
         self.window_W = window_W
         _, self.shift_h, self.shift_w = _resolve_shift_3d(shift, window_H, window_W)
         self.shift = (self.shift_h, self.shift_w)
+
         self.use_adaln_zero = bool(adaln_cond_dim and adaln_cond_dim > 0)
 
         self.norm1 = RMSNorm(dim)
@@ -2849,6 +3064,11 @@ class SwinBlock3D(nn.Module):
     def _local_mix_frames(self, x: torch.Tensor) -> torch.Tensor:
         if self.local_mix is None:
             return x
+        frame_chunk = int(getattr(self, 'inference_local_mix_frame_chunk', 0) or 0)
+        if frame_chunk > 0 and not self.training:
+            return _chunked_local_mix(
+                self.local_mix, x, frame_chunk,
+                inplace=bool(getattr(self, 'inference_inplace_residual', False)))
         B, T, H, W, C = x.shape
         y = x.reshape(B * T, H, W, C)
         y = self.local_mix(y)
@@ -2869,9 +3089,11 @@ class SwinBlock3D(nn.Module):
             shift1 = scale1 = gate1 = shift2 = scale2 = gate2 = None
         sh, sw = self.shift_h, self.shift_w
         shortcut = x
+
         x = self.norm1(x)
-        if shift1 is not None:
+        if shift1 is not None and scale1 is not None:
             x = x * (1.0 + scale1) + shift1
+        x = _bf16_branch_input(self, x)
         if sh or sw:
             T, H, W = x.shape[1], x.shape[2], x.shape[3]
             H_w, W_w = self.window_H, self.window_W
@@ -2884,19 +3106,21 @@ class SwinBlock3D(nn.Module):
             x = _cyclic_shift_3d(x, (0, -sh, -sw))
             x = self.attn(x, t_stride=t_stride, region_groups=region_groups)
             x = _cyclic_shift_3d(x, (0, sh, sw))
+
             x = x[:, :, :H, :W, :].contiguous()
         else:
             x = self.attn(x, t_stride=t_stride)
-        x = shortcut + (x * gate1 if gate1 is not None else x)
+        x = _residual_add(self, shortcut, x * gate1 if gate1 is not None else x)
 
         x = self._local_mix_frames(x)
 
         shortcut = x
         x = self.norm2(x)
-        if shift2 is not None:
+        if shift2 is not None and scale2 is not None:
             x = x * (1.0 + scale2) + shift2
+        x = _bf16_branch_input(self, x)
         x = self.mlp(x)
-        x = shortcut + (x * gate2 if gate2 is not None else x)
+        x = _residual_add(self, shortcut, x * gate2 if gate2 is not None else x)
         return x
 
 
@@ -2947,6 +3171,7 @@ class CSwinBlock3D(nn.Module):
             dim, num_heads, rope=rope,
             qkv_dw_kernel=qkv_dw_kernel,
         )
+
         self.local_mix = (
             DepthwiseSwiGLU2D(dim, kernel_size=local_mix_kernel,
                               init_std=local_mix_init_std)
@@ -2958,6 +3183,11 @@ class CSwinBlock3D(nn.Module):
     def _local_mix_frames(self, x: torch.Tensor) -> torch.Tensor:
         if self.local_mix is None:
             return x
+        frame_chunk = int(getattr(self, 'inference_local_mix_frame_chunk', 0) or 0)
+        if frame_chunk > 0 and not self.training:
+            return _chunked_local_mix(
+                self.local_mix, x, frame_chunk,
+                inplace=bool(getattr(self, 'inference_inplace_residual', False)))
         B, T, H, W, C = x.shape
         y = x.reshape(B * T, H, W, C)
         y = self.local_mix(y)
@@ -2966,13 +3196,15 @@ class CSwinBlock3D(nn.Module):
     def forward(self, x: torch.Tensor, t_stride: float = 1.0) -> torch.Tensor:
         shortcut = x
         x = self.norm1(x)
+        x = _bf16_branch_input(self, x)
         x = self.attn(x, t_stride=t_stride)
-        x = shortcut + x
+        x = _residual_add(self, shortcut, x)
         x = self._local_mix_frames(x)
         shortcut = x
         x = self.norm2(x)
+        x = _bf16_branch_input(self, x)
         x = self.mlp(x)
-        x = shortcut + x
+        x = _residual_add(self, shortcut, x)
         return x
 
 
@@ -2995,6 +3227,7 @@ class FullSpatioTemporalBlock(nn.Module):
             dim, num_heads, rope=rope,
             qkv_dw_kernel=qkv_dw_kernel,
         )
+
         self.local_mix = (
             DepthwiseSwiGLU2D(dim, kernel_size=local_mix_kernel,
                               init_std=local_mix_init_std)
@@ -3007,6 +3240,11 @@ class FullSpatioTemporalBlock(nn.Module):
     def _local_mix_frames(self, x: torch.Tensor) -> torch.Tensor:
         if self.local_mix is None:
             return x
+        frame_chunk = int(getattr(self, 'inference_local_mix_frame_chunk', 0) or 0)
+        if frame_chunk > 0 and not self.training:
+            return _chunked_local_mix(
+                self.local_mix, x, frame_chunk,
+                inplace=bool(getattr(self, 'inference_inplace_residual', False)))
         B, T, H, W, C = x.shape
         y = x.reshape(B * T, H, W, C)
         y = self.local_mix(y)
@@ -3033,13 +3271,11 @@ class FullSpatioTemporalBlock(nn.Module):
         x = self.mlp(x)
         x = shortcut + x
         if recurrent_site is not None:
+            assert recurrent_state is not None
             return x, recurrent_state
         return x
 
 
-# ---------------------------------------------------------------------------
-# Patchify / downsample / upsample / depatchify
-# ---------------------------------------------------------------------------
 
 
 class PatchifyConv(nn.Module):
@@ -3051,20 +3287,20 @@ class PatchifyConv(nn.Module):
     `overlap_mult` controls the receptive field size:
       • 1 (default): kernel=patch, stride=patch — no overlap (pure ViT patch).
       • 2: kernel=2·patch, stride=patch, padding=patch/2 — each token's RF
-        covers its own 16×16 + half-width strips of the 4 axis neighbors +
-        quarter-size corners of the 4 diagonal neighbors. ("Half-overlap")
+        covers its own 16×16 + half-width strips of the 4 axis neighbours +
+        quarter-size corners of the 4 diagonal neighbours. ("Half-overlap")
       • 3: kernel=3·patch, stride=patch, padding=patch — immediate + 8
         surrounding 16×16 blocks fully covered. ("Full-overlap")
 
     `overlap=True` is kept as an alias for overlap_mult=3.
 
-    Init behavior for overlap_mult > 1: the CENTRAL patch×patch region of
+    Init behaviour for overlap_mult > 1: the CENTRAL patch×patch region of
     each kernel is Kaiming-inited (producing the "own block" features
     identically to the non-overlap baseline at step 0); the surrounding
-    spill regions that reach into neighboring 16×16 blocks are
+    spill regions that reach into neighbouring 16×16 blocks are
     ZERO-inited. This way at init a token is a pure function of its own
     block (same as non-overlap), and the overlap contribution from
-    neighbors emerges only as those spill weights train away from zero.
+    neighbours emerges only as those spill weights train away from zero.
     """
 
     def __init__(self, in_channels: int, out_channels: int, patch: int,
@@ -3076,11 +3312,12 @@ class PatchifyConv(nn.Module):
         super().__init__()
         self.patch = patch
         if overlap and overlap_mult == 1:
-            overlap_mult = 3  # legacy alias
+            overlap_mult = 3
         assert overlap_mult >= 1, f"overlap_mult must be >= 1, got {overlap_mult}"
         self.overlap_mult = overlap_mult
         kernel = overlap_mult * patch
         padding = (kernel - patch) // 2
+
         assert (kernel - patch) % 2 == 0, (
             f"overlap_mult·patch - patch must be even; got kernel={kernel}, patch={patch}")
         self.conv = nn.Conv2d(in_channels, out_channels,
@@ -3091,21 +3328,15 @@ class PatchifyConv(nn.Module):
             if self.conv.bias is not None:
                 nn.init.zeros_(self.conv.bias)
         else:
-            # Default nn.Conv2d __init__ already Kaiming-inited the full
-            # kernel + uniform-inited the bias. For overlap_mult > 1 we
-            # want the Kaiming signal only in the central patch×patch
-            # region; zero the spill. For `zero_init_first` we additionally
-            # zero the first N output channels entirely (kernel *and* bias
-            # for those channels).
             with torch.no_grad():
                 if overlap_mult > 1:
-                    # Zero the spill: build a (kernel, kernel) mask with a
-                    # patch×patch block of 1s in the center.
                     c_lo = padding
                     c_hi = padding + patch
+
                     mask = torch.zeros(kernel, kernel,
                                        dtype=self.conv.weight.dtype,
                                        device=self.conv.weight.device)
+
                     mask[c_lo:c_hi, c_lo:c_hi] = 1.0
                     self.conv.weight.data.mul_(mask)
                 if zero_init_first > 0:
@@ -3126,8 +3357,6 @@ class Downsample4(nn.Module):
                  kernel: int = 8, stride: int = 4, norm: bool = True):
         super().__init__()
         assert kernel >= stride, "kernel smaller than stride would drop pixels"
-        # Padding chosen so the output size is exactly in//stride (for in % stride == 0).
-        # pad = (kernel - stride) // 2. At k=8 s=4 → pad=2 (centered).
         pad = (kernel - stride) // 2
         self.conv = nn.Conv2d(in_channels, out_channels,
                               kernel_size=kernel, stride=stride, padding=pad)
@@ -3157,23 +3386,18 @@ class Upsample4ICNR(nn.Module):
         if post_smooth:
             self.smooth = nn.Conv2d(out_channels, out_channels,
                                     kernel_size=3, padding=1)
-            # Zero-init so the upsample path is pure nearest-neighbor at t=0.
-            # Combined with a residual around smooth in forward, this
-            # preserves the ICNR pixel-shuffle output unchanged at init and
-            # lets the 3×3 smoother grow in as a learned correction.
             nn.init.zeros_(self.smooth.weight)
             if self.smooth.bias is not None:
                 nn.init.zeros_(self.smooth.bias)
         else:
             self.smooth = nn.Identity()
+
         self.norm = LayerNorm2d(out_channels) if norm else nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.proj(x)
         x = F.pixel_shuffle(x, self.r)
         if self.post_smooth:
-            # Residual around the zero-inited smoother: at init this is the
-            # identity; during training the 3×3 learns a correction.
             x = x + self.smooth(x)
         return self.norm(x)
 
@@ -3220,6 +3444,7 @@ class FeatureFourierDepatchResidual(nn.Module):
         self.out_channels = int(out_channels)
         self.num_terms = 2 * num_freqs
         self.pad = kernel_size // 2
+
         self.coeff = nn.Conv2d(
             in_dim, out_channels * self.num_terms,
             kernel_size=kernel_size, padding=0, bias=bias,
@@ -3256,9 +3481,9 @@ class Depatchify(nn.Module):
         is a function of ONE input token.
       • 2: ConvTranspose2d(d, C, kernel=2·r, stride=r, padding=r/2). Each
         input token paints a 2r×2r patch; output pixel is a sum of 2×2
-        neighboring tokens' contributions.
+        neighbouring tokens' contributions.
       • 3: ConvTranspose2d(d, C, kernel=3·r, stride=r, padding=r). Each
-        output pixel sums contributions from the 3×3 token neighborhood.
+        output pixel sums contributions from the 3×3 token neighbourhood.
 
     `overlap=True` is kept as an alias for overlap_mult=3.
 
@@ -3281,7 +3506,7 @@ class Depatchify(nn.Module):
         self.out_channels = out_channels
         self.in_dim = in_dim
         if overlap and overlap_mult == 1:
-            overlap_mult = 3  # legacy alias
+            overlap_mult = 3
         assert overlap_mult >= 1, f"overlap_mult must be >= 1, got {overlap_mult}"
         self.overlap_mult = overlap_mult
 
@@ -3300,18 +3525,12 @@ class Depatchify(nn.Module):
             self.deconv = nn.ConvTranspose2d(in_dim, out_channels,
                                              kernel_size=kernel, stride=r,
                                              padding=padding, bias=bias)
+
             if zero_init_all:
                 nn.init.zeros_(self.deconv.weight)
                 if self.deconv.bias is not None:
                     nn.init.zeros_(self.deconv.bias)
             else:
-                # Central-kaiming / spill-zero: same init pattern as
-                # PatchifyConv's overlap case. The r×r central region of
-                # each kernel maps to the input token's own output block;
-                # the rest spills into neighboring blocks. Zero the spill
-                # at init so at step 0 each token only contributes to its
-                # own block (matches non-overlap baseline), and the
-                # cross-block blending learns in.
                 with torch.no_grad():
                     c_lo = padding
                     c_hi = padding + r
@@ -3321,6 +3540,7 @@ class Depatchify(nn.Module):
                     mask[c_lo:c_hi, c_lo:c_hi] = 1.0
                     self.deconv.weight.data.mul_(mask)
             self.linear = None
+
         self.fourier = (
             FeatureFourierDepatchResidual(
                 in_dim, out_channels, r,
@@ -3333,14 +3553,17 @@ class Depatchify(nn.Module):
     def forward(self, x_tokens_2d: torch.Tensor) -> torch.Tensor:
         """x_tokens_2d: (B, C=in_dim, H, W). Returns (B, out_channels, H·r, W·r)."""
         if self.overlap_mult > 1:
+            assert self.deconv is not None
             out = self.deconv(x_tokens_2d)
         else:
+
             B, C, H, W = x_tokens_2d.shape
-            # (B, C, H, W) → (B, H, W, C) → Linear → (B, H, W, C_out·r²)
+
             y = x_tokens_2d.permute(0, 2, 3, 1)
+            assert self.linear is not None
             y = self.linear(y)
-            y = y.permute(0, 3, 1, 2).contiguous()     # (B, C_out·r², H, W)
-            out = F.pixel_shuffle(y, self.r)           # (B, C_out, H·r, W·r)
+            y = y.permute(0, 3, 1, 2).contiguous()
+            out = F.pixel_shuffle(y, self.r)
         if self.fourier is not None:
             out = out + self.fourier(x_tokens_2d)
         return out

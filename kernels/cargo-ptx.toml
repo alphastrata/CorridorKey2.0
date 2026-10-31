@@ -1,0 +1,11 @@
+[build]
+host_build_sm = "sm_120"
+
+[profile.release]
+arch         = "sm_120"
+maxrregcount = 255
+
+[gpu]
+[[gpu.target]]
+compute_cap = "sm_120"
+ptx_version = "8.8"

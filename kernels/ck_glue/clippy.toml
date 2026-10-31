@@ -1,0 +1,2 @@
+# Device launch ABI: kernel parameter lists are positional (cuda-ptx contract).
+too-many-arguments-threshold = 24

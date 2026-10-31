@@ -1,0 +1,37 @@
+[package]
+name              = "ck_gemm"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[package.metadata.ptx]
+launch_bounds = {61 = [256, 1], 75 = [256, 1], 80 = [256, 1], 90a = [256, 1], 100a = [256, 1], 120 = [256, 1]}
+entry_bounds  = {gemm_hopper = {90a = [256, 2]}, gemm_blackwell = {100a = [256, 2]}, gemm_square = {61 = [256, 2], 75 = [256, 2], 80 = [256, 2], 90a = [256, 2], 100a = [256, 2], 120 = [256, 2]}, gemm_thin = {61 = [256, 2], 75 = [256, 2], 80 = [256, 3], 90a = [256, 3], 100a = [256, 3], 120 = [256, 3]}, gemm_small = {61 = [256, 2], 75 = [256, 2], 80 = [256, 3], 90a = [256, 3], 100a = [256, 3], 120 = [256, 3]}, gemm_simt = {61 = [256, 2], 75 = [256, 2], 80 = [256, 2], 90a = [256, 2], 100a = [256, 2], 120 = [256, 2]}}
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+device   = ["dep:ptx", "ck_arch/device"]
+default = ["device"]
+sm_61   = ["device", "ck_arch/sm_61"]
+sm_75   = ["device", "ptx/sm_75", "ck_arch/sm_75"]
+sm_80   = ["device", "ptx/sm_80", "ck_arch/sm_80"]
+sm_90a  = ["device", "sm_80", "ptx/sm_90", "ck_arch/sm_90a"]
+sm_100a = ["device", "sm_80", "ptx/sm_100", "ck_arch/sm_100a"]
+sm_120  = ["device", "sm_80", "ptx/sm_120", "ck_arch/sm_120"]
+
+[dependencies]
+ck_arch = {path = "../ck_arch", default-features = false}
+ptx = {workspace = true, default-features = false, optional = true}
+
+[lints.clippy]
+pedantic                  = {level = "warn", priority = -1}
+perf                      = {level = "deny", priority = -1}
+missing_errors_doc        = "allow"
+missing_safety_doc        = "allow"
+missing_panics_doc        = "allow"
+
+[[bench]]
+name = "place"
+harness = false

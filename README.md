@@ -4,7 +4,7 @@ Welcome to CorridorKey 2.0! You may rest easy, weary artist. The green beast has
 
 # Check out our official plugin!
 
-The most requested feature we've heard this year- "Can you make a plugin for my favorite software?
+The most requested feature we've heard this year- "Can you make a plugin for my favourite software?
 
 ...yes! Finally!
 
@@ -18,31 +18,44 @@ Any business or research inquiries for Zac can be directed to z.brooks.harris@gm
 
 ## Setup
 
-You need an NVIDIA GPU (currently RTX 30-series or newer) with at least 4 GB of VRAM
-for footage up to 1440p, or 6 GB for 4K, `ffmpeg` on your PATH, and a Python
-environment with CUDA-enabled PyTorch installed. On smaller cards, see [Long Clips And Low VRAM](#long-clips-and-low-vram).
-This package was tested with:
+You need an NVIDIA GPU (GTX 10-series or newer; see [GTX 10-series](#gtx-10-series))
+with at least 4 GB of VRAM
+for footage up to 1440p, or 6 GB for 4K, and `ffmpeg` on your PATH. On smaller
+cards, see [Long Clips And Low VRAM](#long-clips-and-low-vram).
+
+On Linux, one script installs [uv](https://docs.astral.sh/uv/), the Python
+environment, Rust and the `ck` launcher, and downloads the weights (about 5 GB):
 
 ```
-torch==2.9.1
-torchvision==0.24.1
+scripts/dev-setup.sh
 ```
 
-From the repository root, create an environment, install PyTorch and the
-remaining dependencies, and download the model weights (about 5 GB):
+Elsewhere, install uv, then from the repository root:
 
 ```
-python -m venv venv
-source venv/bin/activate
-pip install torch==2.9.1 torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cu128
-pip install -r requirements.txt
-python scripts/download_weights.py
+uv sync
+uv run python scripts/download_weights.py
 ```
+
+### GTX 10-series
+
+PyTorch's default CUDA 12.8 build has no Pascal kernels. Use its CUDA 12.6 build
+instead, and stop `uv run` from switching back:
+
+```
+uv sync --no-group cu128 --group pascal
+export UV_NO_SYNC=1
+```
+
+`scripts/dev-setup.sh` does this when it finds such a card.
+
+The commands below assume the environment is active (`source .venv/bin/activate`,
+or `.venv\Scripts\activate` on Windows); otherwise prefix them with `uv run`.
 
 The download script fetches:
 
 - the CorridorKey 2.0 weights from
-  [Hugging Face](https://huggingface.co/nikopueringer/CorridorKey2.0) into
+  [Hugging Face](https://huggingface.co/alphastrata/CorridorKey2.0), with bf16 and fp16 quants, into
   `weights/`
 - the three frozen foundation models CorridorKey builds on, from their original
   publishers, into `vfms/`: C-RADIOv4-SO400M (NVIDIA), MoGe-2 ViT-B
@@ -60,7 +73,7 @@ or a folder of clips onto the launcher in the repository root:
   the clip into the terminal when asked)
 
 It walks you through the inference mode, outputs, and GPU memory profile, then
-runs the job. The launcher uses the `venv` created during setup if it exists.
+runs the job. The launcher uses the `.venv` created during setup if it exists.
 It also picks up companion hint files next to the input automatically
 (`<clip>FrameHint.png` for a first-frame hint, `<clip>_AlphaHint.mp4` for a
 full hint video).
@@ -70,6 +83,21 @@ You can also start the same guided session directly:
 ```
 python run_interactive.py /path/to/clip.mp4
 ```
+
+## Desktop App
+
+A desktop UI (Slint, in `launcher/crates/ck-gui`): a clip queue, a viewer for the
+input and every output, and the settings below as controls. It runs one clip at a
+time through `ck`.
+
+```
+just gui [clip_or_folder ...]
+```
+
+Drop clips or folders anywhere in the window. Ctrl+Shift+S shows stats for nerds.
+
+Companion hint files are picked up the same way the drag-and-drop launcher
+finds them, and each clip's hint can be changed in the inspector.
 
 ## Quick Start
 
@@ -89,6 +117,40 @@ writes:
 
 Native resolution is always preserved. The model reflect-pads internally to its
 required shape quantum and crops back to the original size for output.
+
+`infer.py` runs CorridorKey's own CUDA kernels for attention and the depthwise
+blocks. Set `CORRIDORKEY_PTX=0` to use PyTorch's alone.
+
+## The `ck` Launcher
+
+`ck` is the same model in Rust with CUDA kernels throughout. It shares the work
+across every GPU in the machine and picks its window from free memory.
+With [just](https://just.systems) installed (`scripts/dev-setup.sh` does it):
+
+```
+just run shot.mp4
+```
+
+This writes `output/shot_alpha.mp4` and `output/shot_fg.mp4`. `ck --help` lists
+every option; most mirror `infer.py`:
+
+| `infer.py` | `ck` |
+|---|---|
+| `--output_dir out` | `-o out` |
+| `--outputs alpha fg` | `--outputs alpha,fg` |
+| `--hint_first_frame` / `--hint_video` | `--hint` / `--hint-video` |
+| `--hint_quality` / `--carry_hint_quality` | `--hint-quality` / `--carry-quality` |
+| `--no_carry_hint` | `--no-carry` |
+| `--hann_chunk` / `--hann_stride` | `--chunk` / `--stride` |
+| `--num_frames` | `--frames` |
+| `--output_format exr --exr_dtype half` | `--exr half` |
+| `--despill_strength` | `--despill` |
+| `--ffmpeg_codec` | `--codec` (`hevc_nvenc` encodes on the GPU) |
+| `--frame_dir_fps` / `--frame_dir_linear` | `--fps` / `--linear` |
+
+`--device 0` limits it to one GPU. `--log debug` shows what it is doing.
+
+Developing CorridorKey itself: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Choosing An Inference Mode
 
@@ -182,7 +244,7 @@ Tradeoffs:
 
 - More literal use of the provided hint video.
 - Avoids feedback from an imperfect carried prediction.
-- Gives up one of the temporal stabilization mechanisms used by the default
+- Gives up one of the temporal stabilisation mechanisms used by the default
   setup.
 
 ## Hint Quality
@@ -267,7 +329,7 @@ Available output choices:
 
 - `alpha`: matte preview.
 - `fg`: raw foreground RGB prediction preview.
-- `checker`: predicted foreground composited over a checkerboard with customizable despill applied.
+- `checker`: predicted foreground composited over a chequerboard with customisable despill applied.
 - `cutout`: predicted foreground multiplied by predicted alpha (un-premultiplied straight color, despilled).
 
 `raw_fg` and `foreground` are accepted aliases for `fg`.
@@ -316,7 +378,7 @@ no slower than larger batches in our tests.
 ## HDR EXR Output
 
 By default, all outputs are ffmpeg-encoded preview videos. That path is
-display-referred: values are clipped to `[0, 1]` and quantized for video
+display-referred: values are clipped to `[0, 1]` and quantised for video
 encoding (10-bit `yuv444p10le` x264 for `alpha`/`fg`/`checker`, ProRes 4444
 for `cutout`). HDR values above 1.0 do not survive the video path.
 
@@ -424,6 +486,73 @@ These come from measurements on synthetic test clips; other software using the
 GPU reduces what is available. If you hit a CUDA out-of-memory error, pass
 `--low_vram` with a smaller `--hann_chunk` yourself.
 
+### Optimized mode
+
+The launcher's default memory profile, and `--optimized` on the command line,
+run the same model in less memory and less time. With the same window size the
+output is identical; in auto mode the saved memory goes into longer windows:
+
+| GPU memory (free) | 720p | 1080p | 1440p | 3K | 4K |
+|---|---|---|---|---|---|
+| 6 GB laptop (4.95 GB) | 48/24 | 40/20 | 28/14 | 16/8 | 10/5 |
+| 8 GB (6.95 GB) | 64/32 | 56/28 | 40/20 | 24/12 | 16/8 |
+| 12 GB (10.95 GB) | 80/40 normal | 80/40 | 64/32 | 40/20 | 28/14 |
+| 16 GB (14.95 GB) | 80/40 normal | 80/40 normal | 80/40 | 64/32 | 40/20 |
+| 24 GB (22.95 GB) | 80/40 normal | 80/40 normal | 80/40 normal | 80/40 | 64/32 |
+
+Windows picks, low-VRAM mode unless marked normal; the shipped settings on a
+6 GB card are 8/4 at 720p and 1080p, 4/2 at 1440p and 2/1 at 3K and 4K.
+Linux gets a step or two more from 1440p up (a 6 GB card runs 32/16 at 1440p,
+24/12 at 3K and 16/8 at 4K): PyTorch's allocator has expandable segments there
+and not on Windows.
+
+Choose "Auto, original" in the launcher, or leave out `--optimized`, for the
+original settings. The measurements, and how the output was checked, are in
+https://github.com/nikopueringer/CorridorKey2.0/pull/18.
+
+`--optimized` also keeps the GPU busy while the host reads and writes
+frames, and starts faster. Each of these leaves every output file
+byte-identical and can be used on its own:
+
+- `--pinned_io`: frames are quantized to 16 bits on the GPU (the same values
+  as before for every possible input) and copied through pinned memory one
+  frame behind, so the GPU starts the next frame instead of waiting.
+- `--lean_reads`: in low-VRAM mode, stages that only feed the model skip
+  preparing each frame's display view (for linear EXR input that is an sRGB
+  conversion of every pixel).
+- `--read_ahead`: stage 1's first window is read while the prepass runs;
+  later windows and stage 2's frames are read on worker threads.
+- `--fast_load`: the model is built without first filling its weights with
+  random values, since every one is then loaded from the checkpoints.
+- `--decode_once`: each frame is decoded and converted once; the later
+  stages read the model's input back from a temporary file (about 13 MB per
+  1080p frame and 53 MB per 4K frame in `--temp_dir`, twice that in normal
+  mode; skipped when the temp folder is short of space). Most useful at 4K
+  and with EXR input.
+- `--gpu_prep`: with `--decode_once` and a frame folder, each frame's
+  color conversions run on the GPU. For 8-bit images and half-float EXRs
+  the GPU gives the CPU's bits for every possible value; EXRs stored as
+  32-bit float, where a few values round differently, stay on the CPU.
+- `--async_baton`: in low-VRAM mode, stage 1's windows run back to back on
+  the GPU; each window's output is copied back and blended into the
+  finished frames while the GPU runs the next one.
+
+These were checked on Volta, Turing, Ampere, Ada, Hopper and Blackwell GPUs:
+at the same window, `--optimized` writes the original's files on each. On
+some cards the original's own output varies slightly from run to run
+(cuDNN's default algorithms on an RTX 4090, the carry hint on an RTX 5080);
+with deterministic cuDNN on the 4090 and the carry hint off on the 5080,
+both repeat and agree.
+
+`--fast` is `--optimized` with more threads per video encoder (or pass
+`--ffmpeg_threads N` yourself). The keyed frames are identical, but x264's
+output depends on its thread count, so the encoded files differ slightly
+from the default two-thread encode. On fast GPUs at HD the encoder often
+sets the pace and `--fast` is 5-10% faster; at 4K on a CPU with 16 cores or
+fewer the extra encoder threads compete with frame preparation and can make
+it slower, so measure on your machine. On a 6 GB RTX 3060 Laptop, where the
+GPU sets the pace, it measured 1-3% faster at 1080p and 1440p.
+
 The normal path streams video and does not intentionally hold an entire long
 clip in RAM. To force low-VRAM mode yourself, add:
 
@@ -458,7 +587,7 @@ Advanced memory knobs:
 - `--low_vram_swin_window_batch`: Swin/window processing chunking.
 - `--low_vram_full_attn_query_chunk_tokens`: query chunking for full attention.
 
-Use the defaults unless you are actively tuning memory behavior.
+Use the defaults unless you are actively tuning memory behaviour.
 
 ## Frame Directories
 
@@ -503,7 +632,7 @@ python infer.py \
 `--start_mode` choices:
 
 - `begin`: start from the first frame.
-- `middle`: take a centered segment.
+- `middle`: take a centred segment.
 - `random_middle`: choose a deterministic random middle segment using `--seed`.
 
 ## Input Color Handling
@@ -566,11 +695,11 @@ model's asinh encoding. The inverse adjustment is applied to the predicted
 foreground before writing preview outputs. These controls are useful for
 controlled tests, not for ordinary production use.
 
-## Failure Behavior
+## Failure Behaviour
 
 The runtime intentionally does not silently switch modes. Missing weights,
 missing foundation assets, missing ffmpeg, unsupported inputs, and load
-mismatches raise errors instead of falling back to a different behavior.
+mismatches raise errors instead of falling back to a different behaviour.
 
 ## Common Recipes
 
@@ -632,7 +761,7 @@ commercial projects. What you make with it is yours.
 - You may build on the code and model, but what you release must be freely
   accessible, stay under this same license, and keep the CorridorKey name.
   Donationware and pay-what-you-want are fine.
-- Organizations with more than US $20 million in annual revenue need to
+- Organisations with more than US $20 million in annual revenue need to
   purchase a seat of the CorridorKey plugin for each person using this tool.
   A seat covers both the plugin and this model and software. See
   [corridorkey.com](https://corridorkey.com).

@@ -31,7 +31,7 @@ def _signed_pow(x, gamma):
     NaN) and lets gradient flow through negative inputs.
 
     For the physically-valid [0, 1] inputs produced by the dataset the
-    behavior is bit-for-bit identical to the previous clamp-based form.
+    behaviour is bit-for-bit identical to the previous clamp-based form.
     `to_srgb` uses its own epsilon-shifted branch because gamma < 1 has an
     infinite mathematical slope at zero.
     """
@@ -66,6 +66,25 @@ def linear_to_srgb(x):
     return _on_gpu(linear_to_srgb, x)
 
 
+def linear_to_srgb_nonneg(x):
+    """linear_to_srgb for a numpy array with no negative values (as after
+    np.maximum(x, 0)): the same values, without computing the negative
+    branch, which torch.where discards for such input. Anything else (NaN,
+    which np.maximum keeps, or a negative) goes through linear_to_srgb."""
+    t = torch.from_numpy(x)
+    if not bool((t >= 0).all()):
+        return linear_to_srgb(x)
+    # The positive branch's ops, in place where linear_to_srgb makes a new
+    # tensor: the same kernels over the same whole-frame tensors.
+    pos_t = t.clamp(min=0.0)
+    pos_pow = pos_t.clamp(min=0.0031308)
+    pos_pow.pow_(1.0 / 2.4)
+    pos_pow.mul_(1.055).sub_(0.055)
+    low = pos_t <= 0.0031308
+    pos_t.mul_(12.92)
+    return torch.where(low, pos_t, pos_pow).numpy()
+
+
 def srgb_to_linear(x):
     """sRGB → Scene-linear RGB (IEC 61966-2-1). Numpy or torch input.
 
@@ -85,7 +104,6 @@ def srgb_to_linear(x):
     return _on_gpu(srgb_to_linear, x)
 
 
-# Backwards compatibility aliases
 to_srgb = linear_to_srgb
 to_linear = srgb_to_linear
 
@@ -93,7 +111,7 @@ to_linear = srgb_to_linear
 def linear_to_asinh(x, knee=HDR_ASINH_KNEE, ref=HDR_ASINH_REF):
     """Signed asinh encoding for scene-linear RGB.
 
-    `ref` is a normalization reference, not a clamp. Values above `ref`
+    `ref` is a normalisation reference, not a clamp. Values above `ref`
     encode above 1.0 and remain reversible. This is the model RGB contract for
     HDR-capable training: physical compositing stays in decoded linear light,
     while the network sees a compressed but exact signed representation.
@@ -177,20 +195,16 @@ def rgb_to_yuv(image):
     if not _is_tensor(image):
         raise TypeError("rgb_to_yuv only supports dict/tensor inputs currently")
 
-    # Weights for RGB -> Y
-    # Rec. 601: 0.299, 0.587, 0.114
     
-    # Assume BCHW layout if 4 dims
     if image.dim() == 4:
         r = image[:, 0:1, :, :]
         g = image[:, 1:2, :, :]
         b = image[:, 2:3, :, :]
-    elif image.dim() == 3 and image.shape[0] == 3: # CHW
+    elif image.dim() == 3 and image.shape[0] == 3:
         r = image[0:1, :, :]
         g = image[1:2, :, :]
         b = image[2:3, :, :]
     else:
-        # Last dim conversion
         r = image[..., 0]
         g = image[..., 1]
         b = image[..., 2]
@@ -199,7 +213,7 @@ def rgb_to_yuv(image):
     u = 0.492 * (b - y)
     v = 0.877 * (r - y)
     
-    if image.dim() >= 3 and image.shape[-3] == 3: # Concatenate along Channel dim
+    if image.dim() >= 3 and image.shape[-3] == 3:
          return torch.cat([y, u, v], dim=-3)
     else:
          return torch.stack([y, u, v], dim=-1)

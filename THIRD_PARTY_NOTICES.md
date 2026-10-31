@@ -37,3 +37,12 @@ the Apache License 2.0, also reproduced in `third_party/MoGe/LICENSE`.
 - Use: frozen recurrent video feature extractor. `corridorkey/rvm.py` is a
   PyTorch port of the reference architecture; weights are downloaded to
   `vfms/rvm/`.
+
+## CorridorKey Real-Time Edge Refiner
+
+- Publisher: mantelmoritz
+- Source: https://huggingface.co/mantelmoritz/CorridorKey-Realtime-EdgeRefiner
+- License: Corridor Key Licence
+- Use: optional native-resolution edge refinement when keying at a reduced
+  model scale (`ck --refine`); weights are downloaded to `weights/`. The
+  network and its input construction are reimplemented in `kernels/ck_ops`.

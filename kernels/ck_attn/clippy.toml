@@ -1,0 +1,4 @@
+# Device launch ABI: kernel parameter lists are positional (cuda-ptx contract).
+too-many-arguments-threshold = 24
+# The sm_61 simt kernel body is one pipeline; splitting it obscures the barrier choreography.
+too-many-lines-threshold = 112

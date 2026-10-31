@@ -1,6 +1,6 @@
 """Rotary Position Embeddings — 2D (stage 2) and 3D (stage 1) variants.
 
-DINOv3/EUPE-style: normalized [-1, 1] cell-center coordinates with
+DINOv3/EUPE-style: normalised [-1, 1] cell-center coordinates with
 training-time augmentations (shift, per-axis jitter, global rescale).
 
 CorridorKey v2 uses:
@@ -8,7 +8,7 @@ CorridorKey v2 uses:
     windows at /16 (stage 1).
   • 2D RoPE (H, W)      inside Swin-2D windows at /16 (stage 2; no temporal).
 
-Periods (lengths in normalized-coord units):
+Periods (lengths in normalised-coord units):
     periods[i] = base ** (2i / (D_axis))   for i in [0, D_axis // 2)
     angles = 2π · coord / period
 where `coord ∈ [-1, 1]` is the cell-center coord of a token in the
@@ -39,7 +39,7 @@ Convention:
   • Token ordering: (t, h, w) with w varying fastest for 3D;
                     (h, w) with w fastest for 2D.
   • All three axes use the same `base` (default 100).
-  • Coord normalization per EUPE's "separate" mode: coord_a = (i+0.5)/N_a.
+  • Coord normalisation per EUPE's "separate" mode: coord_a = (i+0.5)/N_a.
 """
 
 import math
@@ -50,22 +50,22 @@ import torch.nn as nn
 
 
 def _compute_periods(dim: int, base: float) -> torch.Tensor:
-    """Period lengths in normalized-coord units. Returns (dim//2,) tensor."""
+    """Period lengths in normalised-coord units. Returns (dim//2,) tensor."""
     assert dim % 2 == 0, f"_compute_periods dim={dim} must be even"
     exps = torch.arange(0, dim // 2, dtype=torch.float32) * 2.0 / dim
     return base ** exps  # Range: [1, base^((dim-2)/dim)]
 
 
-def _normalized_coords(n: int, device=None, dtype=torch.float32) -> torch.Tensor:
-    """Cell-center normalized coords in [-1, 1] for n tokens along an axis.
-    Matches DINOv3 / EUPE 'separate' normalization: (i+0.5)/n then 2x-1."""
+def _normalised_coords(n: int, device=None, dtype=torch.float32) -> torch.Tensor:
+    """Cell-center normalised coords in [-1, 1] for n tokens along an axis.
+    Matches DINOv3 / EUPE 'separate' normalisation: (i+0.5)/n then 2x-1."""
     x = (torch.arange(n, device=device, dtype=dtype) + 0.5) / n   # [0.5/n, (n-0.5)/n]
     return 2.0 * x - 1.0
 
 
 def _apply_axis_rotary(coord: torch.Tensor, periods: torch.Tensor
                        ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Given coord (N,) in normalized units and periods (D_axis//2,),
+    """Given coord (N,) in normalised units and periods (D_axis//2,),
     return (cos, sin) of shape (N, D_axis//2)."""
     angles = 2.0 * math.pi * coord.unsqueeze(1) / periods.unsqueeze(0)
     return torch.cos(angles), torch.sin(angles)
@@ -209,21 +209,21 @@ class RoPE3D(_RopeAugBase):
         num_t: int, num_h: int, num_w: int,
         device: torch.device = None,
         t_stride: float = 1.0,
-        # Legacy args kept for call-site compat; ignored in the normalized
-        # formulation (Swin windows use local-to-window normalization).
+        # Legacy args kept for call-site compat; ignored in the normalised
+        # formulation (Swin windows use local-to-window normalisation).
         t_offset: int = 0, h_offset: int = 0, w_offset: int = 0,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Build (num_t * num_h * num_w, head_dim // 2) cos and sin tables.
 
-        Positions are cell-center normalized to [-1, 1] per axis, optionally
+        Positions are cell-center normalised to [-1, 1] per axis, optionally
         augmented by the cached refresh_augs() sample. The `t_stride` scales
-        the temporal axis post-normalization (dataset-level frame-stride /
+        the temporal axis post-normalisation (dataset-level frame-stride /
         frame-rate knob, orthogonal to the training jitter).
         """
         device = device or self.periods_t.device
-        coord_t = _normalized_coords(num_t, device=device) * t_stride
-        coord_h = _normalized_coords(num_h, device=device)
-        coord_w = _normalized_coords(num_w, device=device)
+        coord_t = _normalised_coords(num_t, device=device) * t_stride
+        coord_h = _normalised_coords(num_h, device=device)
+        coord_w = _normalised_coords(num_w, device=device)
         coord_t = self._aug_coord(coord_t, axis_idx=0)
         coord_h = self._aug_coord(coord_h, axis_idx=1)
         coord_w = self._aug_coord(coord_w, axis_idx=2)
@@ -282,13 +282,13 @@ class RoPE2D(_RopeAugBase):
     def get_cos_sin(
         self, num_h: int, num_w: int,
         device: torch.device = None,
-        # Legacy kwargs kept for call-site compat; unused in normalized form.
+        # Legacy kwargs kept for call-site compat; unused in normalised form.
         h_offset: int = 0, w_offset: int = 0,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Build (num_h * num_w, head_dim // 2) cos/sin tables."""
         device = device or self.periods_h.device
-        coord_h = _normalized_coords(num_h, device=device)
-        coord_w = _normalized_coords(num_w, device=device)
+        coord_h = _normalised_coords(num_h, device=device)
+        coord_w = _normalised_coords(num_w, device=device)
         coord_h = self._aug_coord(coord_h, axis_idx=0)
         coord_w = self._aug_coord(coord_w, axis_idx=1)
 

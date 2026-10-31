@@ -15,7 +15,7 @@ Design:
       module; it is introduced zero-init when switching to the main phase.
     • 2 more SwinBlock2D blocks.
     • Depatchify 16× (Linear(d → 4·16²) + PixelShuffle(16)); FG rows are
-      initialized as the inverse of the RGB patch basis when the exact 768d
+      initialised as the inverse of the RGB patch basis when the exact 768d
       RGB basis is available, and alpha rows start at zero.
 
 No temporal processing here — stage 1 has done all temporal work. Stage 2
@@ -187,7 +187,7 @@ class Refine4ConvNeXtBlock(nn.Module):
     """Small ConvNeXt-style block over /4 feature maps.
 
     NCHW is kept throughout so cuDNN sees ordinary conv tensors. The branch is
-    residual, but not zero-initialized; the enclosing residual-output projection
+    residual, but not zero-initialised; the enclosing residual-output projection
     is zero-init, so enabling the head is still output-neutral at insertion.
     """
 
@@ -224,7 +224,7 @@ class Stage2Refine4Head(nn.Module):
       * exact RGB pixel-unshuffle to /4 (3 * 4 * 4 = 48 channels).
 
     Output is a full-res residual over the normal depatchified stage-2 logits.
-    The residual projection is zero-initialized, so the head is an exact no-op
+    The residual projection is zero-initialised, so the head is an exact no-op
     until it learns.
     """
 
@@ -301,7 +301,7 @@ class Stage2(nn.Module):
         gradient_checkpoint: bool = False,
         # Overlap patchify/depatchify (see blocks.PatchifyConv / Depatchify).
         # overlap_patchify is a legacy bool alias (True → mult=3).
-        # overlap_mult: 1 (no overlap) | 2 (half) | 3 (full, 3×3 neighborhood).
+        # overlap_mult: 1 (no overlap) | 2 (half) | 3 (full, 3×3 neighbourhood).
         overlap_patchify: bool = False,
         overlap_mult: int = 2,
         depatch_fourier_features: int = 0,

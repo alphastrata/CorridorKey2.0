@@ -33,7 +33,13 @@ tmp/
 *.jpeg
 *.f16
 *.f32
+!gui/screenshot.png
 
 # Local / studio-specific files
 path_mappings.json
 .claude/
+
+# Benchmark data
+bench/footage
+bench/frames/
+bench/results/

@@ -1,0 +1,1932 @@
+import { ComboBox, CheckBox, Slider, LineEdit, SpinBox, ListView, ScrollView, Palette } from "std-widgets.slint";
+import { T, Tips, Btn, Toggle, Tab, Pill, PanelTitle, Section, Row, Bar } from "theme.slint";
+
+export struct ClipRow {
+    name: string,
+    hint: string,
+    status: string,
+    progress: float,
+    detail: string,
+}
+
+export struct LogLine {
+    time: string,
+    level: string,
+    text: string,
+    kind: int,
+}
+
+export struct Plot {
+    gpu: int,
+    tint: int,
+    label: string,
+    value: string,
+    line: string,
+    area: string,
+}
+
+export struct Stat {
+    gpu: int,
+    tint: int,
+    key: string,
+    value: string,
+    head: bool,
+}
+
+export global Job {
+    in-out property <bool> ck-built: true;
+    in-out property <int> codec;
+    in-out property <bool> out-alpha: true;
+    in-out property <bool> out-fg: true;
+    in-out property <bool> out-cutout;
+    in-out property <bool> out-checker: true;
+    in-out property <int> format;
+    in-out property <int> exr-type;
+    in-out property <int> cutout-colour;
+    in-out property <float> despill: 0.5;
+    in-out property <float> brightness: 1.0;
+    in-out property <float> contrast: 1.0;
+    in-out property <int> preset: 5;
+    in-out property <int> threads: 8;
+    in-out property <float> crf: 12;
+    in-out property <float> hint-quality: 0.75;
+    in-out property <bool> carry: true;
+    in-out property <float> carry-quality: 0.95;
+    in-out property <int> vram-mode;
+    in-out property <int> chunk: 48;
+    in-out property <int> quantum: 128;
+    in-out property <int> vfm-batch: 8;
+    in-out property <string> log;
+    in-out property <int> stride: 24;
+    in-out property <int> frame-colour;
+    in-out property <string> fps: "24";
+    in-out property <int> num-frames;
+    in-out property <int> scale;
+    in-out property <bool> refine: true;
+    in-out property <int> out-mode;
+    in-out property <string> out-parent;
+    in property <[string]> models;
+    in-out property <int> model;
+    in property <[string]> refiners;
+    in-out property <int> refiner;
+    in-out property <bool> own-gpus;
+    in property <[bool]> gpu-pick;
+    in-out property <bool> own-share;
+    in-out property <bool> own-engine;
+    /// Why the selected clip cannot fit its GPUs as set; empty when it can.
+    in property <string> problem;
+    in-out property <float> priority: 50;
+    in-out property <float> vram: 90;
+    in-out property <float> cpu: 75;
+    callback changed();
+    callback browse-out-parent();
+    /// Index -1 resets the pick to the GPUs enabled in Preferences.
+    callback gpu-picked(int, bool);
+}
+
+/// Machine-wide preferences, edited in the Preferences sheet.
+export global Prefs {
+    in property <[string]> gpu-names;
+    in property <[bool]> gpu-on;
+    in-out property <bool> parallel: true;
+    in-out property <float> priority: 50;
+    in-out property <float> vram: 90;
+    in-out property <float> cpu: 75;
+    in-out property <int> keep-alive: 10;
+    in-out property <int> quantum: 128;
+    in-out property <int> vfm-batch: 8;
+    in-out property <bool> open;
+    callback changed();
+    callback gpu-toggled(int, bool);
+}
+
+export global View {
+    in property <image> frame;
+    in property <image> frame-b;
+    in property <bool> b-ready;
+    in-out property <int> view-b: -1;
+    in-out property <bool> compare;
+    in property <int> src-w;
+    in property <int> src-h;
+    in property <int> count;
+    in-out property <int> index;
+    in property <[bool]> has: [false, false, false, false, false];
+    in-out property <int> view;
+    in-out property <bool> playing;
+    in property <float> fps: 24;
+    in property <string> message: "Drop clips, frame folders or a folder of clips anywhere in this window.";
+    in property <bool> busy;
+    in-out property <int> fit-request;
+    callback show(int, int);
+    callback detail(bool);
+    callback open-folder();
+}
+
+export global Queue {
+    in property <[ClipRow]> rows;
+    in-out property <int> selected: -1;
+    in property <string> clip-name: "No clip selected";
+    in property <string> clip-where: "Drop videos or frame folders anywhere in the window.";
+    in-out property <int> hint-kind;
+    in-out property <string> hint-path;
+    in property <bool> editable;
+    callback select(int);
+    callback remove();
+    callback add-clips();
+    callback add-folder();
+    callback choose-hint();
+    callback hint-edited();
+}
+
+component ImageView inherits Rectangle {
+    in property <image> frame;
+    in property <image> frame-b;
+    in property <bool> compare;
+    in property <string> label-a;
+    in property <string> label-b;
+    in-out property <float> wipe: 0.5;
+    in property <int> src-w;
+    in property <int> src-h;
+    in property <string> placeholder;
+    in-out property <float> zoom: 1;
+    in-out property <length> pan-x;
+    in-out property <length> pan-y;
+    out property <float> fit: root.src-w > 0 && root.src-h > 0
+        ? min(root.width / (root.src-w * 1px), root.height / (root.src-h * 1px)) : 1;
+    out property <float> scale: root.fit * root.zoom;
+    property <length> drag-x;
+    property <length> drag-y;
+    callback focus-me();
+    background: #000000;
+    clip: true;
+    changed src-w => { root.zoom = 1; root.pan-x = 0; root.pan-y = 0; }
+    changed scale => { View.detail(root.src-w > 0 && root.scale * root.src-w * 1px > root.frame.width * 1px * 1.05); }
+    if root.src-w > 0: Image {
+        source: root.frame;
+        width: root.src-w * 1px * root.scale;
+        height: root.src-h * 1px * root.scale;
+        x: (root.width - self.width) / 2 + root.pan-x;
+        y: (root.height - self.height) / 2 + root.pan-y;
+        image-fit: fill;
+        image-rendering: root.scale < 2 ? smooth : pixelated;
+    }
+    if root.src-w <= 0: Text {
+        text: root.placeholder;
+        color: T.subtle;
+        font-size: T.body;
+        wrap: word-wrap;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: parent.width - 48px;
+        x: 24px;
+    }
+    TouchArea {
+        mouse-cursor: self.pressed ? grabbing : default;
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                root.drag-x = root.pan-x - self.mouse-x;
+                root.drag-y = root.pan-y - self.mouse-y;
+                root.focus-me();
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.pan-x = root.drag-x + self.mouse-x;
+                root.pan-y = root.drag-y + self.mouse-y;
+            }
+        }
+        double-clicked => {
+            root.zoom = 1;
+            root.pan-x = 0;
+            root.pan-y = 0;
+        }
+        scroll-event(e) => {
+            if root.src-w <= 0 {
+                return reject;
+            }
+            let old = root.scale;
+            let x0 = (root.width - root.src-w * 1px * old) / 2 + root.pan-x;
+            let y0 = (root.height - root.src-h * 1px * old) / 2 + root.pan-y;
+            let u = (self.mouse-x - x0) / old;
+            let v = (self.mouse-y - y0) / old;
+            root.zoom = clamp(root.zoom * pow(1.25, e.delta-y / 120px), 0.1, 64);
+            let s = root.scale;
+            root.pan-x = self.mouse-x - u * s + root.src-w * 1px * s / 2 - root.width / 2;
+            root.pan-y = self.mouse-y - v * s + root.src-h * 1px * s / 2 - root.height / 2;
+            return accept;
+        }
+    }
+    if root.src-w > 0 && root.compare: wipe := Rectangle {
+        property <length> w: root.src-w * 1px * root.scale;
+        property <length> x0: (root.width - self.w) / 2 + root.pan-x;
+        property <length> split: clamp(self.x0 + self.w * root.wipe, 0, root.width);
+        Rectangle {
+            x: parent.split;
+            width: root.width - parent.split;
+            clip: true;
+            Image {
+                source: root.frame-b;
+                x: wipe.x0 - parent.x;
+                y: (root.height - self.height) / 2 + root.pan-y;
+                width: wipe.w;
+                height: root.src-h * 1px * root.scale;
+                image-fit: fill;
+                image-rendering: root.scale < 2 ? smooth : pixelated;
+            }
+        }
+        Rectangle {
+            x: parent.split - 1px;
+            width: 2px;
+            background: T.brand;
+        }
+        for t[i] in [root.label-a, root.label-b]: Rectangle {
+            x: i == 0 ? max(8px, parent.split - self.width - 8px) : min(parent.split + 8px, root.width - self.width - 8px);
+            y: 8px;
+            width: tag.preferred-width + 12px;
+            height: 20px;
+            border-radius: 2px;
+            background: #000000aa;
+            tag := Text {
+                text: (i == 0 ? "A · " : "B · ") + t;
+                color: T.text;
+                font-size: T.small;
+            }
+        }
+        Rectangle {
+            x: parent.split - 9px;
+            y: (root.height - self.height) / 2;
+            width: 18px;
+            height: 44px;
+            border-radius: 2px;
+            background: T.brand;
+            Text {
+                text: "⇔";
+                color: T.brand-ink;
+                font-size: T.small;
+            }
+        }
+        TouchArea {
+            x: parent.split - 9px;
+            width: 18px;
+            mouse-cursor: col-resize;
+            moved => {
+                if self.pressed && parent.w > 0 {
+                    root.wipe = clamp((self.x + self.mouse-x - parent.x0) / parent.w, 0, 1);
+                }
+            }
+        }
+    }
+    if root.src-w > 0: Rectangle {
+        x: parent.width - 62px;
+        y: parent.height - 28px;
+        width: 54px;
+        height: 20px;
+        border-radius: 2px;
+        background: reset.has-hover ? T.surface-brand : #000000aa;
+        Text {
+            text: reset.has-hover && root.zoom != 1 ? "Fit" : round(root.scale * 100) + "%";
+            color: reset.has-hover ? T.brand : T.muted;
+            font-size: T.small;
+        }
+        reset := TouchArea {
+            mouse-cursor: pointer;
+            clicked => {
+                root.zoom = 1;
+                root.pan-x = 0;
+                root.pan-y = 0;
+            }
+        }
+    }
+}
+
+component Scrubber inherits Rectangle {
+    in property <int> count;
+    in-out property <int> index;
+    callback seek(int);
+    height: 22px;
+    property <float> at: root.count > 1 ? root.index / (root.count - 1) : 0;
+    Rectangle {
+        y: (parent.height - 3px) / 2;
+        height: 3px;
+        background: T.line;
+    }
+    Rectangle {
+        y: (parent.height - 3px) / 2;
+        height: 3px;
+        width: parent.width * root.at;
+        x: 0;
+        background: T.chroma;
+    }
+    Rectangle {
+        x: (parent.width - 3px) * root.at;
+        width: 3px;
+        height: 16px;
+        y: (parent.height - 16px) / 2;
+        border-radius: 1px;
+        background: T.text;
+    }
+    TouchArea {
+        enabled: root.count > 0;
+        function pick() {
+            root.seek(round(clamp(self.mouse-x / root.width, 0, 1) * max(root.count - 1, 0)));
+        }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                self.pick();
+            }
+        }
+        moved => {
+            if self.pressed {
+                self.pick();
+            }
+        }
+    }
+}
+
+component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <bool> enabled: true;
+    in property <string> label;
+    callback clicked();
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
+    width: 26px;
+    height: 26px;
+    border-radius: 2px;
+    border-width: 1px;
+    border-color: touch.has-hover ? T.line-strong : transparent;
+    background: touch.has-hover ? T.button-hover : transparent;
+    opacity: root.enabled ? 1 : 0.35;
+    Image {
+        source: root.icon;
+        width: 16px;
+        height: 16px;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component Viewer inherits Rectangle {
+    in property <bool> stats-visible;
+    in property <[Stat]> stats;
+    in property <[Plot]> plots;
+    property <[string]> names: ["Input", "Alpha", "Foreground", "Checker", "Cutout"];
+    property <bool> ab <=> View.compare;
+    changed ab => {
+        if !root.ab {
+            View.view-b = -1;
+        } else if View.view-b < 0 {
+            View.view-b = View.view != 0 ? 0 : View.has[3] ? 3 : View.has[1] ? 1 : View.has[2] ? 2 : 4;
+        }
+        View.show(View.view, View.index);
+    }
+    callback focus-me();
+    background: T.canvas;
+    VerticalLayout {
+        padding: 10px;
+        spacing: 8px;
+        HorizontalLayout {
+            spacing: 8px;
+            Rectangle {
+                border-width: 1px;
+                border-color: T.line;
+                border-radius: 2px;
+                background: T.canvas-2;
+                HorizontalLayout {
+                    for name[i] in root.names: Tab {
+                        text: name;
+                        checked: View.view == i;
+                        enabled: View.has[i];
+                        clicked => {
+                            View.view = i;
+                            View.show(i, View.index);
+                        }
+                    }
+                }
+            }
+            if View.has[0] && !View.has[1] && !View.has[2] && !View.has[3] && !View.has[4]: Text {
+                text: "Outputs appear after a run";
+                color: T.subtle;
+                font-size: T.small;
+                vertical-alignment: center;
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            Toggle {
+                icon: @image-url("icons/compare.svg");
+                tip: "A|B wipe";
+                checked <=> root.ab;
+            }
+            if root.ab: ComboBox {
+                width: 130px;
+                model: root.names;
+                current-index <=> View.view-b;
+                selected => { View.show(View.view, View.index); }
+            }
+            Btn {
+                icon: @image-url("icons/fit.svg");
+                tip: "Fit (F)";
+                enabled: View.src-w > 0;
+                clicked => {
+                    image.zoom = 1;
+                    image.pan-x = 0;
+                    image.pan-y = 0;
+                }
+            }
+            Btn {
+                text: "1:1";
+                tip: "Actual pixels (Z)";
+                enabled: View.src-w > 0;
+                clicked => {
+                    image.zoom = 1 / image.fit;
+                    image.pan-x = 0;
+                    image.pan-y = 0;
+                }
+            }
+            Btn {
+                icon: @image-url("icons/folder-open.svg");
+                tip: "Open output folder";
+                clicked => { View.open-folder(); }
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            image := ImageView {
+                frame: View.frame;
+                src-w: View.src-w;
+                src-h: View.src-h;
+                placeholder: View.message;
+                frame-b: View.frame-b;
+                compare: root.ab && View.b-ready && View.view-b != View.view;
+                label-a: root.names[View.view];
+                label-b: root.names[View.view-b];
+                focus-me => { root.focus-me(); }
+            }
+            if root.stats-visible: Rectangle {
+                x: 12px;
+                y: 12px;
+                width: min(table.preferred-width, 440px, parent.width - 24px);
+                height: min(table.preferred-height, parent.height * 0.8);
+                clip: true;
+                background: #080a0ce0;
+                border-width: 1px;
+                border-color: #ffffff28;
+                border-radius: 6px;
+                table := VerticalLayout {
+                    padding: 12px;
+                    padding-top: 6px;
+                    spacing: 3px;
+                    for s in root.stats: HorizontalLayout {
+                        padding-top: s.head ? 8px : 0;
+                        spacing: 16px;
+                        Text {
+                            text: s.head ? s.key.to-uppercase() : s.key;
+                            width: s.head ? self.preferred-width : 92px;
+                            font-family: T.mono;
+                            font-size: 11px;
+                            font-weight: s.head ? 700 : 400;
+                            letter-spacing: s.head ? 1.2px : 0;
+                            color: s.tint >= 0 ? T.jobs[s.tint] : s.head ? T.brand : T.subtle;
+                        }
+                        if !s.head: Text {
+                            text: s.value;
+                            overflow: elide;
+                            min-width: min(self.preferred-width, 300px);
+                            font-family: T.mono;
+                            font-size: 11px;
+                            color: T.text;
+                        }
+                    }
+                }
+            }
+            if root.stats-visible && root.plots.length > 0: Rectangle {
+                x: parent.width - self.width - 12px;
+                y: 40px;
+                width: graphs.preferred-width;
+                height: min(graphs.preferred-height, parent.height - 52px);
+                clip: true;
+                background: #080a0ce0;
+                border-width: 1px;
+                border-color: #ffffff28;
+                border-radius: 6px;
+                graphs := VerticalLayout {
+                    padding: 12px;
+                    padding-top: 8px;
+                    spacing: 4px;
+                    Text {
+                        text: "HARDWARE · 5 s";
+                        font-family: T.mono;
+                        font-size: 11px;
+                        font-weight: 700;
+                        letter-spacing: 1.2px;
+                        color: T.brand;
+                    }
+                    for p in root.plots: HorizontalLayout {
+                        spacing: 10px;
+                        height: 22px;
+                        Text {
+                            text: p.label;
+                            width: 74px;
+                            font-family: T.mono;
+                            font-size: 11px;
+                            color: p.tint >= 0 ? T.jobs[p.tint] : T.subtle;
+                            vertical-alignment: center;
+                        }
+                        Rectangle {
+                            width: 110px;
+                            background: #ffffff08;
+                            border-radius: 2px;
+                            Path {
+                                commands: p.area;
+                                viewbox-width: 110;
+                                viewbox-height: 22;
+                                fill: (p.tint >= 0 ? T.jobs[p.tint] : p.gpu >= 0 ? T.subtle : T.muted).with-alpha(0.14);
+                            }
+                            Path {
+                                commands: p.line;
+                                viewbox-width: 110;
+                                viewbox-height: 22;
+                                stroke: p.tint >= 0 ? T.jobs[p.tint] : p.gpu >= 0 ? T.subtle : T.muted;
+                                stroke-width: 1.2px;
+                            }
+                        }
+                        Text {
+                            text: p.value;
+                            width: 84px;
+                            font-family: T.mono;
+                            font-size: 11px;
+                            color: T.text;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+            if View.busy && View.src-w > 0: Rectangle {
+                x: parent.width - 90px;
+                y: 12px;
+                width: 78px;
+                height: 20px;
+                border-radius: 2px;
+                background: #000000aa;
+                Text {
+                    text: "decoding…";
+                    color: T.muted;
+                    font-size: T.small;
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            IconButton {
+                icon: @image-url("icons/step-back.svg");
+                label: "Previous frame";
+                enabled: View.count > 0;
+                clicked => { View.show(View.view, max(View.index - 1, 0)); }
+            }
+            IconButton {
+                icon: View.playing ? @image-url("icons/pause.svg") : @image-url("icons/play.svg");
+                label: View.playing ? "Pause" : "Play";
+                enabled: View.count > 1;
+                clicked => { View.playing = !View.playing; }
+            }
+            IconButton {
+                icon: @image-url("icons/step-forward.svg");
+                label: "Next frame";
+                enabled: View.count > 0;
+                clicked => { View.show(View.view, min(View.index + 1, View.count - 1)); }
+            }
+            Scrubber {
+                horizontal-stretch: 1;
+                count: View.count;
+                index: View.index;
+                seek(i) => { View.show(View.view, i); }
+            }
+            Text {
+                text: View.count > 0 ? (View.index + 1) + " / " + View.count : "";
+                color: T.muted;
+                font-size: T.body;
+                vertical-alignment: center;
+                min-width: 80px;
+                horizontal-alignment: right;
+            }
+        }
+    }
+    public function fit() {
+        image.zoom = 1;
+        image.pan-x = 0;
+        image.pan-y = 0;
+    }
+    public function actual() {
+        image.zoom = 1 / image.fit;
+        image.pan-x = 0;
+        image.pan-y = 0;
+    }
+}
+
+component QueuePanel inherits Rectangle {
+    background: T.surface;
+    VerticalLayout {
+        padding: 12px;
+        padding-right: 10px;
+        spacing: 8px;
+        PanelTitle {
+            text: "QUEUE";
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            background: T.canvas-2;
+            border-width: 1px;
+            border-color: T.line;
+            border-radius: 2px;
+            VerticalLayout {
+                Rectangle {
+                    height: 26px;
+                    background: T.surface;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        for h[i] in ["CLIP", "HINT", "STATUS"]: Text {
+                            text: h;
+                            color: T.subtle;
+                            font-size: T.small;
+                            font-weight: 700;
+                            letter-spacing: 1px;
+                            vertical-alignment: center;
+                            horizontal-stretch: i == 0 ? 2 : 1;
+                        }
+                    }
+                    Rectangle {
+                        y: parent.height - 1px;
+                        height: 1px;
+                        background: T.line;
+                    }
+                }
+                ListView {
+                    for row[i] in Queue.rows: Rectangle {
+                        accessible-role: list-item;
+                        accessible-label: row.name;
+                        accessible-value: row.status;
+                        accessible-item-selectable: true;
+                        accessible-item-selected: Queue.selected == i;
+                        accessible-action-default => { Queue.select(i); }
+                        height: 34px;
+                        background: Queue.selected == i ? T.surface-brand : touch.has-hover ? #161614
+                            : mod(i, 2) == 1 ? #121211 : transparent;
+                        border-width: Queue.selected == i ? 1px : 0;
+                        border-color: T.line-brand;
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 6px;
+                            Text {
+                                text: row.name;
+                                color: T.text;
+                                font-size: T.body;
+                                overflow: elide;
+                                vertical-alignment: center;
+                                horizontal-stretch: 2;
+                            }
+                            Text {
+                                text: row.hint;
+                                color: T.muted;
+                                font-size: T.small;
+                                overflow: elide;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                if row.status == "Running": VerticalLayout {
+                                    alignment: center;
+                                    spacing: 3px;
+                                    Text {
+                                        text: row.detail;
+                                        color: T.text;
+                                        font-size: T.small;
+                                        overflow: elide;
+                                    }
+                                    Bar {
+                                        value: row.progress;
+                                    }
+                                }
+                                if row.status != "Running": Pill {
+                                    x: 0;
+                                    status: row.status;
+                                }
+                            }
+                        }
+                        touch := TouchArea {
+                            clicked => { Queue.select(i); }
+                        }
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            Btn {
+                icon: @image-url("icons/file-plus.svg");
+                text: "Clips";
+                tip: "Add clips (Ctrl+O)";
+                horizontal-stretch: 1;
+                clicked => { Queue.add-clips(); }
+            }
+            Btn {
+                icon: @image-url("icons/folder-plus.svg");
+                text: "Folder";
+                tip: "Add a folder of clips";
+                horizontal-stretch: 1;
+                clicked => { Queue.add-folder(); }
+            }
+            Btn {
+                icon: @image-url("icons/trash.svg");
+                tip: "Remove from queue";
+                tip-up: true;
+                enabled: Queue.selected >= 0;
+                clicked => { Queue.remove(); }
+            }
+        }
+    }
+}
+
+component Value inherits Text {
+    in property <float> value;
+    text: round(root.value * 100) / 100;
+    width: 40px;
+    color: T.text;
+    font-size: T.body;
+    font-weight: 600;
+    horizontal-alignment: right;
+    vertical-alignment: center;
+}
+
+component Percent inherits Row {
+    in-out property <float> value;
+    callback edited();
+    Slider {
+        min-width: 0;
+        minimum: 1;
+        maximum: 100;
+        step: 1;
+        enabled: root.enabled;
+        value <=> root.value;
+        accessible-label: root.label;
+        changed => { root.edited(); }
+    }
+    Text {
+        text: round(root.value) + "%";
+        width: 40px;
+        color: root.enabled ? T.text : T.disabled;
+        font-size: T.body;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+    }
+}
+
+component Problem inherits Rectangle {
+    in property <string> text;
+    property <bool> lit;
+    changed text => {
+        self.lit = true;
+        flash.running = true;
+    }
+    flash := Timer {
+        interval: 600ms;
+        running: false;
+        triggered => {
+            root.lit = false;
+            self.running = false;
+        }
+    }
+    height: self.text == "" ? 0 : body.preferred-height + 12px;
+    visible: self.text != "";
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: T.danger-line;
+    background: root.lit ? #ff4d4d40 : #ff4d4d14;
+    animate background { duration: 300ms; }
+    body := Text {
+        x: 8px;
+        width: parent.width - 16px;
+        text: "⚠ " + root.text;
+        color: T.danger;
+        font-size: T.small;
+        wrap: word-wrap;
+    }
+}
+
+component Engine inherits VerticalLayout {
+    in property <bool> enabled: true;
+    in-out property <int> quantum;
+    in-out property <int> vfm-batch;
+    callback edited();
+    spacing: 10px;
+    Row {
+        label: "Padding quantum";
+        enabled: root.enabled;
+        SpinBox {
+            min-width: 0;
+            minimum: 16;
+            maximum: 1024;
+            value <=> root.quantum;
+            enabled: root.enabled;
+            edited => { root.edited(); }
+        }
+        Text {
+            text: "frames are padded to this";
+            color: T.subtle;
+            font-size: T.small;
+        }
+    }
+    Row {
+        label: "Foundation batch";
+        enabled: root.enabled;
+        SpinBox {
+            min-width: 0;
+            minimum: 1;
+            maximum: 64;
+            value <=> root.vfm-batch;
+            enabled: root.enabled;
+            edited => { root.edited(); }
+        }
+        Text {
+            text: "frames per foundation batch";
+            color: T.subtle;
+            font-size: T.small;
+        }
+    }
+}
+
+component Shares inherits VerticalLayout {
+    in property <bool> enabled: true;
+    in-out property <float> priority;
+    in-out property <float> vram;
+    in-out property <float> cpu;
+    callback edited();
+    spacing: 10px;
+    Percent {
+        label: "CPU priority";
+        enabled: root.enabled;
+        value <=> root.priority;
+        edited => { root.edited(); }
+    }
+    Percent {
+        label: "VRAM";
+        enabled: root.enabled;
+        value <=> root.vram;
+        edited => { root.edited(); }
+    }
+    Percent {
+        label: "CPU cores";
+        enabled: root.enabled;
+        value <=> root.cpu;
+        edited => { root.edited(); }
+    }
+}
+
+component PrefsSheet inherits Rectangle {
+    background: #000000aa;
+    TouchArea {
+        clicked => { Prefs.open = false; }
+    }
+    Rectangle {
+        width: min(460px, parent.width - 32px);
+        height: min(body.preferred-height, parent.height - 80px);
+        x: (parent.width - self.width) / 2;
+        y: 60px;
+        clip: true;
+        background: T.surface;
+        border-width: 1px;
+        border-color: T.line-strong;
+        border-radius: 4px;
+        TouchArea {}
+        body := VerticalLayout {
+            padding: 16px;
+            spacing: 10px;
+            HorizontalLayout {
+                PanelTitle {
+                    text: "PREFERENCES";
+                    vertical-alignment: center;
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+                Btn {
+                    text: "Done";
+                    clicked => { Prefs.open = false; }
+                }
+            }
+            Section {
+                title: "GPUs";
+                for name[i] in Prefs.gpu-names: CheckBox {
+                    min-width: 0;
+                    text: name;
+                    checked: Prefs.gpu-on[i];
+                    toggled => { Prefs.gpu-toggled(i, self.checked); }
+                }
+                CheckBox {
+                    min-width: 0;
+                    text: "One clip per GPU at a time";
+                    checked <=> Prefs.parallel;
+                    enabled: Prefs.gpu-names.length > 1;
+                    toggled => { Prefs.changed(); }
+                }
+                if Prefs.gpu-names.length == 0: Text {
+                    text: "No GPUs found through NVML; ck picks its own.";
+                    color: T.subtle;
+                    font-size: T.small;
+                    wrap: word-wrap;
+                }
+            }
+            Section {
+                title: "Performance";
+                Shares {
+                    priority <=> Prefs.priority;
+                    vram <=> Prefs.vram;
+                    cpu <=> Prefs.cpu;
+                    edited => { Prefs.changed(); }
+                }
+                Row {
+                    label: "Keep models";
+                    SpinBox {
+                        min-width: 0;
+                        minimum: 0;
+                        maximum: 1440;
+                        value <=> Prefs.keep-alive;
+                        edited => { Prefs.changed(); }
+                    }
+                    Text {
+                        text: "min idle";
+                        width: 80px;
+                        color: T.muted;
+                        font-size: T.small;
+                        vertical-alignment: center;
+                    }
+                }
+                Engine {
+                    quantum <=> Prefs.quantum;
+                    vfm-batch <=> Prefs.vfm-batch;
+                    edited => { Prefs.changed(); }
+                }
+                Text {
+                    text: "Defaults for every job, as shares of each GPU's memory and of the CPU; a clip may override them in the Inspector. Changes apply to jobs started afterwards; a new priority, core share or GPU set loads a fresh resident worker.";
+                    color: T.subtle;
+                    font-size: T.small;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}
+
+component Inspector inherits Rectangle {
+    in property <bool> locked;
+    property <bool> exr: Job.format == 1;
+    property <bool> nvenc: Job.codec == 1;
+    property <bool> manual: Job.vram-mode == 1;
+    property <[string]> presets: ["80 / 40 · max continuity", "48 / 24", "24 / 12", "8 / 4", "1 / 1 · single frames", "Custom"];
+    property <[int]> chunks: [80, 48, 24, 8, 1];
+    property <[int]> strides: [40, 24, 12, 4, 1];
+    property <int> preset: Job.chunk == 80 && Job.stride == 40 ? 0 : Job.chunk == 48 && Job.stride == 24 ? 1
+        : Job.chunk == 24 && Job.stride == 12 ? 2 : Job.chunk == 8 && Job.stride == 4 ? 3
+        : Job.chunk == 1 && Job.stride == 1 ? 4 : 5;
+    background: T.surface;
+    VerticalLayout {
+        padding-left: 14px;
+        padding-top: 12px;
+        padding-right: 8px;
+        spacing: 8px;
+        HorizontalLayout {
+            PanelTitle {
+                text: "INSPECTOR";
+            }
+            if root.locked: Text {
+                text: "Running · read-only";
+                color: T.brand;
+                font-size: T.small;
+                horizontal-alignment: right;
+            }
+        }
+        sv := ScrollView {
+            vertical-stretch: 1;
+            content-width: self.visible-width;
+            VerticalLayout {
+                width: sv.visible-width;
+                padding-right: 10px;
+                spacing: 6px;
+                Section {
+                    title: "Clip";
+                    Text {
+                        text: Queue.clip-name;
+                        color: T.text;
+                        font-size: 15px;
+                        font-weight: 700;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: Queue.clip-where;
+                        color: T.subtle;
+                        font-size: T.small;
+                        overflow: elide;
+                    }
+                    Row {
+                        label: "Alpha hint";
+                        enabled: Queue.editable;
+                        ComboBox {
+                            min-width: 0;
+                            model: ["No hint", "First-frame matte", "Full hint video or folder"];
+                            current-index <=> Queue.hint-kind;
+                            enabled: Queue.editable;
+                            selected => { Queue.hint-edited(); }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        LineEdit {
+                            min-width: 0;
+                            text <=> Queue.hint-path;
+                            placeholder-text: "None attached";
+                            enabled: Queue.editable && Queue.hint-kind != 0;
+                            edited => { Queue.hint-edited(); }
+                        }
+                        Btn {
+                            icon: @image-url("icons/folder-open.svg");
+                            tip: "Choose hint";
+                            enabled: Queue.editable && Queue.hint-kind != 0;
+                            clicked => { Queue.choose-hint(); }
+                        }
+                    }
+                }
+                Section {
+                    title: "Encoder";
+                    if !Job.ck-built: Text {
+                        text: "ck is not built: cargo build --release -p ck";
+                        color: T.danger;
+                        font-size: T.small;
+                        wrap: word-wrap;
+                    }
+                    Row {
+                        label: "Codec";
+                        enabled: !root.exr;
+                        ComboBox {
+                            min-width: 0;
+                            model: ["x264 · CPU", "HEVC · NVENC on the GPU"];
+                            current-index <=> Job.codec;
+                            enabled: !root.exr;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Quality";
+                        enabled: !root.exr;
+                        Slider {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 40;
+                            value <=> Job.crf;
+                            enabled: !root.exr;
+                            changed => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.crf;
+                        }
+                    }
+                    Row {
+                        label: "Preset";
+                        enabled: !root.exr;
+                        ComboBox {
+                            min-width: 0;
+                            model: ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"];
+                            current-index <=> Job.preset;
+                            enabled: !root.exr;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                }
+                Section {
+                    title: "Outputs";
+                    GridLayout {
+                        spacing-horizontal: 12px;
+                        spacing-vertical: 8px;
+                        CheckBox {
+                            row: 0;
+                            col: 0;
+                            text: "Alpha matte";
+                            checked <=> Job.out-alpha;
+                            toggled => { Job.changed(); }
+                        }
+                        CheckBox {
+                            row: 0;
+                            col: 1;
+                            text: "Foreground";
+                            checked <=> Job.out-fg;
+                            toggled => { Job.changed(); }
+                        }
+                        CheckBox {
+                            row: 1;
+                            col: 0;
+                            text: "Cutout (RGBA)";
+                            checked <=> Job.out-cutout;
+                            toggled => { Job.changed(); }
+                        }
+                        CheckBox {
+                            row: 1;
+                            col: 1;
+                            text: "Checker preview";
+                            checked <=> Job.out-checker;
+                            toggled => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Format";
+                        ComboBox {
+                            min-width: 0;
+                            model: ["Preview video", "EXR sequence · HDR"];
+                            current-index <=> Job.format;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "EXR type";
+                        enabled: root.exr;
+                        ComboBox {
+                            min-width: 0;
+                            model: ["Half float", "Full float"];
+                            current-index <=> Job.exr-type;
+                            enabled: root.exr;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Cutout colour";
+                        enabled: Job.out-cutout && !root.exr;
+                        ComboBox {
+                            min-width: 0;
+                            model: ["Straight sRGB", "Straight linear"];
+                            current-index <=> Job.cutout-colour;
+                            enabled: Job.out-cutout && !root.exr;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Despill";
+                        enabled: (Job.out-cutout || Job.out-checker);
+                        Slider {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 1;
+                            value <=> Job.despill;
+                            enabled: (Job.out-cutout || Job.out-checker);
+                            changed => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.despill;
+                        }
+                    }
+                    Row {
+                        label: "Gain";
+                        enabled: !root.exr;
+                        Slider {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 2;
+                            value <=> Job.brightness;
+                            enabled: !root.exr;
+                            changed => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.brightness;
+                        }
+                    }
+                    Row {
+                        label: "Contrast";
+                        enabled: !root.exr;
+                        Slider {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 2;
+                            value <=> Job.contrast;
+                            enabled: !root.exr;
+                            changed => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.contrast;
+                        }
+                    }
+                }
+                Section {
+                    title: "Hint trust";
+                    Row {
+                        label: "Provided hint";
+                        Slider {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 1;
+                            value <=> Job.hint-quality;
+                            changed => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.hint-quality;
+                        }
+                    }
+                    CheckBox {
+                        min-width: 0;
+                        text: "Carry own matte between windows";
+                        checked <=> Job.carry;
+                        toggled => { Job.changed(); }
+                    }
+                    Row {
+                        label: "Carried hint";
+                        enabled: Job.carry;
+                        Slider {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 1;
+                            value <=> Job.carry-quality;
+                            enabled: Job.carry;
+                            changed => { Job.changed(); }
+                        }
+                        Value {
+                            value: Job.carry-quality;
+                        }
+                    }
+                }
+                Section {
+                    title: "Resources";
+                    CheckBox {
+                        min-width: 0;
+                        text: "Override the Preferences defaults";
+                        checked <=> Job.own-share;
+                        toggled => {
+                            Job.priority = Prefs.priority;
+                            Job.vram = Prefs.vram;
+                            Job.cpu = Prefs.cpu;
+                            Job.changed();
+                        }
+                    }
+                    if Job.own-share: Shares {
+                        priority <=> Job.priority;
+                        vram <=> Job.vram;
+                        cpu <=> Job.cpu;
+                        edited => { Job.changed(); }
+                    }
+                    if !Job.own-share: Shares {
+                        enabled: false;
+                        priority: Prefs.priority;
+                        vram: Prefs.vram;
+                        cpu: Prefs.cpu;
+                    }
+                }
+                                Section {
+                    title: "Performance";
+                    CheckBox {
+                        min-width: 0;
+                        text: "Override the Preferences defaults";
+                        checked <=> Job.own-engine;
+                        toggled => {
+                            Job.quantum = Prefs.quantum;
+                            Job.vfm-batch = Prefs.vfm-batch;
+                            Job.changed();
+                        }
+                    }
+
+                    if Job.own-engine: Engine {
+                        quantum <=> Job.quantum;
+                        vfm-batch <=> Job.vfm-batch;
+                        edited => { Job.changed(); }
+                    }
+
+                    if !Job.own-engine: Engine {
+                        enabled: false;
+                        quantum: Prefs.quantum;
+                        vfm-batch: Prefs.vfm-batch;
+                    }
+
+                    Row {
+                        label: "Encoder threads";
+                        enabled: !root.exr;
+                        SpinBox {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 24;
+                            value <=> Job.threads;
+                            enabled: !root.exr;
+                            edited => { Job.changed(); }
+                        }
+                        Text {
+                            text: "per output · 0 = ffmpeg decides";
+                            color: T.subtle;
+                            font-size: T.small;
+                        }
+                    }
+                }
+
+Section {
+                    title: "GPU";
+                    CheckBox {
+                        min-width: 0;
+                        text: "Choose GPUs for this clip";
+                        checked <=> Job.own-gpus;
+                        enabled: Prefs.gpu-names.length > 0;
+                        toggled => { Job.gpu-picked(-1, false); }
+                    }
+                    for name[i] in Prefs.gpu-names: CheckBox {
+                        min-width: 0;
+                        text: name;
+                        enabled: Job.own-gpus;
+                        checked: Job.own-gpus ? Job.gpu-pick[i] : Prefs.gpu-on[i];
+                        toggled => { Job.gpu-picked(i, self.checked); }
+                    }
+                    Text {
+                        text: Job.own-gpus ? "Runs on every ticked GPU at once, waiting until all are idle." : "Follows the GPUs and placement set in Preferences.";
+                        color: T.subtle;
+                        font-size: T.small;
+                        wrap: word-wrap;
+                    }
+                    Row {
+                        label: "Memory";
+                        memory := ComboBox {
+                            min-width: 0;
+                            model: ["Auto · fit to free memory", "Manual"];
+                            current-index <=> Job.vram-mode;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Window";
+                        enabled: root.manual;
+                        window := ComboBox {
+                            min-width: 0;
+                            model: root.presets;
+                            current-index: root.preset;
+                            enabled: root.manual;
+                            selected => {
+                                if self.current-index < 5 {
+                                    Job.chunk = root.chunks[self.current-index];
+                                    Job.stride = root.strides[self.current-index];
+                                    Job.changed();
+                                }
+                            }
+                        }
+                    }
+                    Row {
+                        label: "Chunk / stride";
+                        enabled: root.manual;
+                        chunk := SpinBox {
+                            min-width: 0;
+                            minimum: 1;
+                            maximum: 400;
+                            value <=> Job.chunk;
+                            enabled: root.manual;
+                            edited => {
+                                window.current-index = root.preset;
+                                Job.changed();
+                            }
+                        }
+                        stride := SpinBox {
+                            min-width: 0;
+                            minimum: 1;
+                            maximum: 400;
+                            value <=> Job.stride;
+                            enabled: root.manual;
+                            edited => {
+                                window.current-index = root.preset;
+                                Job.changed();
+                            }
+                        }
+                    }
+                    Problem {
+                        text: Job.problem;
+                    }
+                }
+                Section {
+                    title: "Model";
+                    Row {
+                        label: "Weights";
+                        enabled: Job.models.length > 1;
+                        ComboBox {
+                            min-width: 0;
+                            model: Job.models;
+                            current-index <=> Job.model;
+                            enabled: Job.models.length > 1;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Refiner";
+                        enabled: Job.refiners.length > 1 && Job.scale > 0 && Job.refine;
+                        ComboBox {
+                            min-width: 0;
+                            model: Job.refiners;
+                            current-index <=> Job.refiner;
+                            enabled: Job.refiners.length > 1 && Job.scale > 0 && Job.refine;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Text {
+                        text: "bf16 suits RTX 30-series and newer, fp16 suits RTX 20-series; both halve the file at fp32 quality.";
+                        color: T.subtle;
+                        font-size: T.small;
+                        wrap: word-wrap;
+                    }
+                }
+                Section {
+                    title: "Model";
+                }
+                Section {
+                    title: "Speed";
+                    Row {
+                        label: "Model scale";
+                        ComboBox {
+                            min-width: 0;
+                            model: ["Full resolution", "½ · faster", "¼ · fastest", "⅛ · preview"];
+                            current-index <=> Job.scale;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    CheckBox {
+                        min-width: 0;
+                        text: "Edge refiner (best at ¼ and below)";
+                        checked <=> Job.refine;
+                        enabled: Job.scale > 0;
+                        toggled => { Job.changed(); }
+                    }
+                }
+                Section {
+                    title: "Diagnostics";
+                    expanded: false;
+                    LineEdit {
+                        min-width: 0;
+                        placeholder-text: "log filter: `debug`, `info,ck::time=debug`";
+                        edited(text) => {
+                            Job.log = text;
+                            Job.changed();
+                        }
+                    }
+                }
+                Section {
+                    title: "Frame sequences";
+                    expanded: false;
+                    Row {
+                        label: "Colour";
+                        ComboBox {
+                            min-width: 0;
+                            model: ["Auto · EXR linear, else sRGB", "Scene-linear", "sRGB"];
+                            current-index <=> Job.frame-colour;
+                            selected => { Job.changed(); }
+                        }
+                    }
+                    Row {
+                        label: "Frame rate";
+                        LineEdit {
+                            min-width: 0;
+                            text <=> Job.fps;
+                            input-type: decimal;
+                            edited => { Job.changed(); }
+                        }
+                    }
+                    Text {
+                        text: "Sequences only: videos keep their own frame rate.";
+                        color: T.subtle;
+                        font-size: T.small;
+                        wrap: word-wrap;
+                    }
+                }
+                Section {
+                    title: "Frame range";
+                    expanded: false;
+                    Row {
+                        label: "Length";
+                        SpinBox {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 1000000;
+                            value <=> Job.num-frames;
+                            edited => { Job.changed(); }
+                        }
+                        Text {
+                            text: Job.num-frames == 0 ? "all frames" : "frames";
+                            color: T.muted;
+                            font-size: T.body;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+                Section {
+                    title: "Output folder";
+                    ComboBox {
+                        min-width: 0;
+                        model: ["Next to each clip · out_<name>", "All in one folder"];
+                        current-index <=> Job.out-mode;
+                        selected => { Job.changed(); }
+                    }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        LineEdit {
+                            min-width: 0;
+                            text <=> Job.out-parent;
+                            placeholder-text: "Folder for every out_<name>";
+                            enabled: Job.out-mode == 1;
+                            edited => { Job.changed(); }
+                        }
+                        Btn {
+                            text: "…";
+                            enabled: Job.out-mode == 1;
+                            clicked => { Job.browse-out-parent(); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if root.locked: Rectangle {
+        y: 36px;
+        height: parent.height - 36px;
+        background: #13131266;
+        TouchArea {
+            scroll-event(e) => {
+                sv.content-y = clamp(sv.content-y + e.delta-y, min(0px, sv.visible-height - sv.content-height), 0px);
+                return accept;
+            }
+        }
+    }
+}
+
+component Splitter inherits Rectangle {
+    in-out property <length> size;
+    in property <length> lo;
+    in property <length> hi;
+    in property <bool> flip;
+    width: 5px;
+    Rectangle {
+        x: (parent.width - 1px) / 2;
+        width: 1px;
+        background: ta.pressed || ta.has-hover ? T.brand : T.line;
+    }
+    ta := TouchArea {
+        mouse-cursor: col-resize;
+        moved => {
+            root.size = clamp(root.size + (self.mouse-x - self.pressed-x) * (root.flip ? -1 : 1), root.lo, root.hi);
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "CorridorKey 2.0";
+    icon: @image-url("icons/glyph.svg");
+    preferred-width: 1480px;
+    preferred-height: 900px;
+    // The Inspector's two-column grids overlap below ~1080p, and the app
+    // works faster than it shrinks beyond that anyway.
+    min-width: 1920px;
+    min-height: 1080px;
+    background: T.canvas;
+    default-font-family: T.sans;
+    default-font-size: T.body;
+    in property <string> status: "Ready · drop clips to begin.";
+    in property <float> progress;
+    in property <bool> running;
+    in property <[LogLine]> log;
+    in property <int> log-count;
+    in-out property <bool> log-visible: true;
+    in-out property <bool> stats-visible;
+    in-out property <length> left-width: 340px;
+    in-out property <length> right-width: 380px;
+    in-out property <length> log-height: 150px;
+    in property <[Stat]> stats;
+    in property <[Plot]> plots;
+    callback run(bool);
+    callback stop(bool);
+    property <string> picked: Queue.selected >= 0 && Queue.selected < Queue.rows.length ? Queue.rows[Queue.selected].status : "";
+    callback stats-toggled(bool);
+    /// The log or stats panel was shown or hidden.
+    callback layout-changed();
+    init => {
+        Palette.color-scheme = ColorScheme.dark;
+        keys.focus();
+    }
+    keys := FocusScope {
+        key-pressed(e) => {
+            if e.modifiers.control && (e.text == "o" || e.text == "O") {
+                Queue.add-clips();
+                return accept;
+            }
+            if e.modifiers.control && e.text == Key.Return {
+                root.run(e.modifiers.shift);
+                return accept;
+            }
+            if e.modifiers.control && e.modifiers.shift && (e.text == "s" || e.text == "S") {
+                root.stats-visible = !root.stats-visible;
+                root.stats-toggled(root.stats-visible);
+                return accept;
+            }
+            if e.modifiers.control && (e.text == "l" || e.text == "L") {
+                root.log-visible = !root.log-visible;
+                root.layout-changed();
+                return accept;
+            }
+            if !e.modifiers.control && (e.text == "f" || e.text == "F" || e.text == "0") {
+                viewer.fit();
+                return accept;
+            }
+            if !e.modifiers.control && (e.text == "z" || e.text == "Z") {
+                viewer.actual();
+                return accept;
+            }
+            if e.text == Key.Escape && Prefs.open {
+                Prefs.open = false;
+                return accept;
+            }
+            if e.modifiers.control && e.text == "," {
+                Prefs.open = !Prefs.open;
+                return accept;
+            }
+            if e.text == " " {
+                View.playing = View.count > 1 && !View.playing;
+                return accept;
+            }
+            if e.text == Key.LeftArrow {
+                View.show(View.view, max(View.index - (e.modifiers.shift ? 10 : 1), 0));
+                return accept;
+            }
+            if e.text == Key.RightArrow {
+                View.show(View.view, min(View.index + (e.modifiers.shift ? 10 : 1), View.count - 1));
+                return accept;
+            }
+            if e.text == Key.Home {
+                View.show(View.view, 0);
+                return accept;
+            }
+            if e.text == Key.End {
+                View.show(View.view, View.count - 1);
+                return accept;
+            }
+            if e.text == Key.UpArrow {
+                Queue.select(max(Queue.selected - 1, 0));
+                return accept;
+            }
+            if e.text == Key.DownArrow {
+                Queue.select(min(Queue.selected + 1, Queue.rows.length - 1));
+                return accept;
+            }
+            if e.text == Key.Delete {
+                Queue.remove();
+                return accept;
+            }
+            if e.text == "f" || e.text == "F" {
+                viewer.fit();
+                return accept;
+            }
+            if e.text == "1" || e.text == "2" || e.text == "3" || e.text == "4" || e.text == "5" {
+                let i = e.text.to-float() - 1;
+                if View.has[i] {
+                    View.view = i;
+                    View.show(i, View.index);
+                }
+                return accept;
+            }
+            reject
+        }
+        VerticalLayout {
+            Rectangle {
+                height: 44px;
+                background: T.canvas;
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    spacing: 10px;
+                    Image {
+                        source: @image-url("icons/glyph.svg");
+                        width: 22px;
+                        height: 22px;
+                        y: (parent.height - 22px) / 2;
+                    }
+                    Text {
+                        text: "CORRIDORKEY";
+                        color: T.brand;
+                        font-size: 13px;
+                        font-weight: 900;
+                        letter-spacing: 2.6px;
+                        vertical-alignment: center;
+                    }
+                    Rectangle {
+                        y: (parent.height - 18px) / 2;
+                        height: 18px;
+                        width: 28px;
+                        border-radius: 2px;
+                        background: T.brand;
+                        Text {
+                            text: "2.0";
+                            color: T.brand-ink;
+                            font-size: T.small;
+                            font-weight: 700;
+                        }
+                    }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                    }
+                    Btn {
+                        y: (parent.height - self.height) / 2;
+                        height: 28px;
+                        icon: @image-url("icons/settings.svg");
+                        tip: "Preferences (Ctrl+,)";
+                        clicked => { Prefs.open = true; }
+                    }
+                }
+                Rectangle {
+                    y: parent.height - 1px;
+                    height: 1px;
+                    background: T.line;
+                }
+            }
+            HorizontalLayout {
+                vertical-stretch: 1;
+                QueuePanel {
+                    width: root.left-width;
+                }
+                Splitter {
+                    size <=> root.left-width;
+                    lo: 220px;
+                    hi: 640px;
+                }
+                viewer := Viewer {
+                    horizontal-stretch: 1;
+                    stats-visible: root.stats-visible;
+                    stats: root.stats;
+                    plots: root.plots;
+                    focus-me => { keys.focus(); }
+                }
+                Splitter {
+                    size <=> root.right-width;
+                    lo: 280px;
+                    hi: 700px;
+                    flip: true;
+                }
+                Inspector {
+                    width: root.right-width;
+                    locked: root.picked == "Running";
+                }
+            }
+            if root.log-visible: Rectangle {
+                property <int> lines: root.log-count;
+                changed lines => {
+                    log-view.content-y = min(0px, log-view.visible-height - self.lines * 17px);
+                }
+                height: root.log-height;
+                background: T.canvas;
+                Rectangle {
+                    y: 0;
+                    height: 1px;
+                    background: grip.pressed || grip.has-hover ? T.brand : T.line;
+                }
+                log-view := ListView {
+                    for line in root.log: HorizontalLayout {
+                        property <color> tint: [T.muted, T.brand, #8fb8de, T.disabled, T.chroma, #ffb347, T.danger][line.kind];
+                        padding-left: 10px;
+                        spacing: 8px;
+                        height: 17px;
+                        if line.time != "": Text {
+                            text: line.time;
+                            width: 64px;
+                            color: T.disabled;
+                            font-family: T.mono;
+                            font-size: 12px;
+                            horizontal-alignment: right;
+                        }
+                        if line.level != "": Text {
+                            text: line.level;
+                            width: 40px;
+                            color: parent.tint;
+                            font-family: T.mono;
+                            font-size: 12px;
+                            font-weight: 700;
+                        }
+                        Text {
+                            text: line.text;
+                            color: line.kind == 4 ? T.muted : parent.tint;
+                            font-family: T.mono;
+                            font-size: 12px;
+                            font-weight: line.kind == 1 ? 700 : 400;
+                        }
+                    }
+                }
+                grip := TouchArea {
+                    y: 0;
+                    height: 5px;
+                    mouse-cursor: row-resize;
+                    moved => {
+                        root.log-height = clamp(root.log-height - (self.mouse-y - self.pressed-y), 60px, root.height - 300px);
+                    }
+                    pointer-event(e) => {
+                        if e.kind == PointerEventKind.up {
+                            root.layout-changed();
+                        }
+                    }
+                }
+            }
+            Rectangle {
+                height: 46px;
+                background: T.canvas;
+                Rectangle {
+                    y: 0;
+                    height: 1px;
+                    background: T.line;
+                }
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    padding-top: 9px;
+                    padding-bottom: 9px;
+                    spacing: 10px;
+                    Bar {
+                        width: 200px;
+                        y: (parent.height - 4px) / 2;
+                        value: root.progress;
+                    }
+                    Text {
+                        text: root.status;
+                        color: T.muted;
+                        font-size: T.body;
+                        overflow: elide;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                    Toggle {
+                        icon: @image-url("icons/activity.svg");
+                        tip: "Stats for nerds (Ctrl+Shift+S)";
+                        tip-up: true;
+                        checked <=> root.stats-visible;
+                        toggled(on) => { root.stats-toggled(on); }
+                    }
+                    Toggle {
+                        icon: @image-url("icons/log.svg");
+                        tip: "Log (Ctrl+L)";
+                        tip-up: true;
+                        checked <=> root.log-visible;
+                        toggled => { root.layout-changed(); }
+                    }
+                    Btn {
+                        icon: @image-url("icons/stop.svg");
+                        tip: "Stop every job and clear the queue";
+                        tip-up: true;
+                        danger: true;
+                        enabled: root.running;
+                        clicked => { root.stop(true); }
+                    }
+                    Btn {
+                        icon: @image-url("icons/stop.svg");
+                        text: root.picked == "Queued" ? "Unqueue" : "Stop";
+                        tip: "Stop the selected clip";
+                        tip-up: true;
+                        danger: true;
+                        enabled: root.picked == "Running" || root.picked == "Queued";
+                        clicked => { root.stop(false); }
+                    }
+                    Btn {
+                        icon: @image-url("icons/queue.svg");
+                        text: "Run all";
+                        tip: "Queue every ready clip (Ctrl+Shift+Enter)";
+                        tip-up: true;
+                        clicked => { root.run(true); }
+                    }
+                    Btn {
+                        icon: @image-url("icons/run.svg");
+                        text: root.running ? "Queue selected" : "Run selected";
+                        tip: "Run the selected clip with these settings (Ctrl+Enter)";
+                        tip-up: true;
+                        primary: true;
+                        enabled: root.picked != "" && root.picked != "Running" && root.picked != "Queued";
+                        clicked => { root.run(false); }
+                    }
+                }
+            }
+        }
+    }
+    if Prefs.open: PrefsSheet {}
+    if Tips.text != "": Rectangle {
+        x: max(4px, min(Tips.x, root.width - self.width - 4px));
+        y: Tips.y;
+        width: tip-text.preferred-width + 16px;
+        height: 22px;
+        background: #000000ee;
+        border-width: 1px;
+        border-color: T.line-strong;
+        border-radius: 2px;
+        tip-text := Text {
+            text: Tips.text;
+            font-size: T.small;
+            color: T.text;
+        }
+    }
+}
