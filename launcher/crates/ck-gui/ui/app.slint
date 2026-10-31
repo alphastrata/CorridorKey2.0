@@ -72,6 +72,7 @@ export global Job {
     in-out property <bool> own-gpus;
     in property <[bool]> gpu-pick;
     in-out property <bool> own-share;
+    in-out property <bool> own-engine;
     /// Why the selected clip cannot fit its GPUs as set; empty when it can.
     in property <string> problem;
     in-out property <float> priority: 50;
@@ -92,6 +93,8 @@ export global Prefs {
     in-out property <float> vram: 90;
     in-out property <float> cpu: 75;
     in-out property <int> keep-alive: 10;
+    in-out property <int> quantum: 128;
+    in-out property <int> vfm-batch: 8;
     in-out property <bool> open;
     callback changed();
     callback gpu-toggled(int, bool);
@@ -823,6 +826,48 @@ component Problem inherits Rectangle {
     }
 }
 
+component Engine inherits VerticalLayout {
+    in property <bool> enabled: true;
+    in-out property <int> quantum;
+    in-out property <int> vfm-batch;
+    callback edited();
+    spacing: 10px;
+    Row {
+        label: "Padding quantum";
+        enabled: root.enabled;
+        SpinBox {
+            min-width: 0;
+            minimum: 16;
+            maximum: 1024;
+            value <=> root.quantum;
+            enabled: root.enabled;
+            edited => { root.edited(); }
+        }
+        Text {
+            text: "frames are padded to this";
+            color: T.subtle;
+            font-size: T.small;
+        }
+    }
+    Row {
+        label: "Foundation batch";
+        enabled: root.enabled;
+        SpinBox {
+            min-width: 0;
+            minimum: 1;
+            maximum: 64;
+            value <=> root.vfm-batch;
+            enabled: root.enabled;
+            edited => { root.edited(); }
+        }
+        Text {
+            text: "frames per foundation batch";
+            color: T.subtle;
+            font-size: T.small;
+        }
+    }
+}
+
 component Shares inherits VerticalLayout {
     in property <bool> enabled: true;
     in-out property <float> priority;
@@ -928,6 +973,11 @@ component PrefsSheet inherits Rectangle {
                         font-size: T.small;
                         vertical-alignment: center;
                     }
+                }
+                Engine {
+                    quantum <=> Prefs.quantum;
+                    vfm-batch <=> Prefs.vfm-batch;
+                    edited => { Prefs.changed(); }
                 }
                 Text {
                     text: "Defaults for every job, as shares of each GPU's memory and of the CPU; a clip may override them in the Inspector. Changes apply to jobs started afterwards; a new priority, core share or GPU set loads a fresh resident worker.";
@@ -1240,36 +1290,29 @@ component Inspector inherits Rectangle {
                 }
                                 Section {
                     title: "Performance";
-                    Row {
-                        label: "Foundation batch";
-                        SpinBox {
-                            min-width: 0;
-                            minimum: 1;
-                            maximum: 64;
-                            value <=> Job.vfm-batch;
-                            edited => { Job.changed(); }
-                        }
-                        Text {
-                            text: "frames per foundation batch";
-                            color: T.subtle;
-                            font-size: T.small;
+                    CheckBox {
+                        min-width: 0;
+                        text: "Override the Preferences defaults";
+                        checked <=> Job.own-engine;
+                        toggled => {
+                            Job.quantum = Prefs.quantum;
+                            Job.vfm-batch = Prefs.vfm-batch;
+                            Job.changed();
                         }
                     }
-                    Row {
-                        label: "Padding quantum";
-                        SpinBox {
-                            min-width: 0;
-                            minimum: 16;
-                            maximum: 1024;
-                            value <=> Job.quantum;
-                            edited => { Job.changed(); }
-                        }
-                        Text {
-                            text: "frames are padded to this";
-                            color: T.subtle;
-                            font-size: T.small;
-                        }
+
+                    if Job.own-engine: Engine {
+                        quantum <=> Job.quantum;
+                        vfm-batch <=> Job.vfm-batch;
+                        edited => { Job.changed(); }
                     }
+
+                    if !Job.own-engine: Engine {
+                        enabled: false;
+                        quantum: Prefs.quantum;
+                        vfm-batch: Prefs.vfm-batch;
+                    }
+
                     Row {
                         label: "Encoder threads";
                         enabled: !root.exr;
@@ -1288,6 +1331,7 @@ component Inspector inherits Rectangle {
                         }
                     }
                 }
+
 Section {
                     title: "GPU";
                     CheckBox {

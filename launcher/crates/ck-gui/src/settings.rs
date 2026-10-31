@@ -31,10 +31,8 @@ pub struct Settings {
     pub out_parent: Option<String>,
     pub model: String,
     pub refiner: String,
-    /// Model frames are padded to multiples of this.
-    pub quantum: u32,
-    /// Frames per foundation-model batch.
-    pub vfm_batch: u32,
+    /// Padding quantum and foundation batch; `None` follows the Preferences defaults.
+    pub engine: Option<Engine>,
     /// ck log filter; empty = default `info`.
     pub log: String,
     /// Scene-linear gain, 1.0 = ungraded.
@@ -80,6 +78,20 @@ impl Share {
     }
 }
 
+/// Engine knobs a clip can share with the machine's defaults.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(default)]
+pub struct Engine {
+    pub quantum: u32,
+    pub vfm_batch: u32,
+}
+
+impl Default for Engine {
+    fn default() -> Self {
+        Self { quantum: 128, vfm_batch: 8 }
+    }
+}
+
 /// Machine-wide preferences, separate from any clip's settings.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default)]
@@ -89,11 +101,19 @@ pub struct Prefs {
     pub share: Share,
     /// Minutes an idle resident worker keeps its models loaded.
     pub keep_alive: u32,
+    /// Defaults every clip carries unless the Inspector's Engine override is on.
+    pub engine: Engine,
 }
 
 impl Default for Prefs {
     fn default() -> Self {
-        Self { gpus_off: vec![], placement: Placement::PerGpu, share: Share::default(), keep_alive: 10 }
+        Self {
+            gpus_off: vec![],
+            placement: Placement::PerGpu,
+            share: Share::default(),
+            keep_alive: 10,
+            engine: Engine::default(),
+        }
     }
 }
 
@@ -116,8 +136,7 @@ impl Default for Settings {
             out_parent: None,
             model: String::new(),
             refiner: String::new(),
-            quantum: 128,
-            vfm_batch: 8,
+            engine: None,
             log: String::new(),
             brightness: 1.0,
             contrast: 1.0,

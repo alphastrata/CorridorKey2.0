@@ -2,7 +2,7 @@ use crate::convert::Metric;
 use std::path::{Path, PathBuf};
 
 use crate::clips::{Clip, Hint, OUTPUTS};
-use crate::settings::{Settings, Share};
+use crate::settings::{Engine, Prefs, Settings, Share};
 
 pub struct Command {
     pub program: PathBuf,
@@ -142,6 +142,19 @@ fn hint(clip: &Clip, flags: [&str; 2]) -> Vec<String> {
     }
 }
 
+/// The clip's engine override, else the machine's defaults; flags only where they leave ck's own.
+fn engine((s, prefs): (Option<Engine>, &Engine)) -> Vec<String> {
+    let e = s.unwrap_or(*prefs);
+    let mut a = vec![];
+    if e.quantum != 128 {
+        a.extend(["--quantum".into(), e.quantum.to_string()]);
+    }
+    if e.vfm_batch != 8 {
+        a.extend(["--vfm-batch".into(), e.vfm_batch.to_string()]);
+    }
+    a
+}
+
 fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
     let mut a = vec![
         "-o".into(),
@@ -188,12 +201,6 @@ fn ck(clip: &Clip, s: &Settings, out: &Path) -> Vec<String> {
             a.push("--linear".into());
         }
     }
-    if s.quantum != 128 {
-        a.extend(["--quantum".into(), s.quantum.to_string()]);
-    }
-    if s.vfm_batch != 8 {
-        a.extend(["--vfm-batch".into(), s.vfm_batch.to_string()]);
-    }
     if !s.log.is_empty() {
         a.extend(["--log".into(), s.log.clone()]);
     }
@@ -238,11 +245,12 @@ fn placement(s: &Settings, gpus: &[usize], preview: &Path) -> Vec<String> {
     a
 }
 
-pub fn build(clip: &Clip, (s, share): (&Settings, Share), out: &Path, (gpus, preview): (&[usize], &Path)) -> eyre::Result<Command> {
+pub fn build(clip: &Clip, (s, share, prefs): (&Settings, Share, &Prefs), out: &Path, (gpus, preview): (&[usize], &Path)) -> eyre::Result<Command> {
     let program =
         ck_binary().ok_or_else(|| eyre::eyre!("ck is not built: cargo build --release -p ck in launcher/"))?;
     let mut args = placement(s, gpus, preview);
     args.extend(ck(clip, s, out));
+    args.extend(engine((s.engine, &prefs.engine)));
     if share.vram < 100 {
         args.extend(["--vram-share".into(), share.vram.to_string()]);
     }

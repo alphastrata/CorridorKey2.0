@@ -1,4 +1,5 @@
 use crate::convert::{Float, Narrow};
+use crate::settings::Engine;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -152,8 +153,11 @@ fn settings_to_ui(s: &Settings, j: &Job, cat: &Catalogue) {
     j.set_cutout_colour(i32::from(s.cutout_linear));
 
     j.set_despill(s.despill);
-    j.set_quantum(s.quantum.cast_signed());
-    j.set_vfm_batch(s.vfm_batch.cast_signed());
+    j.set_own_engine(s.engine.is_some());
+    if let Some(e) = s.engine {
+        j.set_quantum(e.quantum.cast_signed());
+        j.set_vfm_batch(e.vfm_batch.cast_signed());
+    }
     j.set_log(s.log.clone().into());
     j.set_hint_quality(s.hint_quality);
     j.set_brightness(s.brightness);
@@ -213,8 +217,10 @@ fn settings_from_ui(j: &Job, cat: &Catalogue) -> Settings {
         threads: j.get_threads().clamp(0, 24).cast_unsigned(),
         hint_quality: (j.get_hint_quality() * 1000.0).round() / 1000.0,
         carry: j.get_carry().then(|| (j.get_carry_quality() * 1000.0).round() / 1000.0),
-        quantum: j.get_quantum().clamp(16, 1024).cast_unsigned(),
-        vfm_batch: j.get_vfm_batch().clamp(1, 64).cast_unsigned(),
+        engine: j.get_own_engine().then(|| Engine {
+            quantum: j.get_quantum().clamp(16, 1024).cast_unsigned(),
+            vfm_batch: j.get_vfm_batch().clamp(1, 64).cast_unsigned(),
+        }),
         log: j.get_log().to_string(),
         window: (j.get_vram_mode() == 1).then(|| {
             (
@@ -927,7 +933,7 @@ impl State {
         let out = self.clips[i].output_dir_for(settings.out_parent.as_deref().unwrap_or(""));
         self.clips[i].output_dir = Some(out.clone());
         let cwd = command::repo().unwrap_or_else(|| PathBuf::from("."));
-        let spawned = command::build(&self.clips[i], (&settings, share), &out, (&gpus, &preview)).and_then(|cmd| {
+        let spawned = command::build(&self.clips[i], (&settings, share, &self.prefs), &out, (&gpus, &preview)).and_then(|cmd| {
             self.log(log::line(Kind::Head, format!("=== {} ===", self.clips[i].name())));
 
             self.log(log::line(
