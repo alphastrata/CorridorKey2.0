@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use ck::convert::Metric;
 use ck::weights::Weights;
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::Result;
@@ -23,5 +24,5 @@ pub fn upload(gpu: &Gpu, w: &Weights, name: &str) -> Result<Tensor> {
 pub fn diff(a: &[f32], b: &[f32]) -> (f64, f64) {
     let d = a.iter().zip(b).map(|(x, y)| f64::from((x - y).abs()));
     let (sum, max) = d.fold((0.0, 0.0f64), |(s, m), v| (s + v, m.max(v)));
-    (sum / a.len() as f64, max)
+    (sum / a.len().f64(), max)
 }

@@ -1,10 +1,18 @@
-#![no_std]
+//! Device kernels: the release build sets `#![no_std]`; `--no-default-features` yields a host `rlib` for tests.
+#![cfg_attr(target_arch = "nvptx64", no_std)]
 #![feature(abi_ptx)]
 
+use ck_arch::convert::Signed;
+
+#[cfg(feature = "device")]
 use ptx::kernel;
+#[cfg(feature = "device")]
 use ptx::prelude::*;
+#[cfg(feature = "device")]
 use ptx::slice::{GpuSlice, GpuSliceMut};
+#[cfg(feature = "device")]
 use ptx::sync::shared::{shared_window, shld_f32, shst_f32};
+#[cfg(feature = "device")]
 use ptx::warp_ops::shfl_bfly_sync_b32;
 
 const K: usize = 7;
@@ -18,15 +26,16 @@ const THREADS: usize = CG * TH;
 pub const TILE: usize = SH * SW * CG * 4;
 
 #[derive(Clone, Copy)]
-struct Dims {
-    h: usize,
-    w: usize,
-    c: usize,
-    reflect: bool,
+pub struct Dims {
+    pub h: usize,
+    pub w: usize,
+    pub c: usize,
+    pub reflect: bool,
 }
 
 impl Dims {
-    fn new(h: u32, w: u32, c: u32, reflect: u32) -> Self {
+    #[must_use]
+    pub fn new(h: u32, w: u32, c: u32, reflect: u32) -> Self {
         Self {
             h: h as usize,
             w: w as usize,
@@ -35,9 +44,11 @@ impl Dims {
         }
     }
 
-    fn edge(self, i: usize, n: usize) -> usize {
-        let i = i as isize - (K / 2) as isize;
-        let n = n as isize;
+    #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
+    #[must_use]
+    pub fn edge(self, i: usize, n: usize) -> usize {
+        let i = i.isize() - (K / 2).isize();
+        let n = n.isize();
         let r = match (self.reflect, i < 0, i >= n) {
             (true, true, _) => -i,
             (true, _, true) => 2 * n - 2 - i,
@@ -51,15 +62,18 @@ fn ld<T: Copy>(s: &[T], i: usize) -> T {
     unsafe { *s.get_unchecked(i) }
 }
 
-fn bf(u: u16) -> f32 {
+#[must_use]
+pub fn bf(u: u16) -> f32 {
     f32::from_bits(u32::from(u) << 16)
 }
 
-fn rn(x: f32) -> u16 {
+#[must_use]
+pub fn rn(x: f32) -> u16 {
     let b = x.to_bits();
     ((b + 0x7fff + ((b >> 16) & 1)) >> 16) as u16
 }
 
+#[cfg(feature = "device")]
 fn origin(d: Dims) -> (usize, usize, usize, usize) {
     let groups = d.c / CG;
     let z = block_idx_z() as usize;
@@ -71,7 +85,9 @@ fn origin(d: Dims) -> (usize, usize, usize, usize) {
     )
 }
 
+#[cfg(feature = "device")]
 #[inline(always)]
+#[allow(clippy::cast_possible_truncation, clippy::inline_always)]
 fn conv<const F: usize>(
     dims: Dims,
     weights: GpuSlice<f32>,
@@ -79,6 +95,7 @@ fn conv<const F: usize>(
     load: impl Fn(usize, usize) -> f32,
 ) -> (usize, usize, [[f32; TW]; F]) {
     let tile = shared_window();
+
     let taps = tile + TILE as u32;
     let (img, c0, y0, x0) = origin(dims);
     let tid = thread_idx_x() as usize;
@@ -91,6 +108,7 @@ fn conv<const F: usize>(
         });
     }
     let (c, line) = (tid % CG, tid / CG);
+
     let ch = c0 + c;
     ptx::unroll!(2, |r| {
         let py = line + r * TH;
@@ -102,6 +120,7 @@ fn conv<const F: usize>(
                     load(row + dims.edge(x0 + i, dims.w), ch),
                 );
             });
+
         }
     });
     sync_threads();
@@ -114,6 +133,7 @@ fn conv<const F: usize>(
         let wt: [[f32; F]; K] = core::array::from_fn(|kx| {
             core::array::from_fn(|f| match F {
                 1 => unsafe { shld_f32(taps + 4 * ((ky * K + kx) * CG + c) as u32) },
+
                 _ => ld(&weights, (f * TAPS + ky * K + kx) * dims.c + ch),
             })
         });
@@ -127,7 +147,9 @@ fn conv<const F: usize>(
 }
 
 #[allow(clippy::many_single_char_names)]
+#[cfg(feature = "device")]
 #[inline(always)]
+#[allow(clippy::inline_always)]
 fn outputs(d: Dims, j: usize, mut f: impl FnMut(usize, usize)) {
     let (n, _, y0, x0) = origin(d);
     let y = y0 + j;
@@ -137,7 +159,9 @@ fn outputs(d: Dims, j: usize, mut f: impl FnMut(usize, usize)) {
     });
 }
 
+#[cfg(feature = "device")]
 #[inline(always)]
+#[allow(clippy::cast_precision_loss, clippy::inline_always)]
 fn rms(get: impl Fn(usize) -> f32, mut r: GpuSliceMut<f32>, pixels: u32, c: u32, eps: f32) {
     let p = (block_idx_x() * 8 + thread_idx_x() / 32) as usize;
     if p >= pixels as usize {
@@ -145,6 +169,7 @@ fn rms(get: impl Fn(usize) -> f32, mut r: GpuSliceMut<f32>, pixels: u32, c: u32,
     }
     let c = c as usize;
     let lane = thread_idx_x() as usize % 32;
+
     let s = (lane..c)
         .step_by(32)
         .map(|i| get(p * c + i))
@@ -157,17 +182,21 @@ fn rms(get: impl Fn(usize) -> f32, mut r: GpuSliceMut<f32>, pixels: u32, c: u32,
     }
 }
 
+#[cfg(feature = "device")]
 #[kernel]
 pub fn rms_f32(x: &[f32], r: &mut [f32], pixels: u32, c: u32, eps: f32) {
     rms(|i| x[i], r, pixels, c, eps);
 }
 
+#[cfg(feature = "device")]
 #[kernel]
 pub fn rms_bf16(x: &[u16], r: &mut [f32], pixels: u32, c: u32, eps: f32) {
     rms(|i| bf(x[i]), r, pixels, c, eps);
 }
 
 #[inline(always)]
+#[allow(clippy::inline_always)]
+#[cfg(feature = "device")]
 fn mix(
     dims: Dims,
     rms: GpuSlice<f32>,
@@ -178,6 +207,7 @@ fn mix(
     add: bool,
     get: impl Fn(usize) -> f32,
     mut put: impl FnMut(usize, f32),
+
 ) {
     let c = dims.c;
     let (ch, row, [value, gate]) = conv::<2>(dims, taps, bias, |px, k| {
@@ -191,7 +221,9 @@ fn mix(
     });
 }
 
+#[cfg(feature = "device")]
 #[kernel]
+
 pub fn mix_f32(
     x: &[f32],
     r: &[f32],
@@ -205,6 +237,7 @@ pub fn mix_f32(
     c: u32,
     reflect: u32,
     add: u32,
+
 ) {
     mix(
         Dims::new(h, width, c, reflect),
@@ -219,7 +252,9 @@ pub fn mix_f32(
     );
 }
 
+#[cfg(feature = "device")]
 #[kernel]
+
 pub fn mix_bf16(
     x: &[u16],
     r: &[f32],
@@ -234,6 +269,7 @@ pub fn mix_bf16(
     reflect: u32,
     add: u32,
 ) {
+
     let d = Dims::new(h, width, c, reflect);
     mix(
         d,
@@ -248,6 +284,7 @@ pub fn mix_bf16(
     );
 }
 
+#[cfg(feature = "device")]
 #[kernel]
 pub fn dw_bf16(
     x: &[u16],
@@ -255,6 +292,7 @@ pub fn dw_bf16(
     bias: &[f32],
     out: &mut [u16],
     h: u32,
+
     width: u32,
     c: u32,
     reflect: u32,
@@ -264,7 +302,53 @@ pub fn dw_bf16(
     outputs(d, j, |o, p| out.set(p * d.c + ch, rn(acc[o])));
 }
 
+#[cfg(all(target_arch = "nvptx64", feature = "device", not(test)))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     ptx::intrinsics::trap()
+}
+
+#[cfg(test)]
+mod tests {
+    #![cfg(not(feature = "device"))]
+
+    use super::{Dims, bf, rn};
+
+    #[test]
+    fn edge_reflects_into_bounds() {
+        let d = Dims {
+            h: 0,
+            w: 5,
+            c: 1,
+            reflect: true,
+        };
+        assert_eq!(d.edge(0, 5), 3);
+        assert_eq!(d.edge(1, 5), 2);
+        assert_eq!(d.edge(2, 5), 1);
+        assert_eq!(d.edge(3, 5), 0);
+        assert_eq!(d.edge(4, 5), 1);
+        assert_eq!(d.edge(5, 5), 2);
+    }
+
+    #[test]
+    fn edge_extends_or_clamps_without_reflection() {
+        let d = Dims {
+            h: 0,
+            w: 5,
+            c: 1,
+            reflect: false,
+        };
+        assert_eq!(d.edge(0, 5), 0);
+        assert_eq!(d.edge(1, 5), 0);
+        assert_eq!(d.edge(4, 5), 1);
+        assert_eq!(d.edge(5, 5), 2);
+    }
+
+    #[test]
+    fn bf_widens_rn_rounds() {
+        assert_eq!(bf(0x4048), 3.125);
+        assert_eq!(bf(0x3f80), 1.0);
+        assert_eq!(rn(2.0), 0x4000);
+        assert_eq!(rn(-0.5), 0xbf00);
+    }
 }

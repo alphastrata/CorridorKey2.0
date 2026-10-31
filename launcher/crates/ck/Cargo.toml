@@ -9,6 +9,7 @@ ahash = "0.8.12"
 argh = "0.1.19"
 bytemuck = "1.25.2"
 ck-gpu = { version = "0.1.0", path = "../ck-gpu" }
+ck-plan = { version = "0.1.0", path = "../ck-plan" }
 color-eyre = "0.6.5"
 eyre = "0.6.14"
 flume = "0.12.0"
@@ -22,5 +23,16 @@ tracing-error = "0.2.1"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 zip = "9.1.0"
 
-[lints]
-workspace = true
+[target."cfg(unix)".dependencies]
+ck-ipc = { version = "0.1.0", path = "../ck-ipc" }
+
+[lints.clippy]
+pedantic                  = {level = "warn", priority = -1}
+perf                      = {level = "deny", priority = -1}
+missing_errors_doc        = "allow"
+missing_safety_doc        = "allow"
+missing_panics_doc        = "allow"
+
+[[bench]]
+name = "convert"
+harness = false

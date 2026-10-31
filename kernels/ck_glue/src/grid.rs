@@ -1,4 +1,6 @@
+use crate::Conv;
 use crate::{f32x8, high, low, pack};
+use ck_arch::convert::Host;
 use ptx::kernel;
 use ptx::mem::{ld_global_nc_v4_u32, st_global_v4_f32, st_global_v4_u32};
 use ptx::prelude::*;
@@ -45,6 +47,8 @@ impl Grid {
 }
 
 #[kernel]
+#[allow(clippy::cast_precision_loss)]
+
 pub fn norm_bf16(
     x: &[f32],
     weight: &[f32],
@@ -55,6 +59,7 @@ pub fn norm_bf16(
     h: u32,
     w: u32,
     hp: u32,
+
     wp: u32,
     sh: u32,
     sw: u32,
@@ -65,6 +70,7 @@ pub fn norm_bf16(
     }
     let (c, lane) = (c as usize, thread_idx_x() as usize % 32);
     let octets = || (lane..c / 8).step_by(32).map(|o| 8 * o);
+
     let Some(src) = Grid::new(h, w, hp, wp, sh, sw).source(p) else {
         octets()
             .for_each(|i| unsafe { st_global_v4_u32(out.addr_at(p * c / 2 + i / 2), 0, 0, 0, 0) });
@@ -76,7 +82,8 @@ pub fn norm_bf16(
     let sq = [16, 8, 4, 2, 1].into_iter().fold(sq, |acc, m| {
         acc + f32::from_bits(shfl_bfly_sync_b32(acc.to_bits(), m, 0x1f))
     });
-    let inv = (sq / c as f32 + eps).rsqrt();
+
+    let inv = (sq / c.f32() + eps).rsqrt();
     octets().for_each(|i| {
         let (v, g) = (f32x8(x, src * c + i), f32x8(weight, i));
         let q: [u32; 4] = core::array::from_fn(|k| {
@@ -94,6 +101,7 @@ pub fn unshift_add(
     pixels: u32,
     c: u32,
     h: u32,
+
     w: u32,
     hp: u32,
     wp: u32,
@@ -102,6 +110,7 @@ pub fn unshift_add(
 ) {
     let i = (block_idx_x() * 256 + thread_idx_x()) as usize;
     let per = c as usize / 8;
+
     if i >= pixels as usize * per {
         return;
     }
@@ -111,6 +120,7 @@ pub fn unshift_add(
     let v = f32x8(x, p * c + o);
     let q = unsafe { ld_global_nc_v4_u32(a.addr_window::<16>(src * c / 2 + o / 2)) };
     let s: [f32; 8] = core::array::from_fn(|k| {
+
         let pair = [q.0, q.1, q.2, q.3][k / 2];
         v[k] + if k % 2 == 0 { low(pair) } else { high(pair) }
     });
@@ -124,6 +134,7 @@ fn bf8(x: GpuSlice<u32>, i: usize) -> [f32; 8] {
     crate::head::chunk(x, i / 2)
 }
 
+#[allow(clippy::cast_precision_loss)]
 fn modulate(
     load: impl Fn(usize) -> [f32; 8],
     weight: GpuSlice<f32>,
@@ -134,6 +145,7 @@ fn modulate(
 ) {
     let p = (block_idx_x() * 8 + thread_idx_x() / 32) as usize;
     if p >= pixels as usize {
+
         return;
     }
     let (c, lane) = (c as usize, thread_idx_x() as usize % 32);
@@ -144,7 +156,8 @@ fn modulate(
     let sq = [16, 8, 4, 2, 1].into_iter().fold(sq, |acc, m| {
         acc + f32::from_bits(shfl_bfly_sync_b32(acc.to_bits(), m, 0x1f))
     });
-    let inv = (sq / c as f32 + eps).rsqrt();
+
+    let inv = (sq / c.f32() + eps).rsqrt();
     let row = p / per as usize * ld as usize;
     octets().for_each(|i| {
         let (vals, gain) = (load(p * c + i), f32x8(weight, i));
@@ -155,6 +168,7 @@ fn modulate(
         let apply = |k: usize| (vals[k] * inv * gain[k]).fma_rn(1.0 + sc[k], sh[k]);
         let words: [u32; 4] = core::array::from_fn(|k| pack(apply(2 * k), apply(2 * k + 1)));
         unsafe {
+
             st_global_v4_u32(
                 out.addr_at(p * c / 2 + i / 2),
                 words[0],
@@ -178,6 +192,7 @@ pub fn norm_mod_bf16(
     per: u32,
     ld: u32,
     shift: u32,
+
     scale: u32,
 ) {
     let geo = (pixels, c, eps);
@@ -203,6 +218,7 @@ pub fn norm_mod_bf16_bf16(
     per: u32,
     ld: u32,
     shift: u32,
+
     scale: u32,
 ) {
     let geo = (pixels, c, eps);
@@ -224,6 +240,7 @@ fn gated(
 ) -> Option<(usize, [f32; 8])> {
     let i = (block_idx_x() * 256 + thread_idx_x()) as usize;
     let octets = c as usize / 8;
+
     if i >= pixels as usize * octets {
         return None;
     }
@@ -232,9 +249,10 @@ fn gated(
         load(at),
         f32x8(
             mods,
-            p / per as usize * ld as usize + off as usize + at % c as usize,
+            p / Host::usize(per) * Host::usize(ld) + Host::usize(off) + at % Host::usize(c),
         ),
     );
+
     let add = bf8(branch, at);
     Some((
         at,
@@ -252,6 +270,7 @@ pub fn add_gate(
     c: u32,
     per: u32,
     ld: u32,
+
     off: u32,
 ) {
     if let Some((at, s)) = gated(|i| f32x8(x, i), a, mods, (pixels, c, per, ld, off)) {
@@ -271,6 +290,7 @@ pub fn add_gate_bf16(
     pixels: u32,
     c: u32,
     per: u32,
+
     ld: u32,
     off: u32,
 ) {

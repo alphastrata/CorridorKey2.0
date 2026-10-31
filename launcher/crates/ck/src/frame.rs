@@ -1,3 +1,4 @@
+use crate::convert::{Idx, Metric, Narrow};
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::Result;
 
@@ -21,8 +22,15 @@ impl Geometry {
 
     #[must_use]
     pub fn scaled(hn: usize, wn: usize, scale: f64, quantum: usize) -> Self {
-        let by = |n: usize| ((n as f64 * scale).round_ties_even() as usize).max(1);
+        let by = |n: usize| {
+            {
+                let scaled = n.f64() * scale;
+                scaled.round_ties_even().max(0.0).usize()
+            }
+            .max(1)
+        };
         let up = |n: usize| n.div_ceil(quantum).max(1) * quantum;
+
         let (h0, w0) = (by(hn), by(wn));
         Self {
             hn,
@@ -83,7 +91,7 @@ pub enum Encoding {
 }
 
 fn launch(gpu: &Gpu, name: &str, n: usize, args: &[Arg]) -> Result<()> {
-    gpu.launch("ck_ops", name, (n.div_ceil(256) as u32, 1, 1), 256, 0, args)
+    gpu.launch("ck_ops", name, (n.div_ceil(256).u32(), 1, 1), 256, 0, args)
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -103,28 +111,42 @@ fn planar(gpu: &Gpu, raw: &Tensor, (h, w): (usize, usize), c: usize) -> Result<T
 pub fn lanczos(gpu: &Gpu, x: &Tensor, (oh, ow): (usize, usize)) -> Result<Tensor> {
     let (h, w) = (x.shape[2], x.shape[3]);
     let unit = (gpu.zeros(&[1], Dtype::F32)?, gpu.upload_f32(&[1.0], &[1], Dtype::F32)?);
-    let step = ((h as f64 / oh as f64) as f32, (w as f64 / ow as f64) as f32);
+    let (hf, ohf) = (
+        f64::from(u32::try_from(h).unwrap_or(u32::MAX)),
+        f64::from(u32::try_from(oh).unwrap_or(u32::MAX)),
+    );
+    let (wf, owf) = (
+        f64::from(u32::try_from(w).unwrap_or(u32::MAX)),
+        f64::from(u32::try_from(ow).unwrap_or(u32::MAX)),
+    );
+    let step = ((hf / ohf).f32(), (wf / owf).f32());
     resize(gpu, x, (oh, ow), step, Resize::Lanczos, (&unit.0, &unit.1))
+}
+
+/// The native frame as `[n, 3, hn, wn]` planes (G, B, R) and those planes at the model's scale.
+pub fn planes(gpu: &Gpu, raw: &Tensor, g: Geometry) -> Result<(Tensor, Tensor)> {
+    let n = raw.numel() / (g.hn * g.wn * 3);
+    let native = if raw.dtype == Dtype::F32 {
+        raw.reshape(&[n, 3, g.hn, g.wn])?
+    } else {
+        planar(gpu, raw, (g.hn, g.wn), 3)?
+    };
+    let scaled = lanczos(gpu, &native, (g.h0, g.w0))?;
+    Ok((native, scaled))
 }
 
 pub fn prep(gpu: &Gpu, raw: &Tensor, out: &Tensor, g: Geometry, ld: usize, enc: Encoding, input: Input) -> Result<()> {
     let float = raw.dtype == Dtype::F32;
     if !g.native() {
-        let n = raw.numel() / (g.hn * g.wn * 3);
-        let planes = if float {
-            raw.reshape(&[n, 3, g.hn, g.wn])?
-        } else {
-            planar(gpu, raw, (g.hn, g.wn), 3)?
-        };
-        let scaled = lanczos(gpu, &planes, (g.h0, g.w0))?;
         let input = Input {
             linear: float && input.linear,
             ..input
         };
-        return prep_planes(gpu, &scaled, out, g, ld, enc, input);
+        return prep_planes(gpu, &planes(gpu, raw, g)?.1, out, g, ld, enc, input);
     }
     if float {
         return prep_planes(gpu, raw, out, g, ld, enc, input);
+
     }
     let n = raw.numel() / (g.h0 * g.w0 * 3);
     let args = [
@@ -137,7 +159,7 @@ pub fn prep(gpu: &Gpu, raw: &Tensor, out: &Tensor, g: Geometry, ld: usize, enc: 
     launch(gpu, "prep", n * 3 * g.h * g.w, &args)
 }
 
-fn prep_planes(
+pub fn prep_planes(
     gpu: &Gpu,
     raw: &Tensor,
     out: &Tensor,
@@ -147,6 +169,7 @@ fn prep_planes(
     input: Input,
 ) -> Result<()> {
     let n = raw.numel() / (g.h0 * g.w0 * 3);
+
     let args = [
         [raw.into(), out.into(), n.into()].as_slice(),
         &g.args(),
@@ -190,6 +213,11 @@ impl Output {
     pub fn planes(self) -> usize {
         if self == Self::Alpha { 1 } else { self.channels() }
     }
+
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        ["alpha", "fg", "cutout", "checker"][self as usize]
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -224,6 +252,7 @@ pub fn render(gpu: &Gpu, logits: &Tensor, g: Geometry, out: Output, look: Look) 
         &look.adjust.args(),
     ]
     .concat();
+
     launch(gpu, "render", g.h0 * g.w0, &args)?;
     Ok(img)
 }

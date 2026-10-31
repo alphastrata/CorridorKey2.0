@@ -19,7 +19,7 @@ def describe_exit(code: int) -> str:
     return f"killed by {name}{hint}"
 
 
-class Colors:
+class Colours:
     GREEN = "\033[92m"
     YELLOW = "\033[93m"
     BLUE = "\033[94m"
@@ -28,10 +28,10 @@ class Colors:
     RESET = "\033[0m"
 
 def print_header(title):
-    print(f"\n{Colors.BOLD}{Colors.GREEN}=== {title} ==={Colors.RESET}")
+    print(f"\n{Colours.BOLD}{Colours.GREEN}=== {title} ==={Colours.RESET}")
 
 def print_subheader(title):
-    print(f"\n{Colors.BOLD}{Colors.CYAN}--- {title} ---{Colors.RESET}")
+    print(f"\n{Colours.BOLD}{Colours.CYAN}--- {title} ---{Colours.RESET}")
 
 def clean_path(path_str):
     path_str = path_str.strip()
@@ -177,12 +177,12 @@ def get_batch_clips(dir_path):
                 if seq_input_dir:
                     clips.append(item)
     except Exception as e:
-        print(f"{Colors.YELLOW}[WARNING] Error scanning directory: {e}{Colors.RESET}")
+        print(f"{Colours.YELLOW}[WARNING] Error scanning directory: {e}{Colours.RESET}")
         
     return clips
 
 def prompt_choices(title, options, default=1):
-    print(f"\n{Colors.BOLD}{Colors.BLUE}{title}{Colors.RESET}")
+    print(f"\n{Colours.BOLD}{Colours.BLUE}{title}{Colours.RESET}")
     for idx, opt in enumerate(options, 1):
         suffix = " (Default)" if idx == default else ""
         print(f"  {idx}) {opt}{suffix}")
@@ -200,7 +200,7 @@ def prompt_choices(title, options, default=1):
 
 def prompt_confirm(prompt_str, default=True):
     suffix = " [Y/n]" if default else " [y/N]"
-    val = input(f"\n{Colors.BOLD}{Colors.BLUE}{prompt_str}{Colors.RESET}{suffix}: ").strip().lower()
+    val = input(f"\n{Colours.BOLD}{Colours.BLUE}{prompt_str}{Colours.RESET}{suffix}: ").strip().lower()
     if not val:
         return default
     return val.startswith('y')
@@ -208,7 +208,7 @@ def prompt_confirm(prompt_str, default=True):
 def prompt_input(prompt_str, default=None, validator=None):
     suffix = f" (Default: {default})" if default is not None else ""
     while True:
-        val = input(f"\n{Colors.BOLD}{Colors.BLUE}{prompt_str}{Colors.RESET}{suffix}: ").strip()
+        val = input(f"\n{Colours.BOLD}{Colours.BLUE}{prompt_str}{Colours.RESET}{suffix}: ").strip()
         if not val:
             if default is not None:
                 return default
@@ -221,7 +221,7 @@ def prompt_input(prompt_str, default=None, validator=None):
                     return cleaned
             except Exception:
                 pass
-            print(f"{Colors.YELLOW}Invalid input value.{Colors.RESET}")
+            print(f"{Colours.YELLOW}Invalid input value.{Colours.RESET}")
             continue
         return val
 
@@ -244,9 +244,27 @@ def prompt_hann_window():
     hann_stride = int(prompt_input("Enter Hann Stride (integer):", default="24"))
     return hann_chunk, hann_stride
 
+def prompt_vram_profile():
+    """GPU memory profile. Returns (auto_vram, optimized)."""
+    vram_choice = prompt_choices(
+        "Select GPU Memory Profile:",
+        [
+            "Auto, optimized - the longest temporal window your GPU fits, using less memory and running faster",
+            "Auto, original - the shipped memory settings",
+            "Manual - choose Low VRAM mode and Hann window size yourself"
+        ],
+        default=1
+    )
+    if vram_choice == 3:
+        optimized = prompt_confirm(
+            "Use the optimized engine? (Same output for the same settings, less memory, faster)",
+            default=True)
+        return False, optimized
+    return True, vram_choice == 1
+
 def main():
     if os.name == "nt":
-        os.system("")  # enables ANSI colors in the Windows console
+        os.system("")  # enables ANSI colours in the Windows console
     print_header("CorridorKey v2 Interactive Runner")
     
     # 1. Resolve Input Path
@@ -255,14 +273,14 @@ def main():
         input_path_str = sys.argv[1]
         print(f"Input path passed via argument: {input_path_str}")
     else:
-        input_path_str = input(f"{Colors.BOLD}{Colors.BLUE}Drag and drop your video file or directory here and press Enter:{Colors.RESET}\n").strip()
+        input_path_str = input(f"{Colours.BOLD}{Colours.BLUE}Drag and drop your video file or directory here and press Enter:{Colours.RESET}\n").strip()
     
     input_path = clean_path(translate_windows_path(input_path_str))
     if not os.path.exists(input_path):
-        print(f"{Colors.YELLOW}[ERROR] Input path does not exist: {input_path}{Colors.RESET}")
+        print(f"{Colours.YELLOW}[ERROR] Input path does not exist: {input_path}{Colours.RESET}")
         sys.exit(1)
         
-    print(f"Resolved input path: {Colors.GREEN}{input_path}{Colors.RESET}")
+    print(f"Resolved input path: {Colours.GREEN}{input_path}{Colours.RESET}")
     
     is_image_seq_dir = False
     seq_input_dir = None
@@ -279,12 +297,12 @@ def main():
         # ======================================================================
         batch_clips = get_batch_clips(input_path)
         if not batch_clips:
-            print(f"{Colors.YELLOW}[ERROR] Directory contains no supported video clips or frame subdirectories: {input_path}{Colors.RESET}")
+            print(f"{Colours.YELLOW}[ERROR] Directory contains no supported video clips or frame subdirectories: {input_path}{Colours.RESET}")
             sys.exit(1)
             
-        print(f"Found {Colors.GREEN}{len(batch_clips)}{Colors.RESET} clips to process in batch.")
+        print(f"Found {Colours.GREEN}{len(batch_clips)}{Colours.RESET} clips to process in batch.")
         
-        # Analyze if any clips have companion hints
+        # Analyse if any clips have companion hints
         any_have_hints = False
         has_video_hint = False
         for clip in batch_clips:
@@ -335,11 +353,11 @@ def main():
                 )
 
         # Output configurations
-        output_choice = input(f"\n{Colors.BOLD}{Colors.BLUE}The default setting exports all four outputs: alpha, fg, cutout, and checker. To customize, enter any numbers separated by space or press Enter to keep all outputs:{Colors.RESET}\n"
+        output_choice = input(f"\n{Colours.BOLD}{Colours.BLUE}The default setting exports all four outputs: alpha, fg, cutout, and checker. To customise, enter any numbers separated by space or press Enter to keep all outputs:{Colours.RESET}\n"
                               "  1) alpha (predicted matte preview) [Default]\n"
                               "  2) fg (predicted foreground RGB preview) [Default]\n"
                               "  3) cutout (ProRes 4444 QuickTime with alpha and despill) [Default]\n"
-                              "  4) checker (checkerboard composite with despill preview) [Default]\n"
+                              "  4) checker (chequerboard composite with despill preview) [Default]\n"
                               "Selection: ").strip()
         
         outputs = []
@@ -357,7 +375,7 @@ def main():
                     pass
             if not outputs:
                 outputs = ["alpha", "fg", "cutout", "checker"]
-        print(f"Selected outputs: {Colors.GREEN}{', '.join(outputs)}{Colors.RESET}")
+        print(f"Selected outputs: {Colours.GREEN}{', '.join(outputs)}{Colours.RESET}")
 
         cutout_linear = False
         if "cutout" in outputs:
@@ -398,15 +416,7 @@ def main():
             frame_dir_linear = (gamma_choice == 1)
 
         # VRAM profile
-        vram_choice = prompt_choices(
-            "Select GPU Memory Profile:",
-            [
-                "Auto - detect free GPU memory and pick the best settings that fit each clip",
-                "Manual - choose Low VRAM mode and Hann window size yourself"
-            ],
-            default=1
-        )
-        auto_vram = (vram_choice == 1)
+        auto_vram, optimized = prompt_vram_profile()
         low_vram = False
         hann_chunk = 48
         hann_stride = 24
@@ -420,13 +430,13 @@ def main():
                 temp_dir = clean_path(prompt_input("Enter cache directory path:"))
 
         # Advanced options
-        customize_advanced = prompt_confirm("Customize advanced settings (output folder name, frame limits)?", default=False)
+        customise_advanced = prompt_confirm("Customise advanced settings (output folder name, frame limits)?", default=False)
         
         output_dir_str = ""
         num_frames = -1
         start_mode = "begin"
         
-        if customize_advanced:
+        if customise_advanced:
             output_dir_str = prompt_input("Enter custom output directory path (leave empty to use default folder):", default="")
                 
             limit_choice = prompt_input("Enter frame limit (number of frames, or 'all')", default="all")
@@ -437,7 +447,7 @@ def main():
                         "Select Start Mode for partial clips:",
                         [
                             "Start from the beginning (begin)",
-                            "Take a centered segment (middle)",
+                            "Take a centred segment (middle)",
                             "Take a deterministic random segment (random_middle)"
                         ],
                         default=1
@@ -445,7 +455,7 @@ def main():
                     start_modes = ["begin", "middle", "random_middle"]
                     start_mode = start_modes[start_mode_choice - 1]
                 except ValueError:
-                    print(f"{Colors.YELLOW}Invalid frame limit choice, using 'all'.{Colors.RESET}")
+                    print(f"{Colours.YELLOW}Invalid frame limit choice, using 'all'.{Colours.RESET}")
                     num_frames = -1
 
         custom_output_parent = None
@@ -458,18 +468,18 @@ def main():
             if clip.is_dir():
                 _, seq_hint_dir = resolve_image_seq_dirs(clip)
                 hint_str = f"using {seq_hint_dir.name}" if seq_hint_dir else "No Hint"
-                print(f"  {idx}) {Colors.CYAN}{clip.name}{Colors.RESET} (Image Sequence) -> running in {Colors.GREEN}{hint_str}{Colors.RESET} mode")
+                print(f"  {idx}) {Colours.CYAN}{clip.name}{Colours.RESET} (Image Sequence) -> running in {Colours.GREEN}{hint_str}{Colours.RESET} mode")
             else:
                 hint = find_alpha_hint(clip)
                 if hint:
                     hint_type = "Full Hint Video" if hint.suffix.lower() in {'.mp4', '.mov', '.avi', '.mkv', '.webm'} else "First-Frame Hint"
-                    print(f"  {idx}) {Colors.CYAN}{clip.name}{Colors.RESET} -> running in {Colors.GREEN}{hint_type}{Colors.RESET} mode (using {hint.name})")
+                    print(f"  {idx}) {Colours.CYAN}{clip.name}{Colours.RESET} -> running in {Colours.GREEN}{hint_type}{Colours.RESET} mode (using {hint.name})")
                 else:
-                    print(f"  {idx}) {Colors.CYAN}{clip.name}{Colors.RESET} -> running in {Colors.YELLOW}No Hint{Colors.RESET} mode")
+                    print(f"  {idx}) {Colours.CYAN}{clip.name}{Colours.RESET} -> running in {Colours.YELLOW}No Hint{Colours.RESET} mode")
 
         confirm_batch = prompt_confirm(f"Do you want to run this batch of {len(batch_clips)} clips now?", default=True)
         if not confirm_batch:
-            print("Batch execution canceled.")
+            print("Batch execution cancelled.")
             sys.exit(0)
 
         # Run Batch Sequentially
@@ -488,7 +498,7 @@ def main():
                 if seq_hint_dir:
                     clip_hint_video_path = str(seq_hint_dir)
                     clip_inference_mode = 3
-                    print(f"Applying companion AlphaHint image sequence: {Colors.CYAN}{seq_hint_dir.name}{Colors.RESET}")
+                    print(f"Applying companion AlphaHint image sequence: {Colours.CYAN}{seq_hint_dir.name}{Colours.RESET}")
                 else:
                     print("Running image sequence in No Hint mode.")
             else:
@@ -498,20 +508,20 @@ def main():
                     if hint.suffix.lower() in {'.mp4', '.mov', '.avi', '.mkv', '.webm'}:
                         clip_hint_video_path = str(hint)
                         clip_inference_mode = 3
-                        print(f"Applying companion AlphaHint video: {Colors.CYAN}{hint.name}{Colors.RESET}")
+                        print(f"Applying companion AlphaHint video: {Colours.CYAN}{hint.name}{Colours.RESET}")
                     else:
                         clip_hint_first_frame = str(hint)
                         clip_inference_mode = 2
-                        print(f"Applying companion First-Frame Hint image: {Colors.CYAN}{hint.name}{Colors.RESET}")
+                        print(f"Applying companion First-Frame Hint image: {Colours.CYAN}{hint.name}{Colours.RESET}")
                 else:
-                    print(f"Running clip in {Colors.YELLOW}No Hint{Colors.RESET} mode.")
+                    print(f"Running clip in {Colours.YELLOW}No Hint{Colours.RESET} mode.")
 
             # Resolve output directory
             if custom_output_parent:
                 output_dir = str(Path(custom_output_parent) / f"out_{clip.stem}").replace("\\", "/")
             else:
                 output_dir = str(clip.parent / f"out_{clip.stem}").replace("\\", "/")
-            print(f"Output directory: {Colors.GREEN}{output_dir}{Colors.RESET}")
+            print(f"Output directory: {Colours.GREEN}{output_dir}{Colours.RESET}")
 
             # Assemble command
             cmd = [sys.executable, str(package_root / "infer.py")]
@@ -545,6 +555,8 @@ def main():
             if not auto_vram:
                 cmd.extend(["--hann_chunk", str(hann_chunk)])
                 cmd.extend(["--hann_stride", str(hann_stride)])
+            if optimized:
+                cmd.append("--optimized")
             
             if num_frames > 0:
                 cmd.extend(["--num_frames", str(num_frames)])
@@ -563,11 +575,11 @@ def main():
                 process.wait()
                 
                 if process.returncode == 0:
-                    print(f"\n{Colors.BOLD}{Colors.GREEN}[SUCCESS] Finished {clip.name} successfully!{Colors.RESET}")
+                    print(f"\n{Colours.BOLD}{Colours.GREEN}[SUCCESS] Finished {clip.name} successfully!{Colours.RESET}")
                 else:
-                    print(f"\n{Colors.BOLD}{Colors.YELLOW}[ERROR] Failed {clip.name} {describe_exit(process.returncode)}{Colors.RESET}")
+                    print(f"\n{Colours.BOLD}{Colours.YELLOW}[ERROR] Failed {clip.name} {describe_exit(process.returncode)}{Colours.RESET}")
             except KeyboardInterrupt:
-                print(f"\n{Colors.YELLOW}[INTERRUPTED] Batch paused by user.{Colors.RESET}")
+                print(f"\n{Colours.YELLOW}[INTERRUPTED] Batch paused by user.{Colours.RESET}")
                 confirm_continue = prompt_confirm("Do you want to continue to the next clip in the batch?", default=True)
                 if not confirm_continue:
                     print("Batch execution aborted.")
@@ -586,21 +598,21 @@ def main():
         
         if is_image_seq_dir:
             if seq_hint_dir:
-                print(f"\n{Colors.YELLOW}>>> Found matching AlphaHint directory: {seq_hint_dir.name}{Colors.RESET}")
+                print(f"\n{Colours.YELLOW}>>> Found matching AlphaHint directory: {seq_hint_dir.name}{Colours.RESET}")
                 use_discovered = prompt_confirm(f"Would you like to use this directory as the Full Hint Video?", default=True)
                 if use_discovered:
                     hint_video_path = str(seq_hint_dir)
                     inference_mode = 3
-                    print(f"Selected mode: {Colors.GREEN}Full Hint Video (using auto-discovered directory){Colors.RESET}")
+                    print(f"Selected mode: {Colours.GREEN}Full Hint Video (using auto-discovered directory){Colours.RESET}")
         else:
             discovered_hint = find_alpha_hint(input_path)
             if discovered_hint:
-                print(f"\n{Colors.YELLOW}>>> Found matching AlphaHint file: {discovered_hint.name}{Colors.RESET}")
+                print(f"\n{Colours.YELLOW}>>> Found matching AlphaHint file: {discovered_hint.name}{Colours.RESET}")
                 use_discovered = prompt_confirm(f"Would you like to use this file as the Full Hint Video?", default=True)
                 if use_discovered:
                     hint_video_path = str(discovered_hint)
                     inference_mode = 3
-                    print(f"Selected mode: {Colors.GREEN}Full Hint Video (using auto-discovered file){Colors.RESET}")
+                    print(f"Selected mode: {Colours.GREEN}Full Hint Video (using auto-discovered file){Colours.RESET}")
                 
         # 3. Prompt for Inference Mode if not already selected via auto-hint
         if inference_mode == 1 and not hint_video_path:
@@ -619,19 +631,19 @@ def main():
                 discovered_first_frame = find_first_frame_hint(input_path)
                 if discovered_first_frame:
                     hint_first_frame = str(discovered_first_frame)
-                    print(f"{Colors.YELLOW}>>> Found matching First-Frame Hint: {discovered_first_frame.name}{Colors.RESET}")
+                    print(f"{Colours.YELLOW}>>> Found matching First-Frame Hint: {discovered_first_frame.name}{Colours.RESET}")
                 else:
-                    print(f"{Colors.YELLOW}[WARNING] No companion '{Path(input_path).stem}FrameHint' image found next to the input.{Colors.RESET}")
+                    print(f"{Colours.YELLOW}[WARNING] No companion '{Path(input_path).stem}FrameHint' image found next to the input.{Colours.RESET}")
                     hint_first_frame_str = prompt_input("Enter path to first-frame hint image/matte:")
                     hint_first_frame = clean_path(translate_windows_path(hint_first_frame_str))
                     if not os.path.exists(hint_first_frame):
-                        print(f"{Colors.YELLOW}[ERROR] First frame hint path does not exist: {hint_first_frame}{Colors.RESET}")
+                        print(f"{Colours.YELLOW}[ERROR] First frame hint path does not exist: {hint_first_frame}{Colours.RESET}")
                         sys.exit(1)
             elif inference_mode == 3:
                 hint_video_str = prompt_input("Enter path to full hint video or directory:")
                 hint_video_path = clean_path(translate_windows_path(hint_video_str))
                 if not os.path.exists(hint_video_path):
-                    print(f"{Colors.YELLOW}[ERROR] Hint video path does not exist: {hint_video_path}{Colors.RESET}")
+                    print(f"{Colours.YELLOW}[ERROR] Hint video path does not exist: {hint_video_path}{Colours.RESET}")
                     sys.exit(1)
 
         # 4. Prompt for carry-hint details
@@ -680,11 +692,11 @@ def main():
                 carry_hint_quality = carry_q
 
         # 5. Output configurations
-        output_choice = input(f"\n{Colors.BOLD}{Colors.BLUE}The default setting exports all four outputs: alpha, fg, cutout, and checker. To customize, enter any numbers separated by space or press Enter to keep all outputs:{Colors.RESET}\n"
+        output_choice = input(f"\n{Colours.BOLD}{Colours.BLUE}The default setting exports all four outputs: alpha, fg, cutout, and checker. To customise, enter any numbers separated by space or press Enter to keep all outputs:{Colours.RESET}\n"
                               "  1) alpha (predicted matte preview) [Default]\n"
                               "  2) fg (predicted foreground RGB preview) [Default]\n"
                               "  3) cutout (ProRes 4444 QuickTime with alpha and despill) [Default]\n"
-                              "  4) checker (checkerboard composite with despill preview) [Default]\n"
+                              "  4) checker (chequerboard composite with despill preview) [Default]\n"
                               "Selection: ").strip()
         
         outputs = []
@@ -703,7 +715,7 @@ def main():
             if not outputs:
                 outputs = ["alpha", "fg", "cutout", "checker"]
                 
-        print(f"Selected outputs: {Colors.GREEN}{', '.join(outputs)}{Colors.RESET}")
+        print(f"Selected outputs: {Colours.GREEN}{', '.join(outputs)}{Colours.RESET}")
 
         cutout_linear = False
         if "cutout" in outputs:
@@ -742,15 +754,7 @@ def main():
             frame_dir_linear = (gamma_choice == 1)
 
         # 6. VRAM profile
-        vram_choice = prompt_choices(
-            "Select GPU Memory Profile:",
-            [
-                "Auto - detect free GPU memory and pick the best settings that fit each clip",
-                "Manual - choose Low VRAM mode and Hann window size yourself"
-            ],
-            default=1
-        )
-        auto_vram = (vram_choice == 1)
+        auto_vram, optimized = prompt_vram_profile()
         low_vram = False
         hann_chunk = 48
         hann_stride = 24
@@ -764,13 +768,13 @@ def main():
                 temp_dir = clean_path(prompt_input("Enter cache directory path:"))
 
         # 7. Advanced options
-        customize_advanced = prompt_confirm("Customize advanced settings (output folder name, frame limits)?", default=False)
+        customise_advanced = prompt_confirm("Customise advanced settings (output folder name, frame limits)?", default=False)
         
         output_dir_str = ""
         num_frames = -1
         start_mode = "begin"
         
-        if customize_advanced:
+        if customise_advanced:
             # Output directory
             output_dir_str = prompt_input("Enter custom output directory path (leave empty to use default folder):", default="")
                 
@@ -783,7 +787,7 @@ def main():
                         "Select Start Mode for partial clips:",
                         [
                             "Start from the beginning (begin)",
-                            "Take a centered segment (middle)",
+                            "Take a centred segment (middle)",
                             "Take a deterministic random segment (random_middle)"
                         ],
                         default=1
@@ -791,7 +795,7 @@ def main():
                     start_modes = ["begin", "middle", "random_middle"]
                     start_mode = start_modes[start_mode_choice - 1]
                 except ValueError:
-                    print(f"{Colors.YELLOW}Invalid frame limit choice, using 'all'.{Colors.RESET}")
+                    print(f"{Colours.YELLOW}Invalid frame limit choice, using 'all'.{Colours.RESET}")
                     num_frames = -1
 
         # Keep track of custom output directory parent to maintain clean batch routing
@@ -805,17 +809,17 @@ def main():
         while True:
             if not is_first_run:
                 print_header("Process Another Video")
-                next_input_str = input(f"{Colors.BOLD}{Colors.BLUE}Drag and drop another video file here to process with the same settings (or press Enter to exit):{Colors.RESET}\n").strip()
+                next_input_str = input(f"{Colours.BOLD}{Colours.BLUE}Drag and drop another video file here to process with the same settings (or press Enter to exit):{Colours.RESET}\n").strip()
                 if not next_input_str:
                     print("\nExiting interactive runner. Goodbye!")
                     break
                     
                 input_path = clean_path(translate_windows_path(next_input_str))
                 if not os.path.exists(input_path):
-                    print(f"{Colors.YELLOW}[ERROR] Input path does not exist: {input_path}{Colors.RESET}\n")
+                    print(f"{Colours.YELLOW}[ERROR] Input path does not exist: {input_path}{Colours.RESET}\n")
                     continue
                     
-                print(f"Resolved input path: {Colors.GREEN}{input_path}{Colors.RESET}")
+                print(f"Resolved input path: {Colours.GREEN}{input_path}{Colours.RESET}")
                 
                 is_image_seq_dir = False
                 seq_input_dir = None
@@ -830,38 +834,38 @@ def main():
                 
                 if inference_mode == 2:
                     if is_image_seq_dir:
-                        print(f"{Colors.YELLOW}[WARNING] First-frame hint mode is not supported for directory image sequence structures. Skipping first-frame hint.{Colors.RESET}")
+                        print(f"{Colours.YELLOW}[WARNING] First-frame hint mode is not supported for directory image sequence structures. Skipping first-frame hint.{Colours.RESET}")
                     else:
                         # Try to auto-discover first-frame hint in new folder
                         discovered = find_first_frame_hint(input_path)
                         if discovered:
-                            print(f"{Colors.YELLOW}>>> Found matching First-Frame Hint: {discovered.name}{Colors.RESET}")
+                            print(f"{Colours.YELLOW}>>> Found matching First-Frame Hint: {discovered.name}{Colours.RESET}")
                             hint_first_frame = str(discovered)
                         else:
-                            hint_str = input(f"\n{Colors.BOLD}{Colors.BLUE}Enter path to first-frame hint image/matte for this video (or press Enter to skip hint):{Colors.RESET}\n").strip()
+                            hint_str = input(f"\n{Colours.BOLD}{Colours.BLUE}Enter path to first-frame hint image/matte for this video (or press Enter to skip hint):{Colours.RESET}\n").strip()
                             if hint_str:
                                 hint_first_frame = clean_path(translate_windows_path(hint_str))
                                 if not os.path.exists(hint_first_frame):
-                                    print(f"{Colors.YELLOW}[ERROR] Hint path does not exist. Running this clip without hints.{Colors.RESET}")
+                                    print(f"{Colours.YELLOW}[ERROR] Hint path does not exist. Running this clip without hints.{Colours.RESET}")
                                     hint_first_frame = None
                                 
                 elif inference_mode == 3:
                     if is_image_seq_dir:
                         if seq_hint_dir:
-                            print(f"{Colors.YELLOW}>>> Found matching AlphaHint directory: {seq_hint_dir.name}{Colors.RESET}")
+                            print(f"{Colours.YELLOW}>>> Found matching AlphaHint directory: {seq_hint_dir.name}{Colours.RESET}")
                             hint_video_path = str(seq_hint_dir)
                     else:
                         # Try to auto-discover full hint video in new folder
                         discovered = find_alpha_hint(input_path)
                         if discovered:
-                            print(f"{Colors.YELLOW}>>> Found matching AlphaHint file: {discovered.name}{Colors.RESET}")
+                            print(f"{Colours.YELLOW}>>> Found matching AlphaHint file: {discovered.name}{Colours.RESET}")
                             hint_video_path = str(discovered)
                         else:
-                            hint_str = input(f"\n{Colors.BOLD}{Colors.BLUE}Enter path to full hint video/directory for this video (or press Enter to skip hint):{Colors.RESET}\n").strip()
+                            hint_str = input(f"\n{Colours.BOLD}{Colours.BLUE}Enter path to full hint video/directory for this video (or press Enter to skip hint):{Colours.RESET}\n").strip()
                             if hint_str:
                                 hint_video_path = clean_path(translate_windows_path(hint_str))
                                 if not os.path.exists(hint_video_path):
-                                    print(f"{Colors.YELLOW}[ERROR] Hint path does not exist. Running this clip without hints.{Colors.RESET}")
+                                    print(f"{Colours.YELLOW}[ERROR] Hint path does not exist. Running this clip without hints.{Colours.RESET}")
                                     hint_video_path = None
 
             is_first_run = False
@@ -874,7 +878,7 @@ def main():
                 input_path_obj = Path(input_path)
                 output_dir = str(input_path_obj.parent / f"out_{input_path_obj.stem}").replace("\\", "/")
                 
-            print(f"Output directory: {Colors.GREEN}{output_dir}{Colors.RESET}")
+            print(f"Output directory: {Colours.GREEN}{output_dir}{Colours.RESET}")
 
             # Assemble inference command
             package_root = Path(__file__).resolve().parent
@@ -911,6 +915,8 @@ def main():
             if not auto_vram:
                 cmd.extend(["--hann_chunk", str(hann_chunk)])
                 cmd.extend(["--hann_stride", str(hann_stride)])
+            if optimized:
+                cmd.append("--optimized")
             
             if num_frames > 0:
                 cmd.extend(["--num_frames", str(num_frames)])
@@ -918,7 +924,7 @@ def main():
 
             # Execute
             print_header("Executing Inference Command")
-            print(f"Command:\n{Colors.BOLD}{Colors.YELLOW}{' '.join(cmd)}{Colors.RESET}\n")
+            print(f"Command:\n{Colours.BOLD}{Colours.YELLOW}{' '.join(cmd)}{Colours.RESET}\n")
             
             confirm_run = prompt_confirm("Do you want to run this command now?", default=True)
             if not confirm_run:
@@ -937,12 +943,12 @@ def main():
                 process.wait()
                 
                 if process.returncode == 0:
-                    print(f"\n{Colors.BOLD}{Colors.GREEN}[SUCCESS] CorridorKey v2 inference completed successfully!{Colors.RESET}")
-                    print(f"Outputs written to: {Colors.CYAN}{output_dir}{Colors.RESET}\n")
+                    print(f"\n{Colours.BOLD}{Colours.GREEN}[SUCCESS] CorridorKey v2 inference completed successfully!{Colours.RESET}")
+                    print(f"Outputs written to: {Colours.CYAN}{output_dir}{Colours.RESET}\n")
                 else:
-                    print(f"\n{Colors.BOLD}{Colors.YELLOW}[ERROR] Inference failed {describe_exit(process.returncode)}{Colors.RESET}\n")
+                    print(f"\n{Colours.BOLD}{Colours.YELLOW}[ERROR] Inference failed {describe_exit(process.returncode)}{Colours.RESET}\n")
             except KeyboardInterrupt:
-                print(f"\n{Colors.YELLOW}[INTERRUPTED] Inference run canceled by user.{Colors.RESET}\n")
+                print(f"\n{Colours.YELLOW}[INTERRUPTED] Inference run cancelled by user.{Colours.RESET}\n")
 
 if __name__ == "__main__":
     main()

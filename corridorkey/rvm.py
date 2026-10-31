@@ -21,7 +21,7 @@ path (encoder + rnn_core), which is 33M of the 67M param checkpoint for S.
 Input contract:
     video: (B, T, 3, H, W) fp32 in [0, 1].
     IMPORTANT: RVM was pretrained on raw [0, 1] video frames; no imagenet
-    mean/std normalization applied.
+    mean/std normalisation applied.
 
 Output:
     features: (B, T, D, h, w) where h=H/16, w=W/16 and D=embed_dim.

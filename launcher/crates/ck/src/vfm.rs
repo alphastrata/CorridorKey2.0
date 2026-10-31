@@ -1,3 +1,4 @@
+use crate::convert::{Float, Metric, Narrow};
 use ck_gpu::{Dtype, Gpu, Tensor};
 use eyre::Result;
 
@@ -5,6 +6,7 @@ use crate::ops::{Conv, Into, conv, to_half, to_nhwc};
 use crate::vit::{Attn, Block, Mlp, Norm, Resize, embed, gru_kv, gru_mix, resize, rvm_attn, rvm_mlp, standardise};
 use crate::weights::{Loader, Weights};
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 fn planes(gpu: &Gpu, v: &[f32], (h, w, c): (usize, usize, usize)) -> Result<Tensor> {
     let t: Vec<f32> = (0..v.len()).map(|i| v[i % (h * w) * c + i / (h * w)]).collect();
     gpu.upload_f32(&t, &[1, c, h, w], Dtype::F32)
@@ -25,6 +27,7 @@ impl Tokens {
         unit: (&Tensor, &Tensor),
     ) -> Result<Tensor> {
         let [p, c] = self.prefix.shape[..] else {
+
             eyre::bail!("prefix wants [p, c]")
         };
         let grid = resize(gpu, &self.pos, (gh, gw), scale, self.mode, unit)?;
@@ -34,6 +37,7 @@ impl Tokens {
     }
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 fn tokenise(
     gpu: &Gpu,
     x: &Tensor,
@@ -48,6 +52,7 @@ fn tokenise(
     let c = w.shape[0];
     let patches = gpu.empty(&[n * (h / k) * (wd / k), c], Dtype::F32)?;
     let geo = Conv { k, s: k, p: 0 };
+
     conv(
         gpu,
         x,
@@ -99,6 +104,7 @@ impl Radio {
                 std: ld.f32("cradio.input_conditioner.norm_std")?,
             },
             embedder: ld.mat(&format!("{pg}.embedder.weight"))?,
+
             bias: ld.gpu.zeros(&[c], Dtype::F32)?,
             tokens: Tokens {
                 prefix,
@@ -112,6 +118,7 @@ impl Radio {
         })
     }
 
+    #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
     fn forward(&self, gpu: &Gpu, display: &Tensor, unit: (&Tensor, &Tensor), ones: &Tensor) -> Result<Tensor> {
         let [t, _, h, w] = display.shape[..] else {
             eyre::bail!("display wants 4-d")
@@ -124,8 +131,9 @@ impl Radio {
             Resize::Area,
             (&self.cond.mean, &self.cond.std),
         )?;
+
         let (gh, gw) = (h / 64, w / 64);
-        let s = 128.0 / gh.max(gw) as f32;
+        let s = 128.0 / gh.max(gw).f32();
         let table = self.tokens.table(gpu, (gh, gw), (s, s), unit)?;
         let x = tokenise(gpu, &x, (&self.embedder, &self.bias), 16, &table, &self.tokens.prefix)?;
         let n = x.shape[1];
@@ -160,6 +168,7 @@ impl Moge {
             },
             patch: (
                 ld.mat(&format!("{bb}.patch_embed.proj.weight"))?,
+
                 ld.f32(&format!("{bb}.patch_embed.proj.bias"))?,
             ),
             tokens: Tokens {
@@ -176,6 +185,7 @@ impl Moge {
         })
     }
 
+    #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
     fn forward(&self, gpu: &Gpu, display: &Tensor, unit: (&Tensor, &Tensor), ones: &Tensor) -> Result<Tensor> {
         let [t, _, h, w] = display.shape[..] else {
             eyre::bail!("display wants 4-d")
@@ -189,14 +199,16 @@ impl Moge {
             Resize::Area,
             (&self.image.mean, &self.image.std),
         )?;
+
         let (gh, gw) = (hm / 14, wm / 14);
-        let step = |g: usize| (1.0 / ((g as f64 + 0.1) / 37.0)) as f32;
+        let step = |g: usize| (1.0 / ((g.f64() + 0.1) / 37.0)).f32();
         let table = self.tokens.table(gpu, (gh, gw), (step(gh), step(gw)), unit)?;
         let x = tokenise(gpu, &x, (&self.patch.0, &self.patch.1), 14, &table, &self.tokens.prefix)?;
         let n = x.shape[1];
         let out = gpu.empty(&[t * n, self.norm.w.numel()], Dtype::F32)?;
         self.blocks.iter().enumerate().try_for_each(|(i, b)| {
             b.forward(gpu, &x, (t, n), ones)?;
+
             match i {
                 5 | 11 => self.proj[i / 6].run(gpu, &self.norm.apply(gpu, &x, Dtype::Bf16)?, &out, i == 11),
                 _ => Ok(()),
@@ -237,6 +249,7 @@ impl Rvm {
                 mlp: rvm_mlp(ld, &format!("{p}.mlp_norm"), &format!("{p}.mlp"))?,
             })
         };
+
         let core = "rvm.rnn_core";
         let cross = |i: usize| -> Result<Cross> {
             let p = format!("{core}.transformer.xa_blocks.{i}");
@@ -246,6 +259,7 @@ impl Rvm {
                 sa: rvm_attn(ld, &format!("{p}.attention_norm"), &format!("{p}.attention"), 8)?,
             })
         };
+
         let gate = |a: &str, b: &str| ld.rows(&[&format!("{core}.{a}.weight"), &format!("{core}.{b}.weight")]);
         Ok(Self {
             patch: (ld.mat("rvm.patch_embed.weight")?, ld.f32("rvm.patch_embed.bias")?),
@@ -255,6 +269,7 @@ impl Rvm {
                 mode: Resize::Bicubic,
             },
             blocks: (0..12).map(enc).collect::<Result<_>>()?,
+
             norm: Norm::load(ld, "rvm.encoder_final_norm", 1e-5)?,
             input: gate("input_update", "input_reset")?,
             state: gate("state_update", "state_reset")?,
@@ -277,6 +292,7 @@ impl Rvm {
             eyre::bail!("step wants [n, c]")
         };
         let gates = gpu.empty(&[n, 2 * c], Dtype::F32)?;
+
         gpu.linear(half, &self.input, None, &gates, false)?;
         gpu.linear(&to_half(gpu, prev)?, &self.state, None, &gates, true)?;
         let kv = gru_kv(gpu, &gates, prev, &self.state_norm)?;
@@ -289,6 +305,7 @@ impl Rvm {
         gru_mix(gpu, &gates, &self.out_norm.apply(gpu, &x, Dtype::F32)?, prev, out)
     }
 
+    #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
     fn forward(
         &self,
         gpu: &Gpu,
@@ -300,15 +317,17 @@ impl Rvm {
         let [t, _, h, w] = display.shape[..] else {
             eyre::bail!("display wants 4-d")
         };
+
         let x = resize(gpu, display, (h / 4, w / 4), (4.0, 4.0), Resize::Bilinear, unit)?;
         let (gh, gw) = (h / 64, w / 64);
         let table = self
             .tokens
-            .table(gpu, (gh, gw), (16.0 / gh as f32, 16.0 / gw as f32), unit)?;
+            .table(gpu, (gh, gw), (16.0 / gh.f32(), 16.0 / gw.f32()), unit)?;
         let x = tokenise(gpu, &x, (&self.patch.0, &self.patch.1), 16, &table, &self.tokens.prefix)?;
         let (n, c) = (x.shape[1], x.shape[2]);
         self.blocks.iter().try_for_each(|b| b.forward(gpu, &x, (t, n), ones))?;
         let enc = self.norm.apply(gpu, &x, Dtype::F32)?;
+
         let half = to_half(gpu, &enc)?;
         let feats = gpu.empty(&[t * n, c], Dtype::F32)?;
         let first = state.cloned().map_or_else(|| gpu.zeros(&[n, c], Dtype::F32), Ok)?;
@@ -345,6 +364,7 @@ impl Vfms {
             prefix: "",
             half: gpu.half(),
         };
+
         Ok(Self {
             radio: Radio::load(&ld)?,
             moge: Moge::load(&ld)?,

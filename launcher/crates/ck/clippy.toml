@@ -1,0 +1,2 @@
+# Kernel argument marshalling reads as one ledger of device ABI values.
+too-many-lines-threshold = 120

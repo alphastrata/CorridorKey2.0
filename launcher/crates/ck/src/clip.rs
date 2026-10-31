@@ -1,3 +1,4 @@
+use crate::convert::Idx;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -10,6 +11,8 @@ use crate::farm::{Job, Meta};
 use crate::frame::{self, Encoding};
 use crate::io::{Plane, Source};
 use crate::ops::{axpy, probe};
+
+const PREP: usize = 8;
 use crate::run::{Config, Hints, Models, starts, taper};
 use crate::stage1::Inputs;
 
@@ -52,6 +55,7 @@ impl<'a> Clip<'a> {
     ) -> Result<Self> {
         let side = |p: &Path, n: usize, first: bool| -> Result<flume::Receiver<Result<Vec<u8>>>> {
             let s = Source::open(p, cfg.dir_fps)?;
+
             ensure!(
                 (s.w, s.h) == (src.w, src.h),
                 "{}: hint size {}x{} != {}x{}",
@@ -61,6 +65,7 @@ impl<'a> Clip<'a> {
                 src.w,
                 src.h
             );
+
             Ok(s.decode(if first && s.alpha() { Plane::Alpha } else { Plane::Grey }, n))
         };
         Ok(Self {
@@ -70,6 +75,7 @@ impl<'a> Clip<'a> {
             meta,
             frames: BTreeMap::new(),
             decoded: 0,
+
             featured: 0,
             state: None,
             rgb: src.decode(Plane::Rgb, total),
@@ -91,6 +97,7 @@ impl<'a> Clip<'a> {
                     ..Frame::default()
                 },
             );
+
             self.decoded += 1;
         }
         Ok(())
@@ -124,6 +131,7 @@ impl<'a> Clip<'a> {
                 Encoding::Display,
                 self.cfg.input(),
             )?;
+
             let f = self
                 .m
                 .front(self.gpu)?
@@ -135,6 +143,7 @@ impl<'a> Clip<'a> {
                     .get_mut(&(self.featured + j))
                     .ok_or_eyre("frame gone")?
                     .feats = Some(feats);
+
                 Ok(())
             })?;
             self.state = Some(f.state);
@@ -154,6 +163,7 @@ impl<'a> Clip<'a> {
             frame::hint(self.gpu, &raw, &x.at(3 * plane, &[(4 * t - 3) * plane])?, g, 4 * plane)?;
             quality.fill(Some(self.cfg.hint_quality));
         }
+
         (0..t).try_for_each(|j| -> Result<()> {
             if let Some(c) = &self.frames[&(t0 + j)].carry {
                 self.gpu.copy_into(c, &x.at((4 * j + 3) * plane, &[plane])?)?;
@@ -163,6 +173,7 @@ impl<'a> Clip<'a> {
         })?;
         if let (Some(first), 0) = (&self.first, t0) {
             let raw = upload(self.gpu, &[first], &[1, g.hn, g.wn], Dtype::U16)?;
+
             frame::hint(self.gpu, &raw, &x.at(3 * plane, &[plane])?, g, 4 * plane)?;
             quality[0] = Some(self.cfg.hint_quality);
         }
@@ -176,6 +187,7 @@ impl<'a> Clip<'a> {
         let (hh, hw) = (h / 2, w / 2);
         let out = self.gpu.empty(&[h, w], Dtype::F32)?;
         let src = aux.at(4 * j * hh * hw, &[hh * hw])?;
+
         let dims = [1, 1, hh, hw, h, w].map(Arg::from);
         let args = [
             [&src, &self.unit.0, &self.unit.1, &out].map(Arg::from).as_slice(),
@@ -184,10 +196,11 @@ impl<'a> Clip<'a> {
         ]
         .concat();
         self.gpu
-            .launch("ck_ops", "resize", ((h * w).div_ceil(256) as u32, 1, 1), 256, 0, &args)?;
+            .launch("ck_ops", "resize", ((h * w).div_ceil(256).u32(), 1, 1), 256, 0, &args)?;
         Ok(out)
     }
 
+    #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
     fn window(&mut self, (t0, t1): (usize, usize), (first, last): (bool, bool)) -> Result<()> {
         self.read(t1)?;
         self.features(t1)?;
@@ -195,15 +208,21 @@ impl<'a> Clip<'a> {
         let (g, t) = (self.meta.g, t1 - t0);
         let plane = g.h * g.w;
         let x = self.gpu.zeros(&[t, 4, g.h, g.w], Dtype::F32)?;
-        frame::prep(
-            self.gpu,
-            &self.raw(t0..t1)?,
-            &x,
-            g,
-            4 * plane,
-            Encoding::Model,
-            self.cfg.input(),
-        )?;
+        (t0..t1).step_by(PREP).try_for_each(|a| {
+            let b = (a + PREP).min(t1);
+            let out = x.at((a - t0) * 4 * plane, &[(b - a) * 4 * plane])?;
+
+            frame::prep(
+                self.gpu,
+                &self.raw(a..b)?,
+                &out,
+                g,
+                4 * plane,
+                Encoding::Model,
+                self.cfg.input(),
+            )
+        })?;
+
         let quality = self.hints(&x, t0, t)?;
         let feats = (0..3)
             .map(|k| {
@@ -215,6 +234,7 @@ impl<'a> Clip<'a> {
                     let f = &self.frames[&(t0 + j)].feats.as_ref().ok_or_eyre("features missing")?[k];
                     self.gpu.copy_into(f, &all.rows(j, 1)?)
                 })?;
+
                 Ok(all)
             })
             .collect::<Result<Vec<_>>>()?;
@@ -225,6 +245,7 @@ impl<'a> Clip<'a> {
             quality: &quality,
             features: [&feats[0], &feats[1], &feats[2]],
         };
+
         probe(self.gpu, "inputs");
         let out = self.m.front(self.gpu)?.s1.forward(self.gpu, &self.m.cache, inputs)?;
         drop((feats, quality));
@@ -232,6 +253,7 @@ impl<'a> Clip<'a> {
         let weights = taper(t, self.cfg.chunk.saturating_sub(self.cfg.stride), first, last);
         (0..t).try_for_each(|j| -> Result<()> {
             let carry = self.cfg.carry.then(|| self.carry(&out.aux, j)).transpose()?;
+
             let f = self.frames.get_mut(&(t0 + j)).ok_or_eyre("frame gone")?;
             if carry.is_some() {
                 f.carry = carry;
@@ -240,6 +262,7 @@ impl<'a> Clip<'a> {
                 Some(a) => a,
                 None => self.gpu.zeros(&[1, baton.shape[1]], Dtype::F32)?,
             };
+
             axpy(self.gpu, &acc, &baton.rows(j, 1)?, weights[j])?;
             f.acc = Some(acc);
             f.weight += weights[j];

@@ -1,3 +1,4 @@
+use crate::convert::{Idx, Metric};
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::{Result, ensure};
 use tracing::{Level, debug, enabled};
@@ -5,7 +6,7 @@ use tracing::{Level, debug, enabled};
 use crate::weights::TAIL;
 
 fn grid(n: usize) -> (u32, u32, u32) {
-    (n.div_ceil(256) as u32, 1, 1)
+    (n.div_ceil(256).u32(), 1, 1)
 }
 
 fn ops(gpu: &Gpu, name: &str, n: usize, args: &[Arg]) -> Result<()> {
@@ -63,6 +64,7 @@ impl Conv {
     }
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 pub fn im2col(gpu: &Gpu, x: &Tensor, nhwc: bool, conv: Conv) -> Result<Tensor> {
     let [n, a, b, c] = x.shape[..] else {
         eyre::bail!("im2col wants 4-d, got {:?}", x.shape)
@@ -71,6 +73,7 @@ pub fn im2col(gpu: &Gpu, x: &Tensor, nhwc: bool, conv: Conv) -> Result<Tensor> {
     let (oh, ow) = (conv.out(h), conv.out(w));
     let cols = gpu.empty(&[n * oh * ow, c * conv.k * conv.k], Dtype::Bf16)?;
     let dims = [n, c, h, w, conv.k, conv.s, conv.p, oh, ow, usize::from(nhwc)].map(Arg::from);
+
     ops(
         gpu,
         "im2col",
@@ -107,12 +110,14 @@ pub fn col2im_into(gpu: &Gpu, cols: &Tensor, bias: &Tensor, conv: Conv, out: &Te
     )
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 pub fn shuffle(gpu: &Gpu, x: &Tensor, r: usize) -> Result<Tensor> {
     let [n, h, w, cr] = x.shape[..] else {
         eyre::bail!("shuffle wants 4-d")
     };
     let c = cr / (r * r);
     let out = gpu.empty(&[n, h * r, w * r, c], Dtype::F32)?;
+
     ops(
         gpu,
         "shuffle",
@@ -127,6 +132,7 @@ pub fn shuffle(gpu: &Gpu, x: &Tensor, r: usize) -> Result<Tensor> {
             r.into(),
         ],
     )?;
+
     Ok(out)
 }
 
@@ -175,14 +181,17 @@ fn act_ld(gpu: &Gpu, x: &Tensor, kind: Act, tail: usize) -> Result<Tensor> {
         c.into(),
         (c + tail).into(),
     ];
+
     ops(gpu, "act_bf16", n, &args)?;
     Ok(out)
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 pub fn to_nhwc(gpu: &Gpu, x: &Tensor, out: &Tensor, (ld, off): (usize, usize)) -> Result<()> {
     let [n, c, h, w] = x.shape[..] else {
         eyre::bail!("to_nhwc wants 4-d")
     };
+
     ops(
         gpu,
         "to_nhwc",
@@ -264,6 +273,7 @@ pub fn norm_mod(
     let c = w.numel();
     let pixels = x.numel() / c;
     let out = gpu.empty(&x.shape, Dtype::Bf16)?;
+
     let ld = params.shape[1];
     let args = [
         x.into(),
@@ -278,13 +288,16 @@ pub fn norm_mod(
         shift.into(),
         scale.into(),
     ];
-    gpu.launch("ck_ops", "norm_mod", (pixels.div_ceil(8) as u32, 1, 1), 256, 0, &args)?;
+
+    gpu.launch("ck_ops", "norm_mod", (pixels.div_ceil(8).u32(), 1, 1), 256, 0, &args)?;
     Ok(out)
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 pub fn norm(gpu: &Gpu, x: &Tensor, w: &Tensor, s: Shift) -> Result<Tensor> {
     let [lead, h, wd, c] = four(x)?;
     let out = gpu.empty(&[lead, s.hp, s.wp, c], Dtype::Bf16)?;
+
     let pixels = lead * s.hp * s.wp;
     let dims = [pixels, c].map(Arg::from);
     let geo = [h, wd, s.hp, s.wp, s.sh, s.sw].map(Arg::from);
@@ -295,10 +308,11 @@ pub fn norm(gpu: &Gpu, x: &Tensor, w: &Tensor, s: Shift) -> Result<Tensor> {
         &geo,
     ]
     .concat();
-    gpu.launch("ck_glue", "norm_bf16", (pixels.div_ceil(8) as u32, 1, 1), 256, 0, &args)?;
+    gpu.launch("ck_glue", "norm_bf16", (pixels.div_ceil(8).u32(), 1, 1), 256, 0, &args)?;
     Ok(out)
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 pub fn unshift_add(gpu: &Gpu, x: &Tensor, a: &Tensor, s: Shift) -> Result<()> {
     let [lead, h, w, c] = four(x)?;
     let pixels = lead * h * w;
@@ -320,7 +334,10 @@ pub fn swiglu(gpu: &Gpu, gu: &Tensor) -> Result<Tensor> {
 const TILE: u32 = (8 + 6) * (16 + 6) * 32 * 4;
 
 fn dw_grid(lead: usize, h: usize, w: usize, c: usize) -> (u32, u32, u32) {
-    (w.div_ceil(16) as u32, h.div_ceil(8) as u32, (lead * c / 32) as u32)
+    let gx = w.div_ceil(16).u32();
+    let gy = h.div_ceil(8).u32();
+    let gz = (lead * c / 32).u32();
+    (gx, gy, gz)
 }
 
 pub struct Mix {
@@ -332,6 +349,7 @@ pub struct Mix {
 
 const MIX_BYTES: usize = 256 << 20;
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 pub fn mix_add(gpu: &Gpu, x: &Tensor, m: &Mix) -> Result<()> {
     let [lead, h, w, c] = four(x)?;
     let step = (MIX_BYTES / (h * w * c * 4)).clamp(1, lead);
@@ -340,16 +358,19 @@ pub fn mix_add(gpu: &Gpu, x: &Tensor, m: &Mix) -> Result<()> {
         let n = x.shape[0];
         let r = gpu.empty(&[n * h * w], Dtype::F32)?;
         let pixels = r.numel();
+
         gpu.launch(
             "ck_dw",
             "rms_f32",
-            (pixels.div_ceil(8) as u32, 1, 1),
+            (pixels.div_ceil(8).u32(), 1, 1),
             256,
             0,
             &[(&x).into(), (&r).into(), pixels.into(), c.into(), Arg::F(1e-6)],
         )?;
+
         let out = gpu.empty(&x.shape, Dtype::F32)?;
         let reflect = usize::from(h > 3 && w > 3);
+
         let args = [
             (&x).into(),
             (&r).into(),
@@ -364,6 +385,7 @@ pub fn mix_add(gpu: &Gpu, x: &Tensor, m: &Mix) -> Result<()> {
             reflect.into(),
             Arg::U(1),
         ];
+
         gpu.launch("ck_dw", "mix_f32", dw_grid(n, h, w, c), 256, TILE, &args)?;
         gpu.copy_into(&out, &x)
     })
@@ -382,6 +404,7 @@ pub fn dw_qkv(gpu: &Gpu, y: &Tensor, (taps, bias): (&Tensor, &Tensor), out: &Ten
         c.into(),
         reflect.into(),
     ];
+
     gpu.launch(
         "ck_dw",
         "dw_bf16",
@@ -392,6 +415,7 @@ pub fn dw_qkv(gpu: &Gpu, y: &Tensor, (taps, bias): (&Tensor, &Tensor), out: &Ten
     )
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 fn four(x: &Tensor) -> Result<[usize; 4]> {
     let c = *x.shape.last().unwrap_or(&0);
     let s = &x.shape;
@@ -410,6 +434,7 @@ pub struct Into<'a> {
 
 const COLS: usize = 1 << 26;
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 pub fn conv(gpu: &Gpu, x: &Tensor, nhwc: bool, geo: Conv, (w, bias): (&Tensor, &Tensor), into: Into) -> Result<()> {
     let [n, a, b, c] = x.shape[..] else {
         eyre::bail!("conv wants 4-d, got {:?}", x.shape)
@@ -418,6 +443,7 @@ pub fn conv(gpu: &Gpu, x: &Tensor, nhwc: bool, geo: Conv, (w, bias): (&Tensor, &
     let per = geo.out(h) * geo.out(wd);
     let step = (COLS / (per * w.shape[1])).clamp(1, n);
     let rows = into.out.numel() / into.ld;
+
     let out = into.out.reshape(&[rows, into.ld])?;
     (0..n).step_by(step).try_for_each(|i| {
         let m = step.min(n - i);
@@ -433,13 +459,14 @@ thread_local! {
 
 pub fn probe(gpu: &Gpu, what: &str) {
     if enabled!(target: "ck::mem", Level::DEBUG) {
-        let gib = |b: usize| b as f64 / f64::from(1u32 << 30);
+        let gib = |b: usize| b.f64() / f64::from(1u32 << 30);
         debug!(
             target: "ck::mem",
             "{what}: live {:.2} GiB, peak {:.2} GiB",
             gib(gpu.meter.live()),
             gib(gpu.meter.peak())
         );
+
         gpu.meter.reset();
     }
     if enabled!(target: "ck::time", Level::DEBUG) && gpu.sync().is_ok() {

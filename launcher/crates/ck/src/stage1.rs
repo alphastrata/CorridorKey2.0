@@ -22,6 +22,7 @@ struct Up {
 }
 
 impl Up {
+    #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
     fn forward(&self, gpu: &Gpu, x: &Tensor) -> Result<Tensor> {
         let [n, h, w, c] = x.shape[..] else {
             eyre::bail!("up wants [n, h, w, c]")
@@ -34,6 +35,7 @@ impl Up {
             &p,
             false,
         )?;
+
         let y = ops::shuffle(gpu, &p, 4)?;
         let into = Into {
             out: &y,
@@ -89,6 +91,7 @@ pub struct Stage1 {
     body: Vec<Block>,
     mid_up: Up,
     mid_scale: Tensor,
+
     mid: Vec<Block>,
     mid_down: Pair,
     up: Up,
@@ -113,6 +116,7 @@ impl Stage1 {
                 phases[1],
                 Kind::CSwin,
                 phases[2],
+
                 phases[3],
                 Kind::CSwin,
                 phases[2],
@@ -127,6 +131,7 @@ impl Stage1 {
                 smooth: nhwc(&format!("{n}.smooth"))?,
             })
         };
+
         Ok(Self {
             stem: pair("stem.conv")?,
             enc: load_blocks(ld, "enc_16", &vec![Kind::Full; count("enc_16")], false, 8)?,
@@ -136,6 +141,7 @@ impl Stage1 {
                 norm: ld.f32("fuse.norm.weight")?,
                 gu: (
                     ld.rows(&["fuse.w_gate.weight", "fuse.w_up.weight"])?,
+
                     ld.cat(&["fuse.w_gate.bias", "fuse.w_up.bias"])?,
                 ),
                 down: ld.biased("fuse.w_down.weight", "fuse.w_down.bias")?,
@@ -144,6 +150,7 @@ impl Stage1 {
             mid_up: up("mid_up")?,
             mid_scale: ld.f32("mid_skip_scale")?,
             mid: load_blocks(ld, "mid_16", &mid, true, 8)?,
+
             mid_down: nhwc("mid_down.conv")?,
             up: up("up")?,
             skip_scale: ld.f32("uskip_scale")?,
@@ -170,6 +177,7 @@ impl Stage1 {
         ops::conv(
             gpu,
             &x,
+
             false,
             STEM,
             (&self.stem.0, &self.stem.1),
@@ -180,6 +188,7 @@ impl Stage1 {
                 accumulate: false,
             },
         )?;
+
         drop(x);
         ops::probe(gpu, "stem");
         let enc = gpu.copy(&patch)?;
@@ -202,6 +211,7 @@ impl Stage1 {
         let (h2, w2) = AUX.inverse(h16, w16);
         let aux = gpu.empty(&[frames, 4, h2, w2], Dtype::F32)?;
         let taps = self.aux.0.shape[0];
+
         let rows = baton.reshape(&[frames, h16 * w16, d16])?;
         let step = (AUX_BYTES / (h16 * w16 * taps * 4)).clamp(1, frames);
         (0..frames).step_by(step).try_for_each(|f| {
@@ -221,6 +231,7 @@ impl Stage1 {
             quality,
             features,
         } = i;
+
         let [frames, _, hh, ww] = x.shape[..] else {
             eyre::bail!("x wants [b · t, 4, H, W]")
         };
@@ -238,6 +249,7 @@ impl Stage1 {
             ops::to_nhwc(gpu, f, &combined, (vfm + d16, off)).map(|()| off + f.shape[1])
         })?;
         let enc_frames = enc.reshape(&[frames, h16, w16, d16])?;
+
         ops::conv(
             gpu,
             &enc_frames,
@@ -267,6 +279,7 @@ impl Stage1 {
             .mid
             .iter()
             .try_fold(mid.into_shape(&grid16)?, |x, b| b.forward(gpu, cache, &x, None))?;
+
         ops::probe(gpu, "mid");
         let mid_frames = mid.reshape(&[frames, h16, w16, d16])?;
         ops::conv(
@@ -276,6 +289,7 @@ impl Stage1 {
             DOWN,
             (&self.mid_down.0, &self.mid_down.1),
             Into {
+
                 out: &f64,
                 ld: d64,
                 off: 0,
@@ -288,6 +302,7 @@ impl Stage1 {
 
         ops::probe(gpu, "body2");
         let dec = self.up.forward(gpu, &f64.into_shape(&[frames, h64, w64, d64])?)?;
+
         ops::add_scaled(gpu, &dec, &mid, &self.skip_scale)?;
         drop((mid, mid_frames));
         let late = self.dec.len().saturating_sub(2);

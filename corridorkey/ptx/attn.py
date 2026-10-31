@@ -16,8 +16,6 @@ from . import arch, available, load
 
 HEADS = (64, 80, 96)
 BR, BC = 128, 64
-STAGES = {75: 1, 120: 2}
-THREADS = {75: 256, 120: 128}
 
 
 def attention(
@@ -27,7 +25,7 @@ def attention(
     b, h, n, d = q.shape
     out = torch.empty_like(q)
     dev = q.device.index
-    shared = _stages(dev) * (2 * BC * (d + 8) * 2 + 4 * BC)
+    mod = load("ck_attn", dev)
     mask = rid if rid is not None else q.new_zeros(2, dtype=torch.int32)
     windows = rid.shape[0] if rid is not None else 0
     pairs = [t.contiguous().view(torch.int32) for t in (q, k, v)]
@@ -45,8 +43,12 @@ def attention(
     ]
 
     name = f"attn{d}" + ("_masked" if rid is not None else "")
-    load("ck_attn", dev).launch(
-        name, (-(-n // BR), b * h, 1), (THREADS[arch("ck_attn", dev)], 1, 1), args, shared
+    mod.launch(
+        name,
+        (-(-n // BR), b * h, 1),
+        (mod.global_u32("ATTN_THREADS"), 1, 1),
+        args,
+        mod.global_u32(f"ATTN_SHARED_{d}"),
     )
     return out
 
@@ -91,11 +93,6 @@ def spans(rid: torch.Tensor) -> torch.Tensor:
 
 
 @functools.cache
-def _stages(device: int) -> int:
-    return STAGES[arch("ck_attn", device)]
-
-
-@functools.cache
 def plain(device: int) -> bool:
     """Whether unmasked SDPA goes to ck too: only where no flash kernel exists (pre-sm_80)."""
     return torch.cuda.get_device_capability(device) < (8, 0)
@@ -131,7 +128,9 @@ def _sdpa(
     )
 
     if ok and key_pad:
-        return attention(q, k, v, torch.where(attn_mask.view(q.shape[0], -1), 0, -1).int())
+        return attention(
+            q, k, v, torch.where(attn_mask.view(q.shape[0], -1), 0, -1).int()
+        )
 
     return F.scaled_dot_product_attention(
         q, k, v, attn_mask, dropout_p, is_causal, **kw

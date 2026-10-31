@@ -21,7 +21,10 @@ fn vfm_720() -> Result<()> {
     let root = repo();
     let fx = Weights::open(&root.join("launcher/fixtures/vfm_720.safetensors"))?;
     let gpu = Gpu::open(device(), &root.join("corridorkey/ptx/bin"))?;
-    let vfms = Vfms::load(&gpu, &Weights::vfms(&root.join("vfms"), &root.join("weights/foundation_stats.safetensors"))?)?;
+    let vfms = Vfms::load(
+        &gpu,
+        &Weights::vfms(&root.join("vfms"), &root.join("weights/foundation_stats.safetensors"))?,
+    )?;
 
     let (blocks, ones) = vfms.blocks();
     blocks.iter().try_for_each(|(tag, list)| {

@@ -1,3 +1,4 @@
+use crate::convert::{Float, Idx};
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::{OptionExt, Result};
 
@@ -5,11 +6,11 @@ use crate::ops::{Act, act_tail};
 use crate::weights::{Loader, TAIL};
 
 fn ops(gpu: &Gpu, name: &str, n: usize, args: &[Arg]) -> Result<()> {
-    gpu.launch("ck_ops", name, (n.div_ceil(256) as u32, 1, 1), 256, 0, args)
+    gpu.launch("ck_ops", name, (n.div_ceil(256).u32(), 1, 1), 256, 0, args)
 }
 
 fn warps(gpu: &Gpu, name: &str, rows: usize, args: &[Arg]) -> Result<()> {
-    gpu.launch("ck_ops", name, (rows.div_ceil(8) as u32, 1, 1), 256, 0, args)
+    gpu.launch("ck_ops", name, (rows.div_ceil(8).u32(), 1, 1), 256, 0, args)
 }
 
 pub struct Norm {
@@ -36,6 +37,7 @@ impl Norm {
         } else {
             "layer_norm"
         };
+
         let args = [
             x.into(),
             (&self.w).into(),
@@ -45,6 +47,7 @@ impl Norm {
             c.into(),
             Arg::F(self.eps),
         ];
+
         warps(gpu, name, rows, &args)?;
         Ok(out)
     }
@@ -82,6 +85,7 @@ impl Linear {
             .concat();
         let w = match &gamma {
             Some(g) => {
+
                 b.iter_mut().zip(g).for_each(|(v, s)| *v *= s);
                 ld.scaled(&weights, g)?
             }
@@ -102,6 +106,7 @@ impl Linear {
     }
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 pub fn attention(
     gpu: &Gpu,
     qkv: &Tensor,
@@ -113,14 +118,17 @@ pub fn attention(
         .into_iter()
         .find(|&p| p >= d)
         .ok_or_eyre("head size above 96")?;
+
     let shape = [b, heads, n, dp];
     let [q, k, v, o] = [(); 4].map(|()| gpu.empty(&shape, Dtype::Bf16));
     let [q, k, v, o] = [q?, k?, v?, o?];
     let dims = [b, n, heads, d, dp].map(Arg::from);
     let split = [[qkv, &q, &k, &v].map(Arg::from).as_slice(), &dims].concat();
+
     ops(gpu, "heads", 3 * q.numel(), &split)?;
     let pairs = |t: &Tensor| Arg::Buf(t.ptr(), t.numel() / 2);
-    let (shared, threads) = crate::attn::launch(gpu, dp);
+    let (shared, threads) = crate::attn::launch(gpu, dp)?;
+
     let args = [
         pairs(&q),
         pairs(&k),
@@ -132,17 +140,19 @@ pub fn attention(
         n.into(),
         heads.into(),
         Arg::U(0),
-        Arg::F(std::f32::consts::LOG2_E / (d as f32).sqrt()),
+        Arg::F(std::f32::consts::LOG2_E / d.f32().sqrt()),
     ];
+
     gpu.launch(
         "ck_attn",
         &format!("attn{dp}"),
-        (n.div_ceil(128) as u32, (b * heads) as u32, 1),
+        (n.div_ceil(128).u32(), (b * heads).u32(), 1),
         threads,
         shared,
         &args,
     )?;
     let out = gpu.empty(&[b * n, heads * d + TAIL], Dtype::Bf16)?;
+
     ops(
         gpu,
         "unheads",
@@ -154,6 +164,7 @@ pub fn attention(
         ]
         .concat(),
     )?;
+
     Ok(out)
 }
 
@@ -165,6 +176,7 @@ pub struct Attn {
 }
 
 impl Attn {
+    #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
     pub fn forward(
         &self,
         gpu: &Gpu,
@@ -175,6 +187,7 @@ impl Attn {
     ) -> Result<()> {
         let h = self.norm.apply(gpu, x, Dtype::Bf16)?;
         let wide = self.qkv.out();
+
         let inner = wide / 3;
         let qkv = gpu.empty(&[b * n, wide], Dtype::Bf16)?;
         match kv {
@@ -183,6 +196,7 @@ impl Attn {
                 .into_iter()
                 .try_for_each(|(src, off, len)| {
                     let w = self.qkv.w.rows(off, len)?;
+
                     let bias = self.qkv.b.as_ref().ok_or_eyre("qkv bias")?.rows(off, len)?;
                     gpu.linear_into(src, &w, Some(&bias), &qkv, (wide, off), false)
                 })?,
@@ -222,6 +236,7 @@ impl Block {
             attn: Attn {
                 norm: Norm::load(ld, &format!("{p}.norm1"), eps)?,
                 qkv: Linear::load(ld, &[&format!("{p}.attn.qkv")], None)?,
+
                 out: Linear::tailed(ld, &format!("{p}.attn.proj"), ls(1).as_deref())?,
                 heads,
             },
@@ -273,6 +288,7 @@ pub fn embed(gpu: &Gpu, patches: &Tensor, prefix: &Tensor, pos: &Tensor, b: usiz
     Ok(out)
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 pub fn standardise(
     gpu: &Gpu,
     x: &Tensor,
@@ -282,6 +298,7 @@ pub fn standardise(
 ) -> Result<Tensor> {
     let c = mean.numel();
     let out = gpu.empty(&[b, c, h, w], Dtype::F32)?;
+
     let dims = [b, skip, h * w, c, usize::from(half)].map(Arg::from);
     ops(
         gpu,
@@ -300,6 +317,7 @@ pub enum Resize {
     Lanczos = 3,
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 pub fn resize(
     gpu: &Gpu,
     x: &Tensor,
@@ -313,6 +331,7 @@ pub fn resize(
     };
     let out = gpu.empty(&[n, c, oh, ow], Dtype::F32)?;
     let dims = [n * c, mean.numel(), h, w, oh, ow].map(Arg::from);
+
     let args = [
         [x, mean, std, &out].map(Arg::from).as_slice(),
         &dims,
@@ -325,6 +344,7 @@ pub fn resize(
         ],
     ]
     .concat();
+
     ops(gpu, "resize", out.numel(), &args)?;
     Ok(out)
 }

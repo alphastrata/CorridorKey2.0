@@ -37,6 +37,7 @@ pub(crate) struct Lane {
     pub live: bool,
 }
 
+#[allow(clippy::cast_possible_truncation)]
 pub(crate) fn lane<const D: usize>() -> Lane {
     let per = D / 8;
     let lanes = thread_idx_x() as usize % 32;
@@ -50,11 +51,13 @@ pub(crate) fn lane<const D: usize>() -> Lane {
     }
 }
 
+#[allow(clippy::cast_possible_truncation)]
 pub(crate) fn group_sum<const D: usize>(v: f32, first: u32) -> f32 {
     (0..D as u32 / 8).fold(0.0, |acc, k| acc + shfl_idx(v, (first + k) & 31))
 }
 
 #[inline(always)]
+#[allow(clippy::cast_precision_loss, clippy::inline_always)]
 pub(crate) fn emit<const D: usize>(
     src: GpuSlice<u32>,
     from: usize,
@@ -62,6 +65,7 @@ pub(crate) fn emit<const D: usize>(
     token: usize,
     l: &Lane,
     out: &mut GpuSliceMut<u32>,
+
     base: usize,
     live: bool,
 ) {
@@ -70,6 +74,7 @@ pub(crate) fn emit<const D: usize>(
     } else {
         [0.0; 8]
     };
+
     if p.mode & 1 != 0 {
         let sq = vals.iter().fold(0.0f32, |acc, &e| e.fma_rn(e, acc));
         let inv = (group_sum::<D>(sq, l.first) / D as f32 + p.eps).rsqrt();
@@ -78,6 +83,7 @@ pub(crate) fn emit<const D: usize>(
         }
         let i = 8 * l.part;
         let (lo, hi) = (quad(p.weight, i), quad(p.weight, i + 4));
+
         ptx::unroll!(8, |j| vals[j] *=
             inv * if j < 4 { lo[j] } else { hi[j - 4] });
     }
@@ -86,6 +92,7 @@ pub(crate) fn emit<const D: usize>(
     }
     if p.mode & 2 != 0 {
         let at = token * D / 2 + 4 * l.part;
+
         let (cs, sn) = (quad(p.cos, at), quad(p.sin, at));
         ptx::unroll!(4, |j| {
             let (even, odd) = (vals[2 * j], vals[2 * j + 1]);
@@ -107,6 +114,7 @@ macro_rules! entry {
             sin: &[f32],
             out: &mut [u32],
             rows: u32,
+
             n: u32,
             inner: u32,
             stride: u32,
@@ -117,6 +125,7 @@ macro_rules! entry {
             let live = l.live && l.row < rows as usize;
             let row = if live { l.row } else { 0 };
             let inner = inner as usize;
+
             let from = row / inner * stride as usize + row % inner * $d / 2;
             let p = Head {
                 weight,
@@ -125,6 +134,7 @@ macro_rules! entry {
                 eps,
                 mode,
             };
+
             emit::<$d>(
                 x,
                 from,

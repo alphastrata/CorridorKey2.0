@@ -1,6 +1,7 @@
+use crate::convert::{Float, Idx};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use ck_gpu::{Arg, Dtype, Gpu, Tensor};
 use eyre::Result;
@@ -38,6 +39,7 @@ fn regions(l: Layout, (sh, sw): (usize, usize), (h, w): (usize, usize)) -> Optio
         if s == 0 {
             std::iter::once(0..n).collect()
         } else {
+
             vec![0..n - k, n - k..n - s, n - s..n]
         }
     };
@@ -47,9 +49,10 @@ fn regions(l: Layout, (sh, sw): (usize, usize), (h, w): (usize, usize)) -> Optio
         .flat_map(|ys| bands(wp, sw).into_iter().map(move |xs| (ys.clone(), xs)))
         .enumerate()
         .for_each(|(id, (ys, xs))| {
+
             ys.flat_map(|y| xs.clone().map(move |x| (y, x)))
                 .filter(|&(y, x)| y < h && x < w)
-                .for_each(|(y, x)| grid[y * wp + x] = id as i32);
+                .for_each(|(y, x)| grid[y * wp + x] = i32::try_from(id).unwrap_or_default());
         });
     let rolled = |y: usize, x: usize| grid[(y + sh) % hp * wp + (x + sw) % wp];
     let (nh, nw) = (hp / k, wp / l.ww);
@@ -74,7 +77,7 @@ fn spans(rid: &[i32], n: usize) -> Vec<i32> {
 
 type Key = (usize, usize, usize, usize, bool);
 type MaskKey = (Layout, usize, usize, usize, usize);
-type Pair = Rc<(Tensor, Tensor)>;
+type Pair = Arc<(Tensor, Tensor)>;
 
 pub struct Mask {
     rid: Tensor,
@@ -96,10 +99,11 @@ fn sorted(rid: &[i32], n: usize) -> (Vec<i32>, Vec<u32>) {
         .zip(rid.chunks(n))
         .flat_map(|(p, row)| p.iter().map(|&j| row[j]))
         .collect();
-    let forward = perms.iter().flatten().map(|&j| j as u32);
+
+    let forward = perms.iter().flatten().map(|&j| j.u32());
     let inverse = perms.iter().flat_map(|p| {
         let mut inv = vec![0u32; n];
-        p.iter().enumerate().for_each(|(at, &j)| inv[j] = at as u32);
+        p.iter().enumerate().for_each(|(at, &j)| inv[j] = at.u32());
         inv
     });
     (rid, forward.chain(inverse).collect())
@@ -108,7 +112,7 @@ fn sorted(rid: &[i32], n: usize) -> (Vec<i32>, Vec<u32>) {
 #[derive(Default)]
 pub struct Cache {
     tables: RefCell<HashMap<Key, Pair>>,
-    masks: RefCell<HashMap<MaskKey, Option<Rc<Mask>>>>,
+    masks: RefCell<HashMap<MaskKey, Option<Arc<Mask>>>>,
     ones: RefCell<Option<Tensor>>,
     zeros: RefCell<Option<Tensor>>,
 }
@@ -120,14 +124,15 @@ impl Cache {
         head: usize,
         (t, h, w): (usize, usize, usize),
         spatial: bool,
-    ) -> Result<Rc<(Tensor, Tensor)>> {
+    ) -> Result<Arc<(Tensor, Tensor)>> {
         let key = (head, t, h, w, spatial);
+
         if let Some(hit) = self.tables.borrow().get(&key) {
             return Ok(hit.clone());
         }
         let (cos, sin) = rope::tables(head, (t, h, w), spatial);
         let shape = [t * h * w, head / 2];
-        let pair = Rc::new((
+        let pair = Arc::new((
             gpu.upload_f32(&cos, &shape, Dtype::F32)?,
             gpu.upload_f32(&sin, &shape, Dtype::F32)?,
         ));
@@ -135,7 +140,7 @@ impl Cache {
         Ok(pair)
     }
 
-    fn mask(&self, gpu: &Gpu, l: Layout, shift: (usize, usize), real: (usize, usize)) -> Result<Option<Rc<Mask>>> {
+    fn mask(&self, gpu: &Gpu, l: Layout, shift: (usize, usize), real: (usize, usize)) -> Result<Option<Arc<Mask>>> {
         let key = (l, shift.0, shift.1, real.0, real.1);
         if let Some(hit) = self.masks.borrow().get(&key) {
             return Ok(hit.clone());
@@ -144,9 +149,10 @@ impl Cache {
             .map(|rid| -> Result<_> {
                 let n = l.tokens();
                 let (rid, order) = sorted(&rid, n);
+
                 let sp = spans(&rid, n);
                 let up = |v: &[u8], shape: &[usize]| gpu.upload(v, shape, Dtype::I32);
-                Ok(Rc::new(Mask {
+                Ok(Arc::new(Mask {
                     rid: up(bytemuck::cast_slice(&rid), &[rid.len() / n, n])?,
                     spans: up(bytemuck::cast_slice(&sp), &[sp.len()])?,
                     order: up(bytemuck::cast_slice(&order), &[order.len()])?,
@@ -185,12 +191,11 @@ pub struct Qk<'a> {
 
 const HEAD_BYTES: usize = 512 << 20;
 
-pub fn launch(gpu: &Gpu, d: usize) -> (u32, u32) {
-    if gpu.sm < 70 {
-        return ((64 * d * 8) as u32, 256);
-    }
-    let (stages, threads) = if gpu.sm >= 120 { (2, 128) } else { (1, 256) };
-    ((stages * (2 * 64 * (d + 8) * 2 + 4 * 64)) as u32, threads)
+pub fn launch(gpu: &Gpu, d: usize) -> Result<(u32, u32)> {
+    Ok((
+        gpu.global_u32("ck_attn", &format!("ATTN_SHARED_{d}"))?,
+        gpu.global_u32("ck_attn", "ATTN_THREADS")?,
+    ))
 }
 
 pub fn attend(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk: &Qk, g: Group) -> Result<()> {
@@ -206,6 +211,7 @@ pub fn attend(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tenso
     })
 }
 
+#[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
 fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk: &Qk, g: Group) -> Result<()> {
     let l = g.layout;
     let (windows, n, d) = (l.windows(), l.tokens(), qk.head);
@@ -216,6 +222,7 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
     let mask = cache.mask(gpu, l, g.shift, g.real)?;
     let zeros = constant(gpu, &cache.zeros, &[0.0, 0.0])?;
     let order = mask.as_ref().map_or(&zeros, |m| &m.order);
+
     let geo = [l.t, l.gh, l.gw, l.ph, l.pw, l.wh, l.ww, qk.heads, d, g.head0, g.heads].map(Arg::from);
     let split = [
         [qkv, qk.q_norm, qk.k_norm, &rope.0, &rope.1, &q, &k, &v, order]
@@ -226,10 +233,11 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
         &[Arg::F(1e-6), Arg::U(3)],
     ]
     .concat();
+
     gpu.launch(
         "ck_ops",
         "split",
-        ((q.numel() / d).div_ceil(8 * (32 / (d / 8))) as u32, 1, 1),
+        ((q.numel() / d).div_ceil(8 * (32 / (d / 8))).u32(), 1, 1),
         256,
         0,
         &split,
@@ -240,9 +248,10 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
     let (rid, sp, rows) = mask.as_ref().map_or((Arg::from(&zeros), Arg::from(&zeros), 0), |m| {
         (Arg::from(&m.rid), Arg::from(&m.spans), m.rid.shape[0])
     });
-    let (shared, threads) = launch(gpu, d);
+    let (shared, threads) = launch(gpu, d)?;
     let name = format!("attn{d}{}", if mask.is_some() { "_masked" } else { "" });
-    let scale = std::f32::consts::LOG2_E / (d as f32).sqrt();
+    let scale = std::f32::consts::LOG2_E / d.f32().sqrt();
+
     let args = [
         pairs(&q),
         pairs(&k),
@@ -256,10 +265,11 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
         rows.into(),
         Arg::F(scale),
     ];
+
     gpu.launch(
         "ck_attn",
         &name,
-        (n.div_ceil(128) as u32, (windows * g.heads) as u32, 1),
+        (n.div_ceil(128).u32(), (windows * g.heads).u32(), 1),
         threads,
         shared,
         &args,
@@ -273,10 +283,11 @@ fn heads(gpu: &Gpu, cache: &Cache, qkv: &Tensor, gate: &Tensor, out: &Tensor, qk
         &geo,
     ]
     .concat();
+
     gpu.launch(
         "ck_ops",
         "merge",
-        ((tokens * g.heads * d / 8).div_ceil(256) as u32, 1, 1),
+        ((tokens * g.heads * d / 8).div_ceil(256).u32(), 1, 1),
         256,
         0,
         &merge,

@@ -42,6 +42,7 @@ fn stage2(tier: &str) -> Result<()> {
             eyre::bail!("block input")
         };
         let got = gpu.download_f32(&b.forward(&gpu, &cache, &x.reshape(&[1, 1, h, w, c])?, None)?)?;
+
         let (stock, reference) = (fx.get(&format!("stock.{n}.out"))?.1, fx.get(&format!("ref.{n}.out"))?.1);
         let (ours, theirs) = (diff(&got, &reference), diff(&stock, &reference));
         let vs = diff(&got, &stock);

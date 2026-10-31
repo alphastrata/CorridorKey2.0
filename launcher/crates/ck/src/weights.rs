@@ -38,7 +38,11 @@ impl Weights {
     }
 
     pub fn vfms(dir: &Path, stats: &Path) -> Result<Self> {
-        let mut w = Self::renamed(&dir.join("cradio/C-RADIOv4-SO400M/model.safetensors"), "radio_model.", "cradio.")?;
+        let mut w = Self::renamed(
+            &dir.join("cradio/C-RADIOv4-SO400M/model.safetensors"),
+            "radio_model.",
+            "cradio.",
+        )?;
         w.0.extend(sources::torch(&dir.join("moge/model.pt"), "model.encoder.", "moge.")?);
         w.0.extend(sources::rvm(&dir.join("rvm/pretrain_rvm_small16_256_204031069.npz"))?);
         w.0.extend(Self::renamed(stats, "", "stats.")?.0);
@@ -58,6 +62,7 @@ impl Weights {
                         dtype: info.dtype,
                         data: Data::Map(map.clone(), start + info.data_offsets.0..start + info.data_offsets.1),
                     };
+
                     Some((format!("{to}{}", name.strip_prefix(from)?), entry))
                 })
                 .collect(),
@@ -98,6 +103,7 @@ fn fill<T: Send>(src: &[u8], dtype: St, dst: &mut [T], to: impl Fn(usize, f32) -
         .zip(src.par_chunks(size << 14))
         .enumerate()
         .for_each(|(c, (out, bytes))| {
+
             out.iter_mut()
                 .zip(bytes.chunks_exact(size))
                 .enumerate()
@@ -151,6 +157,7 @@ impl Loader<'_> {
         } else {
             |v| bf16::from_f32(v).to_f32()
         };
+
         let v: Vec<f32> = w
             .chunks(inner)
             .zip(b)
@@ -178,6 +185,7 @@ impl Loader<'_> {
         let width: usize = parts[0].0[1..].iter().product();
         let total: usize = parts.iter().map(|(s, _, _)| s.iter().product::<usize>()).sum();
         let mut out = vec![0u16; total];
+
         let to: fn(f32) -> u16 = if self.half == Dtype::F16 {
             |v| f16::from_f32(v).to_bits()
         } else {
@@ -186,6 +194,7 @@ impl Loader<'_> {
         parts
             .iter()
             .try_fold((out.as_mut_slice(), 0), |(rest, row), (shape, dtype, bytes)| {
+
                 let n: usize = shape.iter().product();
                 let (head, tail) = rest.split_at_mut(n);
                 match gamma {
@@ -207,6 +216,7 @@ impl Loader<'_> {
         self.gpu.upload_f32(&v, &[v.len()], Dtype::F32)
     }
 
+    #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
     pub fn nhwc(&self, n: &str) -> Result<Tensor> {
         let (shape, v) = self.get(n)?;
         let [o, c, k, _] = shape[..] else {

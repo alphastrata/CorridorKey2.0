@@ -3,8 +3,6 @@
 uv run python launcher/parity/census.py [--hw 256 384] [--frames 2]
 """
 
-from __future__ import annotations
-
 import argparse
 import collections
 import sys
@@ -12,11 +10,12 @@ from pathlib import Path
 
 import torch
 from torch.utils._python_dispatch import TorchDispatchMode
+from torch.utils.hooks import RemovableHandle
 
 REPO = Path(__file__).parents[2]
 sys.path[:0] = [str(REPO), str(REPO / "bench")]
 
-from harness import config, frame2, stage1, vfm
+from harness import config, frame2, stage1, vfm  # ty: ignore[unresolved-import]
 
 from corridorkey.runtime import RuntimePaths, load_model
 
@@ -31,7 +30,7 @@ class Ops(TorchDispatchMode):
         return func(*args, **kwargs or {})
 
 
-def leaves(m: torch.nn.Module) -> collections.Counter[str]:
+def leaves(m: torch.nn.Module) -> tuple[collections.Counter[str], list[RemovableHandle]]:
     hit: collections.Counter[str] = collections.Counter()
     hooks = [
         s.register_forward_hook(lambda mod, *_: hit.update([type(mod).__name__]))
@@ -45,6 +44,7 @@ def main() -> None:
     ap.add_argument("--hw", type=int, nargs=2, default=[256, 384])
     ap.add_argument("--frames", type=int, default=2)
     a = ap.parse_args()
+
     model = load_model(RuntimePaths.from_package(REPO, None)).cuda()
     h, w = a.hw
     x = torch.rand(1, a.frames, 3, h, w, device="cuda")
@@ -56,6 +56,8 @@ def main() -> None:
             "stage1": (model.stage1, lambda: stage1(model, x, f)),
             "stage2": (model.stage2, lambda: frame2(model, x[:, :1], baton)),
         }
+
+
         for name, (mod, fn) in parts.items():
             hit, hooks = leaves(mod)
             with Ops() as ops:

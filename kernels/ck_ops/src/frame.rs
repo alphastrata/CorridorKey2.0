@@ -1,4 +1,5 @@
 use crate::gid;
+use ck_arch::convert::Signed;
 use ptx::kernel;
 use ptx::prelude::*;
 
@@ -14,7 +15,7 @@ pub(crate) struct Adjust {
 }
 
 impl Adjust {
-    fn apply(self, v: f32) -> f32 {
+    pub fn apply(self, v: f32) -> f32 {
         if self.on {
             self.gain * (self.pivot + self.contrast * (v - self.pivot))
         } else {
@@ -55,12 +56,14 @@ pub(crate) fn to_srgb(x: f32) -> f32 {
     v.copysign(x)
 }
 
+#[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
 fn reflect(i: isize, n: usize) -> usize {
     let n = n as isize;
     let i = if i < 0 { -i } else { i };
     (if i >= n { 2 * (n - 1) - i } else { i }) as usize
 }
 
+#[allow(clippy::cast_possible_wrap)]
 fn texel(i: usize, dims: [usize; 7], c: usize) -> Option<[usize; 5]> {
     let [frames, h0, w0, rows, cols, top, left] = dims;
     if i >= frames * c * rows * cols {
@@ -68,8 +71,8 @@ fn texel(i: usize, dims: [usize; 7], c: usize) -> Option<[usize; 5]> {
     }
     let (col, row) = (i % cols, i / cols % rows);
     let (ch, f) = (i / (cols * rows) % c, i / (c * cols * rows));
-    let sy = reflect(row as isize - top as isize, h0);
-    let sx = reflect(col as isize - left as isize, w0);
+    let sy = reflect(row.isize() - top.isize(), h0);
+    let sx = reflect(col.isize() - left.isize(), w0);
     Some([f, ch, row * cols + col, sy, sx])
 }
 
@@ -86,6 +89,7 @@ fn encode(v: f32, linear: bool, mode: u32, adj: Adjust) -> f32 {
 }
 
 #[kernel]
+
 pub fn prep(
     raw: &[u16],
     out: &mut [f32],
@@ -95,6 +99,7 @@ pub fn prep(
     h: u32,
     w: u32,
     top: u32,
+
     left: u32,
     ld: u32,
     mode: u32,
@@ -104,6 +109,7 @@ pub fn prep(
     pivot: f32,
 ) {
     let dims = [n, h0, w0, h, w, top, left].map(|v| v as usize);
+
     let Some([f, ch, yx, sy, sx]) = texel(gid(), dims, 3) else {
         return;
     };
@@ -112,6 +118,7 @@ pub fn prep(
     let adj = Adjust {
         on: adjust != 0,
         gain,
+
         contrast,
         pivot,
     };
@@ -122,6 +129,7 @@ pub fn prep(
 }
 
 #[kernel]
+
 pub fn prep_f32(
     raw: &[f32],
     out: &mut [f32],
@@ -131,6 +139,7 @@ pub fn prep_f32(
     h: u32,
     w: u32,
     top: u32,
+
     left: u32,
     ld: u32,
     mode: u32,
@@ -142,6 +151,7 @@ pub fn prep_f32(
 ) {
     let dims = [n, h0, w0, h, w, top, left].map(|v| v as usize);
     let Some([f, ch, yx, sy, sx]) = texel(gid(), dims, 3) else {
+
         return;
     };
     let (h0, w0, plane) = (dims[1], dims[2], dims[3] * dims[4]);
@@ -153,6 +163,7 @@ pub fn prep_f32(
         contrast,
         pivot,
     };
+
     let v = if linear { v } else { v.clamp(0.0, 1.0) };
     out.set(
         f * ld as usize + ch * plane + yx,
@@ -170,6 +181,7 @@ pub fn hint(
     h: u32,
     w: u32,
     top: u32,
+
     left: u32,
     ld: u32,
 ) {
@@ -204,6 +216,7 @@ pub fn crop(
     h0: u32,
     w0: u32,
     top: u32,
+
     left: u32,
 ) {
     let i = gid();

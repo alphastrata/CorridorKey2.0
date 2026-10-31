@@ -39,6 +39,7 @@ pub struct Block {
     q_norm: Tensor,
     k_norm: Tensor,
     gate_w: Tensor,
+
     proj: Tensor,
     mix: Option<Mix>,
     norm2: Tensor,
@@ -71,10 +72,12 @@ impl Block {
                 })
             })
             .transpose()?;
+
         let dw = ld
             .has("attn.qkv_dw.dw.weight")
             .then(|| -> Result<_> { Ok((ld.taps(&["attn.qkv_dw.dw.weight"])?, ld.f32("attn.qkv_dw.dw.bias")?)) })
             .transpose()?;
+
         let adaln = ld
             .has("adaln.proj.weight")
             .then(|| -> Result<AdaLn> {
@@ -86,6 +89,7 @@ impl Block {
                 })
             })
             .transpose()?;
+
         Ok(Self {
             spec,
             norm1: ld.f32("norm1.weight")?,
@@ -96,6 +100,7 @@ impl Block {
             k_norm: ld.f32("attn.k_norm.weight")?,
             gate_w: ld.mat("attn.attn_gate.proj.weight")?,
             proj: ld.biased("attn.proj.weight", "attn.proj.bias")?,
+
             mix,
             norm2: ld.f32("norm2.weight")?,
             gu_w: ld.rows(&["mlp.w_gate.weight", "mlp.w_up.weight"])?,
@@ -105,6 +110,7 @@ impl Block {
         })
     }
 
+    #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
     fn groups(&self, b: usize, (t, h, w): (usize, usize, usize)) -> (Vec<Group>, Shift, (usize, usize)) {
         let heads = self.spec.heads;
         let base = Layout {
@@ -117,6 +123,7 @@ impl Block {
             wh: h,
             ww: w,
         };
+
         let one = |layout: Layout, rope, shift| Group {
             head0: 0,
             heads,
@@ -126,6 +133,7 @@ impl Block {
             shift,
             real: (h, w),
         };
+
         match self.spec.kind {
             Kind::Full if self.spec.temporal => (vec![one(base, (t, h, w), (0, 0))], Shift::none(h, w), (h, w)),
             Kind::Full => {
@@ -140,6 +148,7 @@ impl Block {
                     sh: shift.0,
                     sw: shift.1,
                 };
+
                 let shifted = shift != (0, 0);
                 let (gh, gw) = if shifted { (hp, wp) } else { (h, w) };
                 let layout = Layout {
@@ -149,6 +158,7 @@ impl Block {
                     pw: wp,
                     wh: window,
                     ww: window,
+
                     ..base
                 };
                 let s = if shifted { s } else { Shift::none(h, w) };
@@ -157,6 +167,7 @@ impl Block {
             Kind::CSwin => {
                 let half = heads / 2;
                 let rows = Group {
+
                     heads: half,
                     layout: Layout { ww: 1, ..base },
                     rope: (t, h, 1),
@@ -165,6 +176,7 @@ impl Block {
                 let cols = Group {
                     head0: half,
                     heads: half,
+
                     layout: Layout { wh: 1, ..base },
                     rope: (t, 1, w),
                     ..rows
@@ -174,6 +186,7 @@ impl Block {
         }
     }
 
+    #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
     pub fn forward(&self, gpu: &Gpu, cache: &Cache, x: &Tensor, cond: Option<&Tensor>) -> Result<Tensor> {
         let [b, t, h, w, c] = x.shape[..] else {
             eyre::bail!("block wants [b, t, h, w, c], got {:?}", x.shape)
@@ -182,6 +195,7 @@ impl Block {
         let head = c / heads;
         let frames = x.reshape(&[b * t, h, w, c])?;
         let (groups, shift, (gh, gw)) = self.groups(b, (t, h, w));
+
         let shifted = shift.moved(h, w);
         let params = match (&self.adaln, cond) {
             (Some(a), Some(cond)) => Some(modulation(gpu, a, cond)?),
@@ -191,6 +205,7 @@ impl Block {
         let per = h * w;
         let xn = match &params {
             Some(p) => ops::norm_mod(gpu, &frames, &self.norm1, p, per, (0, c))?,
+
             None => ops::norm(gpu, &frames, &self.norm1, shift)?,
         };
         let qkv = gpu.empty(&[b * t, gh, gw, 3 * c], Dtype::Bf16)?;
@@ -200,6 +215,7 @@ impl Block {
                 (0..b * t).step_by(step).try_for_each(|f| {
                     let n = step.min(b * t - f);
                     let lin = gpu.empty(&[n, gh, gw, 3 * c], Dtype::Bf16)?;
+
                     gpu.linear(&xn.rows(f, n)?, &self.qkv_w, Some(&self.qkv_b), &lin, false)?;
                     ops::dw_qkv(gpu, &lin, (&dw.0, &dw.1), &qkv.rows(f, n)?)
                 })?;
@@ -208,6 +224,7 @@ impl Block {
         }
         let gate = gpu.empty(&[b * t * gh * gw, heads], Dtype::F32)?;
         gpu.linear(&xn, &self.gate_w, None, &gate, false)?;
+
         drop(xn);
         let ao = gpu.empty(&[b * t, gh, gw, c + TAIL], Dtype::Bf16)?;
         let qk = Qk {
@@ -233,6 +250,7 @@ impl Block {
                         gate: &p.at(2 * c, &[p.numel() - 2 * c])?,
                         per,
                         ld: 6 * c,
+
                     },
                     (c, 0),
                 )?;
@@ -258,6 +276,7 @@ impl Block {
 }
 
 impl Block {
+    #[allow(clippy::many_single_char_names)] // tensor axes: (b, c, h, w)
     fn mlp(&self, gpu: &Gpu, frames: &Tensor, params: Option<&Tensor>, f0: usize) -> Result<()> {
         let [n, h, w, c] = frames.shape[..] else {
             eyre::bail!("mlp wants [n, h, w, c]")
@@ -271,6 +290,7 @@ impl Block {
         let gu = gpu.empty(&[n * per, self.gu_w.shape[0]], Dtype::Bf16)?;
         gpu.linear(&xn, &self.gu_w, Some(&self.gu_b), &gu, false)?;
         drop(xn);
+
         let mid = ops::swiglu(gpu, &gu)?;
         drop(gu);
         match &params {
@@ -282,6 +302,7 @@ impl Block {
                     frames,
                     &m,
                     Gate::Frame {
+
                         gate: &p.at(5 * c, &[p.numel() - 5 * c])?,
                         per,
                         ld: 6 * c,
