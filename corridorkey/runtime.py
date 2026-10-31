@@ -420,6 +420,68 @@ def check_manual_vram(cfg: InferenceConfig, shape_hw, num_frames: int,
           f"hann_chunk={min(chunk, num_frames)}, low_vram={low_vram}.")
 
 
+def configure_allocator() -> None:
+    """Expandable allocator segments on Linux, so freed memory never strands
+    in partly used segments, unless PYTORCH_CUDA_ALLOC_CONF already says
+    otherwise. Call before the first CUDA allocation.
+
+    Windows builds of PyTorch have no expandable segments and keep the
+    default allocator, with the activation arena. `max_split_size_mb` would
+    stop the large-request failures there too, but it lets cached memory grow
+    to several times the working set when nothing forces a release, and on
+    Windows the driver spills to system RAM instead of failing an
+    allocation; capping the process at its budget to force the release
+    fails on the real hardware."""
+    if sys.platform.startswith("linux") and "PYTORCH_CUDA_ALLOC_CONF" not in os.environ:
+        torch.cuda.memory._set_allocator_settings("expandable_segments:True")
+
+
+def max_split_configured() -> bool:
+    """Whether the caching allocator was given max_split_size_mb."""
+    conf = os.environ.get("PYTORCH_CUDA_ALLOC_CONF", "") + os.environ.get("PYTORCH_ALLOC_CONF", "")
+    return "max_split_size_mb" in conf
+
+
+def expandable_segments_active() -> bool:
+    """Whether the CUDA caching allocator is handing out expandable segments."""
+    return any(seg.get("is_expandable") for seg in torch.cuda.memory_snapshot())
+
+
+# The activation arena is this many times the optimized table's estimate,
+# less what is already allocated, keyed by low_vram. Low-VRAM windows need
+# the headroom: below x1.15 a large request can find no gap big enough and
+# take a segment of its own (allocator replays of 720p to 4K snapshots).
+# Normal-mode estimates already sit above the allocated peak.
+_ARENA_SCALE = {True: 1.15, False: 1.05}
+
+
+def reserve_activation_arena(nbytes: int) -> int:
+    """Hold `nbytes` of GPU memory as one free cached segment.
+
+    PyTorch's default caching allocator (no expandable segments, as on
+    Windows) never merges memory across segments: each cudaMalloc it makes is
+    sized for the request that caused it, and once freed it can only serve
+    requests that fit inside it. Over a stage-1 window that leaves about 30%
+    of the reserved memory in pieces too small for the next large tensor.
+    Allocating one block of the window's working size and freeing it again
+    makes the window's large tensors come out of that single segment, where
+    blocks freed together merge back. Only addresses change, never values.
+
+    Skipped when the allocator has expandable segments (they already avoid
+    this) or `max_split_size_mb` (blocks above it are never split, so the
+    arena would sit unused). Returns the bytes reserved."""
+    if max_split_configured() or expandable_segments_active():
+        return 0
+    torch.cuda.empty_cache()
+    free_bytes, _ = torch.cuda.mem_get_info()
+    nbytes = int(min(nbytes, free_bytes - (256 << 20)))
+    if nbytes < (64 << 20):
+        return 0
+    block = torch.empty(nbytes, dtype=torch.uint8, device="cuda")
+    del block
+    return nbytes
+
+
 def apply_auto_vram(cfg: InferenceConfig, shape_hw, num_frames: int,
                     table: dict | None = None) -> None:
     budget_gb, headroom_gb = _planned_budget_gb(cfg)
