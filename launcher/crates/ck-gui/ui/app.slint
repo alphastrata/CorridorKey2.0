@@ -1063,23 +1063,6 @@ component Inspector inherits Rectangle {
                             selected => { Job.changed(); }
                         }
                     }
-                    Row {
-                        label: "Threads";
-                        enabled: !root.exr;
-                        SpinBox {
-                            min-width: 0;
-                            minimum: 0;
-                            maximum: 24;
-                            value <=> Job.threads;
-                            enabled: !root.exr;
-                            edited => { Job.changed(); }
-                        }
-                        Text {
-                            text: "per output · 0 = ffmpeg decides";
-                            color: T.subtle;
-                            font-size: T.small;
-                        }
-                    }
                 }
                 Section {
                     title: "Outputs";
@@ -1089,7 +1072,6 @@ component Inspector inherits Rectangle {
                         CheckBox {
                             row: 0;
                             col: 0;
-                            min-width: 0;
                             text: "Alpha matte";
                             checked <=> Job.out-alpha;
                             toggled => { Job.changed(); }
@@ -1097,7 +1079,6 @@ component Inspector inherits Rectangle {
                         CheckBox {
                             row: 0;
                             col: 1;
-                            min-width: 0;
                             text: "Foreground";
                             checked <=> Job.out-fg;
                             toggled => { Job.changed(); }
@@ -1105,7 +1086,6 @@ component Inspector inherits Rectangle {
                         CheckBox {
                             row: 1;
                             col: 0;
-                            min-width: 0;
                             text: "Cutout (RGBA)";
                             checked <=> Job.out-cutout;
                             toggled => { Job.changed(); }
@@ -1113,7 +1093,6 @@ component Inspector inherits Rectangle {
                         CheckBox {
                             row: 1;
                             col: 1;
-                            min-width: 0;
                             text: "Checker preview";
                             checked <=> Job.out-checker;
                             toggled => { Job.changed(); }
@@ -1259,7 +1238,57 @@ component Inspector inherits Rectangle {
                         cpu: Prefs.cpu;
                     }
                 }
-                Section {
+                                Section {
+                    title: "Performance";
+                    Row {
+                        label: "Foundation batch";
+                        SpinBox {
+                            min-width: 0;
+                            minimum: 1;
+                            maximum: 64;
+                            value <=> Job.vfm-batch;
+                            edited => { Job.changed(); }
+                        }
+                        Text {
+                            text: "frames per foundation batch";
+                            color: T.subtle;
+                            font-size: T.small;
+                        }
+                    }
+                    Row {
+                        label: "Padding quantum";
+                        SpinBox {
+                            min-width: 0;
+                            minimum: 16;
+                            maximum: 1024;
+                            value <=> Job.quantum;
+                            edited => { Job.changed(); }
+                        }
+                        Text {
+                            text: "frames are padded to this";
+                            color: T.subtle;
+                            font-size: T.small;
+                        }
+                    }
+                    Row {
+                        label: "Encoder threads";
+                        enabled: !root.exr;
+                        SpinBox {
+                            min-width: 0;
+                            minimum: 0;
+                            maximum: 24;
+                            value <=> Job.threads;
+                            enabled: !root.exr;
+                            edited => { Job.changed(); }
+                        }
+                        Text {
+                            text: "per output · 0 = ffmpeg decides";
+                            color: T.subtle;
+                            font-size: T.small;
+                        }
+                    }
+                }
+Section {
                     title: "GPU";
                     CheckBox {
                         min-width: 0;
@@ -1370,39 +1399,9 @@ component Inspector inherits Rectangle {
                 }
                 Section {
                     title: "Model";
-                    Row {
-                        label: "Padding quantum";
-                        SpinBox {
-                            min-width: 0;
-                            minimum: 16;
-                            maximum: 1024;
-                            value <=> Job.quantum;
-                            edited => { Job.changed(); }
-                        }
-                        Text {
-                            text: "frames are padded to this";
-                            color: T.subtle;
-                            font-size: T.small;
-                        }
-                    }
                 }
                 Section {
                     title: "Speed";
-                    Row {
-                        label: "Foundation batch";
-                        SpinBox {
-                            min-width: 0;
-                            minimum: 1;
-                            maximum: 64;
-                            value <=> Job.vfm-batch;
-                            edited => { Job.changed(); }
-                        }
-                        Text {
-                            text: "frames per foundation batch";
-                            color: T.subtle;
-                            font-size: T.small;
-                        }
-                    }
                     Row {
                         label: "Model scale";
                         ComboBox {
@@ -1544,8 +1543,10 @@ export component AppWindow inherits Window {
     icon: @image-url("icons/glyph.svg");
     preferred-width: 1480px;
     preferred-height: 900px;
-    min-width: 960px;
-    min-height: 600px;
+    // The Inspector's two-column grids overlap below ~1080p, and the app
+    // works faster than it shrinks beyond that anyway.
+    min-width: 1920px;
+    min-height: 1080px;
     background: T.canvas;
     default-font-family: T.sans;
     default-font-size: T.body;
